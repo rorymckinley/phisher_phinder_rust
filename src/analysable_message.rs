@@ -4,6 +4,7 @@ pub trait AnalysableMessage {
     fn from(&self) -> Option<String>;
     fn reply_to(&self) -> Option<String>;
     fn return_path(&self) -> Option<String>;
+    fn subject(&self) -> Option<String>;
 }
 
 #[cfg(test)]
@@ -13,15 +14,15 @@ mod analysable_message_for_message_tests {
     #[test]
     fn returns_none_if_not_return_path() {
         let input = "\
-            Delivered-To: victim@gmail.com\n\
-            Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\n\
-                    Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\n\
-            From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@fake.net>\n\
-            To: victim@gmail.com\n\
-            Subject: We’re sorry that we didn’t touch base with you earlier. f309\n\n\
-            <div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\n\
-            </div>\n
-        ";
+Delivered-To: victim@gmail.com\r
+Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\r
+        Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\r
+From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@fake.net>\r
+To: victim@gmail.com\r
+Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
+<div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\r
+</div>\r
+";
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
 
         assert_eq!(
@@ -33,16 +34,16 @@ mod analysable_message_for_message_tests {
     #[test]
     fn returns_the_return_path() {
         let input = "\
-            Delivered-To: victim@gmail.com\n\
-            Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\n\
-                    Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\n\
-            Return-Path: <info@xxx.fr>\n\
-            From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@fake.net>\n\
-            To: victim@gmail.com\n\
-            Subject: We’re sorry that we didn’t touch base with you earlier. f309\n\n\
-            <div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\n\
-            </div>\n\
-        ";
+Delivered-To: victim@gmail.com\r
+Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\r
+        Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\r
+Return-Path: <info@xxx.fr>\r
+From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@fake.net>\r
+To: victim@gmail.com\r
+Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
+<div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\r
+</div>\r
+";
 
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
 
@@ -55,15 +56,15 @@ mod analysable_message_for_message_tests {
     #[test]
     fn returns_none_if_no_reply_to() {
         let input = "\
-            Delivered-To: victim@gmail.com\n\
-            Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\n\
-                    Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\n\
-            Return-Path: <info@xxx.fr>\n\
-            From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@fake.net>\n\
-            To: victim@gmail.com\n\
-            Subject: We’re sorry that we didn’t touch base with you earlier. f309\n\n\
-            <div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\n\
-            </div>\n\
+Delivered-To: victim@gmail.com\r
+Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\r
+        Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\r
+Return-Path: <info@xxx.fr>\r
+From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@fake.net>\r
+To: victim@gmail.com\r
+Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
+<div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\r
+</div>\r
         ";
 
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
@@ -77,16 +78,16 @@ mod analysable_message_for_message_tests {
     #[test]
     fn returns_the_reply_to() {
         let input = "\
-            Delivered-To: victim@gmail.com\n\
-            Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\n\
-                    Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\n\
-            Reply-To: scammer@evildomain.zzz\n\
-            Return-Path: <info@xxx.fr>\n\
-            From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@fake.net>\n\
-            To: victim@gmail.com\n\
-            Subject: We’re sorry that we didn’t touch base with you earlier. f309\n\n\
-            <div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\n\
-            </div>\n\
+Delivered-To: victim@gmail.com\r
+Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\r
+        Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\r
+Reply-To: scammer@evildomain.zzz\r
+Return-Path: <info@xxx.fr>\r
+From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@fake.net>\r
+To: victim@gmail.com\r
+Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
+<div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\r
+</div>\r
         ";
 
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
@@ -100,13 +101,13 @@ mod analysable_message_for_message_tests {
     #[test]
     fn returns_none_if_no_from() {
         let input = "\
-            Delivered-To: victim@gmail.com\n\
-            Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\n\
-                    Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\n\
-            To: victim@gmail.com\n\
-            Subject: We’re sorry that we didn’t touch base with you earlier. f309\n\n\
-            <div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\n\
-            </div>\n\
+Delivered-To: victim@gmail.com\r
+Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\r
+        Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\r
+To: victim@gmail.com\r
+Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
+<div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\r
+</div>\r
         ";
 
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
@@ -120,15 +121,15 @@ mod analysable_message_for_message_tests {
     #[test]
     fn returns_the_from() {
         let input = "\
-            Delivered-To: victim@gmail.com\n\
-            Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\n\
-                    Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\n\
-            Return-Path: <info@xxx.fr>\n\
-            From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@fake.net>\n\
-            To: victim@gmail.com\n\
-            Subject: We’re sorry that we didn’t touch base with you earlier. f309\n\n\
-            <div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\n\
-            </div>\n\
+Delivered-To: victim@gmail.com\r
+Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\r
+        Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\r
+Return-Path: <info@xxx.fr>\r
+From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@fake.net>\r
+To: victim@gmail.com\r
+Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
+<div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\r
+</div>\r
         ";
 
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
@@ -136,6 +137,46 @@ mod analysable_message_for_message_tests {
         assert_eq!(
             Some("PIBIeSRqUtiEw1NCg4@fake.net".into()),
             parsed_mail.from()
+        );
+    }
+
+    #[test]
+    fn returns_none_if_no_subject() {
+        let input = "\
+Delivered-To: victim@gmail.com\r
+Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\r
+        Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\r
+Return-Path: <info@xxx.fr>\r
+From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@fake.net>\r
+To: victim@gmail.com\r\n\r
+<div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\r
+</div>\r
+        ";
+
+        let parsed_mail = Message::parse(input.as_bytes()).unwrap();
+
+        assert_eq!(None, parsed_mail.subject());
+    }
+
+    #[test]
+    fn returns_subject() {
+        let input = "\
+Delivered-To: victim@gmail.com\r
+Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\r
+        Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\r
+Return-Path: <info@xxx.fr>\r
+From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@fake.net>\r
+To: victim@gmail.com\r
+Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
+<div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\r
+</div>\r
+        ";
+
+        let parsed_mail = Message::parse(input.as_bytes()).unwrap();
+
+        assert_eq!(
+            Some(String::from("We’re sorry that we didn’t touch base with you earlier. f309")),
+            parsed_mail.subject()
         );
     }
 }
@@ -175,5 +216,9 @@ impl AnalysableMessage for Message<'_> {
                 None
             }
         }
+    }
+
+    fn subject(&self) -> Option<String> {
+        self.get_subject().map(String::from)
     }
 }

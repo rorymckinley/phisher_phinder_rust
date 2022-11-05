@@ -2,30 +2,34 @@ use assert_cmd::Command;
 use predicates::prelude::*;
 
 #[test]
-fn test_display_subject() {
-    let input = "\
-Delivered-To: victim@gmail.com\r
-Date: Tue, 6 Sep 2022 19:17:19 -0400\r
-Subject: We’re sorry that we didn’t touch base with you earlier. f309\r
-MIME-Version: 1.0\r
-Content-Type: text/html\r\n\r
-<div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\r
-</div>\r
-";
-
+fn test_display_human_parse_results() {
     let mut cmd = Command::cargo_bin("pp-parser").unwrap();
 
     cmd
         .args(&["--human"])
-        .write_stdin(input)
+        .write_stdin(input())
         .assert()
         .success()
-        .stdout(predicates::str::contains("touch base"));
+        .stdout(
+            predicates::str::contains("info@xxx.fr").and(
+                predicates::str::contains("touch base")
+            )
+        );
 }
 
 #[test]
-fn test_display_sender_email_addresses() {
-    let input = "\
+fn test_display_json_parse_results() {
+    let mut cmd = Command::cargo_bin("pp-parser").unwrap();
+
+    cmd
+        .write_stdin(input())
+        .assert()
+        .success()
+        .stdout(json_output());
+}
+
+fn input() -> String {
+    "\
 Delivered-To: victim@gmail.com\r
 Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\r
         Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\r
@@ -51,22 +55,23 @@ MIME-Version: 1.0\r
 Content-Type: text/html\r\n\r
 <div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\r
 </div>\r
-";
-
-    let mut cmd = Command::cargo_bin("pp-parser").unwrap();
-
-    cmd
-        .args(&["--human"])
-        .write_stdin(input)
-        .assert()
-        .success()
-        .stdout(
-            predicates::str::contains("info@xxx.fr").and(
-                predicates::str::contains("touch base")
-            )
-        );
+".into()
 }
 
+fn json_output() -> String {
+    use serde_json::json;
+
+    json!({
+        "parsed_mail": {
+            "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
+            "sender_addresses": {
+                "from": "PIBIeSRqUtiEw1NCg4@fake.net",
+                "reply_to": null,
+                "return_path": "info@xxx.fr"
+            }
+        }
+    }).to_string()
+}
 
 
 //     let input = r#"Delivered-To: victim@gmail.com\r
