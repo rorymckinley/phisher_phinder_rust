@@ -12,7 +12,7 @@ fn test_display_subject() {
         </div>\n\
     ";
 
-    let mut cmd = Command::cargo_bin("phisher_phinder_rust").unwrap();
+    let mut cmd = Command::cargo_bin("pp-parser").unwrap();
 
     cmd
         .args(&["--human", "--subject"])
@@ -52,7 +52,7 @@ fn test_display_sender_email_addresses() {
         </div>\n\
     ";
 
-    let mut cmd = Command::cargo_bin("phisher_phinder_rust").unwrap();
+    let mut cmd = Command::cargo_bin("pp-parser").unwrap();
 
     cmd
         .args(&["--human", "--sender-email-addresses"])
