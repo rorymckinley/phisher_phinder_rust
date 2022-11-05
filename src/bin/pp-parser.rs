@@ -20,10 +20,12 @@ fn main() {
 
     let parsed_mail = Message::parse(mail.as_bytes()).unwrap();
 
-    if cli.subject {
-        println!("{}", parsed_mail.get_subject().unwrap())
-    } else if cli.sender_email_addresses {
+    if cli.human {
         let analyser = Analyser::new(&parsed_mail);
+        println!("{}", parsed_mail.get_subject().unwrap());
+        println!();
         println!("{}", ui::display_sender_addresses(&analyser.sender_email_addresses()).unwrap())
+    } else {
+        println!("xx");
     }
 }
