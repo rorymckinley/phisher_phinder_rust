@@ -7,8 +7,11 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.0.7", features = ["derive"] }
-mail-parser = "0.6.1"
+mail-parser = "0.7.0"
 prettytable-rs = "0.9.0"
+rdap_client = { path="/home/rory/data/git/rdap_client/rdap_client", version="0.3.0" }
+serde = "1.0.147"
+serde_json = "1.0.87"
 thiserror = "1.0.37"
 
 [dev-dependencies]

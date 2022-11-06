@@ -1,5 +1,7 @@
 use crate::analysable_message::AnalysableMessage;
 
+use serde::Serialize;
+
 pub struct Analyser<'a, T> {
     parsed_mail: &'a T
 }
@@ -9,13 +11,9 @@ mod  sender_address_tests {
     use super::*;
 
     #[test]
-    fn return_with_address() {
-        let parsed_mail = TestParsedMail::new(
-            "return@test.com",
-            "reply@test.com",
-            "from@test.com"
-        );
-        let analyser = Analyser::new(&parsed_mail);
+    fn test_sender_email_addresses() {
+        let parsed = parsed_mail();
+        let analyser = Analyser::new(&parsed);
 
         let expected_result = SenderAddresses {
             from: Some("from@test.com".into()),
@@ -26,33 +24,61 @@ mod  sender_address_tests {
         assert_eq!(expected_result, analyser.sender_email_addresses())
     }
 
-    struct TestParsedMail<'a> {
-        reply_to: &'a str,
-        return_path: &'a str,
-        from: &'a str,
+    #[test]
+    fn test_subject() {
+        let parsed = parsed_mail();
+        let analyser = Analyser::new(&parsed);
+
+        assert_eq!(String::from("My First Phishing Email"), analyser.subject().unwrap());
     }
 
-    impl<'a> TestParsedMail<'a> {
-        fn new(return_path: &'a str, reply_to: &'a str, from: &'a str) -> Self {
+    fn parsed_mail() -> TestParsedMail {
+        TestParsedMail::new(
+            "from@test.com".into(),
+            "reply@test.com".into(),
+            "return@test.com".into(),
+            "My First Phishing Email".into(),
+        )
+    }
+
+    struct TestParsedMail {
+        from: String,
+        reply_to: String,
+        return_path: String,
+        subject: String,
+    }
+
+    impl TestParsedMail {
+        fn new(
+            from: String,
+            reply_to: String,
+            return_path: String,
+            subject: String,
+        ) -> Self {
             Self {
+                from,
                 reply_to,
                 return_path,
-                from,
+                subject
             }
         }
     }
 
-    impl<'a> AnalysableMessage for TestParsedMail<'a> {
+    impl AnalysableMessage for TestParsedMail {
         fn from(&self) -> Option<String> {
-            Some(self.from.into())
+            Some(self.from.clone())
         }
 
         fn reply_to(&self) -> Option<String> {
-            Some(self.reply_to.into())
+            Some(self.reply_to.clone())
         }
 
         fn return_path(&self) -> Option<String> {
-            Some(self.return_path.into())
+            Some(self.return_path.clone())
+        }
+
+        fn subject(&self) -> Option<String> {
+            Some(self.subject.clone())
         }
     }
 }
@@ -60,6 +86,10 @@ mod  sender_address_tests {
 impl<'a, T: AnalysableMessage> Analyser<'a, T> {
     pub fn new(parsed_mail: &'a T) -> Self {
         Self { parsed_mail }
+    }
+
+    pub fn subject(&self) -> Option<String> {
+        self.parsed_mail.subject()
     }
 
     pub fn sender_email_addresses(&self) -> SenderAddresses {
@@ -71,7 +101,7 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub struct SenderAddresses {
     pub from: Option<String>,
     pub reply_to: Option<String>,

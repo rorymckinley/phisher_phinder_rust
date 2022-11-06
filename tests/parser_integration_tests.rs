@@ -1,67 +1,77 @@
 use assert_cmd::Command;
+use predicates::prelude::*;
 
 #[test]
-fn test_display_subject() {
-    let input = "\
-        Delivered-To: victim@gmail.com\n\
-        Date: Tue, 6 Sep 2022 19:17:19 -0400\n\
-        Subject: We’re sorry that we didn’t touch base with you earlier. f309\n\
-        MIME-Version: 1.0\n\
-        Content-Type: text/html\n\n\
-        <div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\n\
-        </div>\n\
-    ";
-
+fn test_display_human_parse_results() {
     let mut cmd = Command::cargo_bin("pp-parser").unwrap();
 
     cmd
-        .args(&["--human", "--subject"])
-        .write_stdin(input)
+        .args(&["--human"])
+        .write_stdin(input())
         .assert()
         .success()
-        .stdout(predicates::str::contains("touch base"));
+        .stdout(
+            predicates::str::contains("info@xxx.fr").and(
+                predicates::str::contains("touch base")
+            )
+        );
 }
 
 #[test]
-fn test_display_sender_email_addresses() {
-    let input = "\
-        Delivered-To: victim@gmail.com\n\
-        Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\n\
-                Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\n\
-        X-Google-Smtp-Source: AA6agR7rW0ljZbXj2cQn9NgC8m6wViE4veg3Wroa/sb4ZEQMZAmVYdUGb9EAPvGvoF9UkmUip/o+\n\
-        X-Received: by 2002:a05:6402:35cf:b0:448:84a9:12cf with SMTP id z15-20020a05640235cf00b0044884a912cfmr745701edc.51.1662506240653;\r
-                Tue, 06 Sep 2022 16:17:20 -0700 (PDT)\n\
-        ARC-Authentication-Results: i=1; mx.google.com;\n\
-               spf=pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as permitted sender) smtp.mailfrom=info@xxx.fr\n\
-        Return-Path: <info@xxx.fr>\n\
-        Received: from foo.bar.com (foo.bar.com. [10.10.10.10])\n\
-                by mx.google.com with ESMTP id jg8-20020a170907970800b0072b83ed8d42si10970498ejc.82.2022.09.06.16.17.19\n\
-                for <victim@gmail.com>;\n\
-                Tue, 06 Sep 2022 16:17:20 -0700 (PDT)\n\
-        Received-SPF: pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as permitted sender) client-ip=10.10.10.10;\n\
-        Authentication-Results: mx.google.com;\n\
-               spf=pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as permitted sender) smtp.mailfrom=info@xxx.fr\n\
-        Date: Tue, 6 Sep 2022 19:17:19 -0400\n\
-        From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@fake.net>\n\
-        To: victim@gmail.com\n\
-        Message-ID: <Ctht0YgNZJDaAVPvcU36z2Iw9f7Bs7Jge.ecdasmtpin_added_missing@mx.google.com>\n\
-        Subject: We’re sorry that we didn’t touch base with you earlier. f309\n\
-        MIME-Version: 1.0\n\
-        Content-Type: text/html\n\n\
-        <div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\n\
-        </div>\n\
-    ";
-
+fn test_display_json_parse_results() {
     let mut cmd = Command::cargo_bin("pp-parser").unwrap();
 
     cmd
-        .args(&["--human", "--sender-email-addresses"])
-        .write_stdin(input)
+        .write_stdin(input())
         .assert()
         .success()
-        .stdout(predicates::str::contains("info@xxx.fr"));
+        .stdout(json_output());
 }
 
+fn input() -> String {
+    "\
+Delivered-To: victim@gmail.com\r
+Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\r
+        Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\r
+X-Google-Smtp-Source: AA6agR7rW0ljZbXj2cQn9NgC8m6wViE4veg3Wroa/sb4ZEQMZAmVYdUGb9EAPvGvoF9UkmUip/o+\r
+X-Received: by 2002:a05:6402:35cf:b0:448:84a9:12cf with SMTP id z15-20020a05640235cf00b0044884a912cfmr745701edc.51.1662506240653;\r
+        Tue, 06 Sep 2022 16:17:20 -0700 (PDT)\r
+ARC-Authentication-Results: i=1; mx.google.com;\r
+       spf=pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as permitted sender) smtp.mailfrom=info@xxx.fr\r
+Return-Path: <info@xxx.fr>\r
+Received: from foo.bar.com (foo.bar.com. [10.10.10.10])\r
+        by mx.google.com with ESMTP id jg8-20020a170907970800b0072b83ed8d42si10970498ejc.82.2022.09.06.16.17.19\r
+        for <victim@gmail.com>;\r
+        Tue, 06 Sep 2022 16:17:20 -0700 (PDT)\r
+Received-SPF: pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as permitted sender) client-ip=10.10.10.10;\r
+Authentication-Results: mx.google.com;\r
+       spf=pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as permitted sender) smtp.mailfrom=info@xxx.fr\r
+Date: Tue, 6 Sep 2022 19:17:19 -0400\r
+From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@fake.net>\r
+To: victim@gmail.com\r
+Message-ID: <Ctht0YgNZJDaAVPvcU36z2Iw9f7Bs7Jge.ecdasmtpin_added_missing@mx.google.com>\r
+Subject: We’re sorry that we didn’t touch base with you earlier. f309\r
+MIME-Version: 1.0\r
+Content-Type: text/html\r\n\r
+<div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\r
+</div>\r
+".into()
+}
+
+fn json_output() -> String {
+    use serde_json::json;
+
+    json!({
+        "parsed_mail": {
+            "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
+            "sender_addresses": {
+                "from": "PIBIeSRqUtiEw1NCg4@fake.net",
+                "reply_to": null,
+                "return_path": "info@xxx.fr"
+            }
+        }
+    }).to_string()
+}
 
 
 //     let input = r#"Delivered-To: victim@gmail.com\r
@@ -121,3 +131,4 @@ fn test_display_sender_email_addresses() {
 // 1820 Avenue M#534 - Brooklyn, NY 11230</p>
 // </div>
 //     "#;
+//
