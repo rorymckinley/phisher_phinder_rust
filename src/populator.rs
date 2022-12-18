@@ -278,6 +278,20 @@ mod lookup_from_rdap_tests {
         assert_eq!(input(), data);
     }
 
+    #[test]
+    fn does_not_lookup_with_existing_domain() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+        setup_impostors();
+        let bootstrap = tokio_test::block_on(get_bootstrap());
+
+        let mut input = input_with_domain();
+
+        tokio_test::block_on(lookup_from_rdap(&bootstrap, &mut input));
+
+        assert_eq!(input_with_domain(), input);
+    }
+
     fn input() -> Option<EmailAddressData> {
         Some(
             EmailAddressData {
@@ -292,6 +306,20 @@ mod lookup_from_rdap_tests {
             EmailAddressData {
                 address: "someone@fake.unobtainium".into(),
                 domain: None,
+            }
+        )
+    }
+
+    fn input_with_domain() -> Option<EmailAddressData> {
+        Some(
+            EmailAddressData {
+                address: "someone@fake.net".into(),
+                domain: domain_object(
+                    "fake.net",
+                    Some("Not Reg One"),
+                    Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 59).unwrap()),
+                    Some("abuse@notregone.zzz")
+                ),
             }
         )
     }
@@ -315,25 +343,27 @@ async fn lookup_from_rdap(bootstrap: &Bootstrap, data: &mut Option<EmailAddressD
     let client = Client::new();
 
     if let Some(e_a_d) = data {
-        let parts = e_a_d.address.split('@').collect::<Vec<&str>>();
+        if e_a_d.domain.is_none() {
+            let parts = e_a_d.address.split('@').collect::<Vec<&str>>();
 
-        let domain_part: &str = parts.last().unwrap();
+            let domain_part: &str = parts.last().unwrap();
 
-        if let Some(servers) = bootstrap.dns.find(domain_part) {
-            if let Ok(response) = client.query_domain(&servers[0], domain_part).await {
-                let registrar_name = extract_registrar_name(&response.entities);
-                let abuse_email_address = extract_abuse_email(&response.entities);
-                let registration_date = extract_registration_date(&response.events);
+            if let Some(servers) = bootstrap.dns.find(domain_part) {
+                if let Ok(response) = client.query_domain(&servers[0], domain_part).await {
+                    let registrar_name = extract_registrar_name(&response.entities);
+                    let abuse_email_address = extract_abuse_email(&response.entities);
+                    let registration_date = extract_registration_date(&response.events);
 
-                e_a_d.domain = Some(
-                    Domain {
-                        category: DomainCategory::Other,
-                        name: domain_part.into(),
-                        registrar: registrar_name,
-                        registration_date,
-                        abuse_email_address,
-                    }
-                )
+                    e_a_d.domain = Some(
+                        Domain {
+                            category: DomainCategory::Other,
+                            name: domain_part.into(),
+                            registrar: registrar_name,
+                            registration_date,
+                            abuse_email_address,
+                        }
+                    )
+                }
             }
         }
     }
