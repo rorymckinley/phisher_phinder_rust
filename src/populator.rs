@@ -61,25 +61,24 @@ mod populate_tests {
             parsed_mail: ParsedMail {
                 subject: Some("Does not matter".into()),
                 sender_addresses: SenderAddresses {
-                    from: Some(
+                    from: vec![
                         EmailAddressData {
                             address: "someone@fake.net".into(),
                             domain: None,
                         }
-                    ),
-                    reply_to: Some(
+                    ],
+                    reply_to: vec![
                         EmailAddressData {
                             address: "anyone@possiblynotfake.com".into(),
                             domain: None,
                         },
-                    ),
-                    return_path: Some(
+                    ],
+                    return_path: vec![
                         EmailAddressData {
                             address: "everyone@morethanlikelyfake.net".into(),
                             domain: None,
                         },
-                    )
-
+                    ]
                 }
             }
         }
@@ -90,25 +89,24 @@ mod populate_tests {
             parsed_mail: ParsedMail {
                 subject: Some("Does not matter".into()),
                 sender_addresses: SenderAddresses {
-                    from: Some(
+                    from: vec![
                         EmailAddressData {
                             address: "someone@fake.bogus".into(),
                             domain: None,
                         }
-                    ),
-                    reply_to: Some(
+                    ],
+                    reply_to: vec![
                         EmailAddressData {
                             address: "anyone@possiblynotfake.bogus".into(),
                             domain: None,
                         },
-                    ),
-                    return_path: Some(
+                    ],
+                    return_path: vec![
                         EmailAddressData {
                             address: "everyone@morethanlikelyfake.bogus".into(),
                             domain: None,
                         },
-                    )
-
+                    ]
                 }
             }
         }
@@ -119,9 +117,9 @@ mod populate_tests {
             parsed_mail: ParsedMail {
                 subject: Some("Does not matter".into()),
                 sender_addresses: SenderAddresses {
-                    from: None,
-                    reply_to: None,
-                    return_path: None,
+                    from: vec![],
+                    reply_to: vec![],
+                    return_path: vec![],
                 }
             }
         }
@@ -132,7 +130,7 @@ mod populate_tests {
             parsed_mail: ParsedMail {
                 subject: Some("Does not matter".into()),
                 sender_addresses: SenderAddresses {
-                    from: Some(
+                    from: vec![
                         EmailAddressData {
                             address: "someone@fake.net".into(),
                             domain: domain_object(
@@ -142,8 +140,8 @@ mod populate_tests {
                                 Some("abuse@regone.zzz")
                             ),
                         }
-                    ),
-                    reply_to: Some(
+                    ],
+                    reply_to: vec![
                         EmailAddressData {
                             address: "anyone@possiblynotfake.com".into(),
                             domain: domain_object(
@@ -153,8 +151,8 @@ mod populate_tests {
                                 Some("abuse@regtwo.zzz"),
                             ),
                         },
-                    ),
-                    return_path: Some(
+                    ],
+                    return_path: vec![
                         EmailAddressData {
                             address: "everyone@morethanlikelyfake.net".into(),
                             domain: domain_object(
@@ -164,7 +162,7 @@ mod populate_tests {
                                 Some("abuse@regthree.zzz"),
                             ),
                         },
-                    )
+                    ]
                 }
             }
         }
@@ -292,26 +290,26 @@ mod lookup_from_rdap_tests {
         assert_eq!(input_with_domain(), input);
     }
 
-    fn input() -> Option<EmailAddressData> {
-        Some(
+    fn input() -> Vec<EmailAddressData> {
+        vec![
             EmailAddressData {
                 address: "someone@fake.net".into(),
                 domain: None,
             }
-        )
+        ]
     }
 
-    fn input_tld_sans_server() -> Option<EmailAddressData> {
-        Some(
+    fn input_tld_sans_server() -> Vec<EmailAddressData> {
+        vec![
             EmailAddressData {
                 address: "someone@fake.unobtainium".into(),
                 domain: None,
             }
-        )
+        ]
     }
 
-    fn input_with_domain() -> Option<EmailAddressData> {
-        Some(
+    fn input_with_domain() -> Vec<EmailAddressData> {
+        vec![
             EmailAddressData {
                 address: "someone@fake.net".into(),
                 domain: domain_object(
@@ -321,11 +319,11 @@ mod lookup_from_rdap_tests {
                     Some("abuse@notregone.zzz")
                 ),
             }
-        )
+        ]
     }
 
-    fn populated_output() -> Option<EmailAddressData> {
-        Some(
+    fn populated_output() -> Vec<EmailAddressData> {
+        vec![
             EmailAddressData {
                 address: "someone@fake.net".into(),
                 domain: domain_object(
@@ -335,14 +333,14 @@ mod lookup_from_rdap_tests {
                     Some("abuse@regone.zzz")
                 ),
             }
-        )
+        ]
     }
 }
 
-async fn lookup_from_rdap(bootstrap: &Bootstrap, data: &mut Option<EmailAddressData>) {
+async fn lookup_from_rdap(bootstrap: &Bootstrap, data: &mut [EmailAddressData]) {
     let client = Client::new();
 
-    if let Some(e_a_d) = data {
+    if let Some(e_a_d) = data.get_mut(0) {
         if e_a_d.domain.is_none() {
             let parts = e_a_d.address.split('@').collect::<Vec<&str>>();
 

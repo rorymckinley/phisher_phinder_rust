@@ -15,9 +15,9 @@ mod  sender_address_tests {
         let analyser = Analyser::new(&parsed);
 
         let expected_result = SenderAddresses {
-            from: Some(convert_email_addresses("from@test.com")),
-            reply_to: Some(convert_email_addresses("reply@test.com")),
-            return_path: Some(convert_email_addresses("return@test.com")),
+            from: vec![convert_email_addresses("from@test.com")],
+            reply_to: vec![convert_email_addresses("reply@test.com")],
+            return_path: vec![convert_email_addresses("return@test.com")],
         };
 
         assert_eq!(expected_result, analyser.sender_email_addresses())
@@ -68,16 +68,16 @@ mod  sender_address_tests {
     }
 
     impl AnalysableMessage for TestParsedMail {
-        fn from(&self) -> Option<String> {
-            Some(self.from.clone())
+        fn from(&self) -> Vec<String> {
+            vec![self.from.clone()]
         }
 
-        fn reply_to(&self) -> Option<String> {
-            Some(self.reply_to.clone())
+        fn reply_to(&self) -> Vec<String> {
+            vec![self.reply_to.clone()]
         }
 
-        fn return_path(&self) -> Option<String> {
-            Some(self.return_path.clone())
+        fn return_path(&self) -> Vec<String> {
+            vec![self.return_path.clone()]
         }
 
         fn subject(&self) -> Option<String> {
@@ -97,13 +97,20 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
 
     pub fn sender_email_addresses(&self) -> SenderAddresses {
         SenderAddresses {
-            from: self.parsed_mail.from().map(|addr| self.convert_address(addr)),
-            reply_to: self.parsed_mail.reply_to().map(|addr| self.convert_address(addr)),
-            return_path: self.parsed_mail.return_path().map(|addr| self.convert_address(addr))
+            from: self.convert_addresses(self.parsed_mail.from()),
+            reply_to: self.convert_addresses(self.parsed_mail.reply_to()),
+            return_path: self.convert_addresses(self.parsed_mail.return_path())
         }
     }
 
-    fn convert_address(&self, address: String) -> EmailAddressData {
+    fn convert_addresses(&self, addresses: Vec<String>) -> Vec<EmailAddressData> {
+        addresses
+            .iter()
+            .map(|addr| self.convert_address(addr))
+            .collect()
+    }
+
+    fn convert_address(&self, address: &str) -> EmailAddressData {
         EmailAddressData::from_email_address(address)
     }
 }

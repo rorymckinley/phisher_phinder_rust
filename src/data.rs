@@ -26,9 +26,9 @@ pub struct ParsedMail {
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct SenderAddresses {
-    pub from: Option<EmailAddressData>,
-    pub reply_to: Option<EmailAddressData>,
-    pub return_path: Option<EmailAddressData>
+    pub from: Vec<EmailAddressData>,
+    pub reply_to: Vec<EmailAddressData>,
+    pub return_path: Vec<EmailAddressData>
 }
 
 impl SenderAddresses {
@@ -44,9 +44,9 @@ pub struct EmailAddressData {
 }
 
 impl EmailAddressData {
-    pub fn from_email_address(address: String) -> Self {
+    pub fn from_email_address(address: &str) -> Self {
         Self {
-            address,
+            address: address.into(),
             domain: None
         }
     }

@@ -1,9 +1,9 @@
 use mail_parser::{Addr, HeaderValue, Message};
 
 pub trait AnalysableMessage {
-    fn from(&self) -> Option<String>;
-    fn reply_to(&self) -> Option<String>;
-    fn return_path(&self) -> Option<String>;
+    fn from(&self) -> Vec<String>;
+    fn reply_to(&self) -> Vec<String>;
+    fn return_path(&self) -> Vec<String>;
     fn subject(&self) -> Option<String>;
 }
 
@@ -12,7 +12,7 @@ mod analysable_message_for_message_tests {
     use super::*;
 
     #[test]
-    fn returns_none_if_not_return_path() {
+    fn returns_empty_collection_if_not_return_path() {
         let input = "\
 Delivered-To: victim@gmail.com\r
 Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\r
@@ -23,12 +23,11 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
 <div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\r
 </div>\r
 ";
+        let expected: Vec<String> = vec![];
+
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
 
-        assert_eq!(
-            None,
-            parsed_mail.return_path()
-        );
+        assert_eq!(expected, parsed_mail.return_path());
     }
 
     #[test]
@@ -44,13 +43,11 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
 <div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\r
 </div>\r
 ";
+        let expected = vec![String::from("info@xxx.fr")];
 
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
 
-        assert_eq!(
-            Some("info@xxx.fr".into()),
-            parsed_mail.return_path()
-        );
+        assert_eq!(expected, parsed_mail.return_path());
     }
 
     #[test]
@@ -67,12 +64,11 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
 </div>\r
         ";
 
+        let expected: Vec<String> = vec![];
+
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
 
-        assert_eq!(
-            None,
-            parsed_mail.reply_to()
-        )
+        assert_eq!(expected, parsed_mail.reply_to())
     }
 
     #[test]
@@ -92,10 +88,7 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
 
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
 
-        assert_eq!(
-            Some("scammer@evildomain.zzz".into()),
-            parsed_mail.reply_to()
-        )
+        assert_eq!(vec![String::from("scammer@evildomain.zzz")], parsed_mail.reply_to())
     }
 
     #[test]
@@ -110,12 +103,10 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
 </div>\r
         ";
 
+        let expected: Vec<String> = vec![];
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
 
-        assert_eq!(
-            None,
-            parsed_mail.from()
-        );
+        assert_eq!(expected, parsed_mail.from());
     }
 
     #[test]
@@ -135,7 +126,7 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
 
         assert_eq!(
-            Some("PIBIeSRqUtiEw1NCg4@fake.net".into()),
+            vec![String::from("PIBIeSRqUtiEw1NCg4@fake.net")],
             parsed_mail.from()
         );
     }
@@ -182,38 +173,48 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
 }
 
 impl AnalysableMessage for Message<'_> {
-    fn from(&self) -> Option<String> {
+    fn from(&self) -> Vec<String> {
         // TODO Cover other options
         match self.get_from() {
             HeaderValue::Address(Addr {name: _, address}) => {
-                address.as_deref().map(String::from)
+                if let Some(addr) = address.as_deref() {
+                    vec![String::from(addr)]
+                } else {
+                    // TODO can this branch be tested?
+                    vec![]
+                }
             },
             _ => {
-                None
+                vec![]
             }
         }
     }
 
-    fn reply_to(&self) -> Option<String> {
+    fn reply_to(&self) -> Vec<String> {
         // TODO Cover other options
         match self.get_reply_to() {
             HeaderValue::Address(Addr {name: _, address}) => {
-                address.as_deref().map(String::from)
+                if let Some(addr) = address.as_deref() {
+                    vec![String::from(addr)]
+                } else {
+                    // TODO can this branch be tested?
+                    vec![]
+                }
             },
             _ => {
-                None
+                vec![]
             }
         }
     }
 
-    fn return_path(&self) -> Option<String> {
+    fn return_path(&self) -> Vec<String> {
         // TODO Cover other options
         match self.get_return_path() {
             HeaderValue::Text(address) => {
-                Some(address.to_string())
+                vec![address.to_string()]
             },
             _ => {
-                None
+                vec![]
             }
         }
     }

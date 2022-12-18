@@ -65,15 +65,19 @@ fn json_output() -> String {
         "parsed_mail": {
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
             "sender_addresses": {
-                "from": {
-                    "address": "PIBIeSRqUtiEw1NCg4@fake.net",
-                    "domain": null,
-                },
-                "reply_to": null,
-                "return_path": {
-                    "address": "info@xxx.fr",
-                    "domain": null,
-                }
+                "from": [
+                    {
+                        "address": "PIBIeSRqUtiEw1NCg4@fake.net",
+                        "domain": null,
+                    }
+                ],
+                "reply_to": [],
+                "return_path": [
+                    {
+                        "address": "info@xxx.fr",
+                        "domain": null,
+                    }
+                ]
             },
         }
     }).to_string()
