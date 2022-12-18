@@ -1,5 +1,6 @@
 use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct OutputData {
@@ -53,8 +54,21 @@ impl EmailAddressData {
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct Domain {
+    pub abuse_email_address: Option<String>,
+    pub category: DomainCategory,
     pub name: String,
     pub registrar: Option<String>,
     pub registration_date: Option<DateTime<Utc>>,
-    pub abuse_email_address: Option<String>,
+}
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DomainCategory {
+    Other,
+}
+
+impl fmt::Display for DomainCategory {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) ->fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }

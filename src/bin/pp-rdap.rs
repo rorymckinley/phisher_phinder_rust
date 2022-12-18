@@ -1,3 +1,5 @@
+use clap::Parser;
+use phisher_phinder_rust::cli::Cli;
 use phisher_phinder_rust::data::OutputData;
 use phisher_phinder_rust::populator::populate;
 use phisher_phinder_rust::ui;
@@ -27,5 +29,11 @@ async fn main() {
 
     populate(&bootstrap, &mut output).await;
 
-    println!("{}", ui::display_sender_addresses_extended(&output).unwrap());
+    let cli = Cli::parse();
+
+    if cli.human {
+        println!("{}", ui::display_sender_addresses_extended(&output).unwrap());
+    } else {
+        print!("{}", serde_json::to_string(&output).unwrap());
+    }
 }
