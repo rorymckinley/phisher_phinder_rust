@@ -53,8 +53,8 @@ impl EmailAddressData {
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct Domain {
+    pub abuse_email_address: Option<String>,
     pub name: String,
     pub registrar: Option<String>,
     pub registration_date: Option<DateTime<Utc>>,
-    pub abuse_email_address: Option<String>,
 }

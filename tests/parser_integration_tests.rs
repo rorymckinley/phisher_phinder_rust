@@ -6,7 +6,7 @@ fn test_display_human_parse_results() {
     let mut cmd = Command::cargo_bin("pp-parser").unwrap();
 
     cmd
-        .args(&["--human"])
+        .args(["--human"])
         .write_stdin(input())
         .assert()
         .success()
