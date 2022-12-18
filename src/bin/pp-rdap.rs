@@ -1,4 +1,4 @@
-use phisher_phinder_rust::data::{InputData, OutputData};
+use phisher_phinder_rust::data::OutputData;
 use phisher_phinder_rust::populator::populate;
 use phisher_phinder_rust::ui;
 use rdap_client::Client;
@@ -15,8 +15,7 @@ async fn main() {
         }
     }
 
-    let input: InputData = serde_json::from_str(&raw_input).unwrap();
-    let mut output: OutputData = input.into();
+    let mut output: OutputData = serde_json::from_str(&raw_input).unwrap();
 
     let mut client = Client::new();
 

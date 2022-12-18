@@ -1,6 +1,5 @@
 use crate::analysable_message::AnalysableMessage;
-
-use serde::Serialize;
+use crate::data::{EmailAddressData, SenderAddresses};
 
 pub struct Analyser<'a, T> {
     parsed_mail: &'a T
@@ -16,9 +15,9 @@ mod  sender_address_tests {
         let analyser = Analyser::new(&parsed);
 
         let expected_result = SenderAddresses {
-            from: Some("from@test.com".into()),
-            reply_to: Some("reply@test.com".into()),
-            return_path: Some("return@test.com".into()),
+            from: Some(convert_email_addresses("from@test.com")),
+            reply_to: Some(convert_email_addresses("reply@test.com")),
+            return_path: Some(convert_email_addresses("return@test.com")),
         };
 
         assert_eq!(expected_result, analyser.sender_email_addresses())
@@ -39,6 +38,10 @@ mod  sender_address_tests {
             "return@test.com".into(),
             "My First Phishing Email".into(),
         )
+    }
+
+    fn convert_email_addresses(address: &str) -> EmailAddressData {
+        SenderAddresses::to_email_address_data(address.into())
     }
 
     struct TestParsedMail {
@@ -94,16 +97,13 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
 
     pub fn sender_email_addresses(&self) -> SenderAddresses {
         SenderAddresses {
-            from: self.parsed_mail.from(),
-            reply_to: self.parsed_mail.reply_to(),
-            return_path: self.parsed_mail.return_path()
+            from: self.parsed_mail.from().map(|addr| self.convert_address(addr)),
+            reply_to: self.parsed_mail.reply_to().map(|addr| self.convert_address(addr)),
+            return_path: self.parsed_mail.return_path().map(|addr| self.convert_address(addr))
         }
     }
-}
 
-#[derive(Debug, PartialEq, Serialize)]
-pub struct SenderAddresses {
-    pub from: Option<String>,
-    pub reply_to: Option<String>,
-    pub return_path: Option<String>
+    fn convert_address(&self, address: String) -> EmailAddressData {
+        EmailAddressData::from_email_address(address)
+    }
 }

@@ -1,23 +1,12 @@
 use std::io;
 use mail_parser::*;
-use serde::Serialize;
 
 use phisher_phinder_rust::cli::Cli;
-use phisher_phinder_rust::analyser::{Analyser, SenderAddresses};
+use phisher_phinder_rust::analyser::Analyser;
+use phisher_phinder_rust::data::OutputData;
 use phisher_phinder_rust::ui;
 
 use clap::Parser;
-
-#[derive(Serialize)]
-struct Output {
-    parsed_mail: ParsedMailOutput,
-}
-
-#[derive(Serialize)]
-struct ParsedMailOutput {
-    sender_addresses: SenderAddresses,
-    subject: Option<String>,
-}
 
 fn main() {
     let cli = Cli::parse();
@@ -38,12 +27,7 @@ fn main() {
         println!();
         println!("{}", ui::display_sender_addresses(&analyser.sender_email_addresses()).unwrap())
     } else {
-        let output = Output {
-            parsed_mail: ParsedMailOutput {
-                subject: analyser.subject(),
-                sender_addresses: analyser.sender_email_addresses()
-            }
-        };
+        let output = OutputData::new(analyser.subject(), analyser.sender_email_addresses());
         print!("{}", serde_json::to_string(&output).unwrap());
     }
 }

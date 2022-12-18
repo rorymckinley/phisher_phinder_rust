@@ -1,4 +1,4 @@
-use crate::analyser::SenderAddresses;
+use crate::data::SenderAddresses;
 use crate::data::{Domain, EmailAddressData, OutputData};
 use crate::result::AppResult;
 
@@ -35,9 +35,9 @@ mod tests {
     #[test]
     fn test_display_sender_addresses() {
         let addresses = SenderAddresses {
-            from: Some("fr@test.com".into()),
-            reply_to: Some("rt@test.com".into()),
-            return_path: Some("rp@test.com".into())
+            from: Some(convert_email_address("fr@test.com")),
+            reply_to: Some(convert_email_address("rt@test.com")),
+            return_path: Some(convert_email_address("rp@test.com"))
         };
 
         assert_eq!(
@@ -54,6 +54,10 @@ mod tests {
             "),
             display_sender_addresses(&addresses).unwrap()
         );
+    }
+
+    fn convert_email_address(address: &str) -> EmailAddressData {
+        SenderAddresses::to_email_address_data(address.into())
     }
 }
 
@@ -81,7 +85,7 @@ mod display_sender_addresses_extended_tests {
     fn displays_extended_data_for_sender_addresses() {
         let data = OutputData {
             parsed_mail: ParsedMail {
-                subject: "Send me money now! Please?".into(),
+                subject: Some("Send me money now! Please?".into()),
                 sender_addresses: SenderAddresses {
                     from: Some(
                         EmailAddressData {
@@ -146,7 +150,7 @@ mod display_sender_addresses_extended_tests {
     fn display_extended_data_no_domain_data() {
         let data = OutputData {
             parsed_mail: ParsedMail {
-                subject: "Send me money now! Please?".into(),
+                subject: Some("Send me money now! Please?".into()),
                 sender_addresses: SenderAddresses {
                     from: Some(
                         EmailAddressData {
@@ -235,9 +239,9 @@ fn table_to_string(table: &Table) -> AppResult<String> {
     Ok(String::from_utf8(buffer)?)
 }
 
-fn row_with_optional_value(table: &mut Table, label: &str, value: &Option<String>) {
+fn row_with_optional_value(table: &mut Table, label: &str, value: &Option<EmailAddressData>) {
     let val = match value {
-        Some(v) => v,
+        Some(data) => &data.address,
         None => "N/A"
     };
 
