@@ -59,7 +59,7 @@ mod populate_tests {
     fn input_data() -> OutputData {
         OutputData {
             parsed_mail: ParsedMail {
-                subject: "Does not matter".into(),
+                subject: Some("Does not matter".into()),
                 sender_addresses: SenderAddresses {
                     from: Some(
                         EmailAddressData {
@@ -88,7 +88,7 @@ mod populate_tests {
     fn input_data_no_servers() -> OutputData {
         OutputData {
             parsed_mail: ParsedMail {
-                subject: "Does not matter".into(),
+                subject: Some("Does not matter".into()),
                 sender_addresses: SenderAddresses {
                     from: Some(
                         EmailAddressData {
@@ -117,7 +117,7 @@ mod populate_tests {
     fn input_data_no_sender_addresses() -> OutputData {
         OutputData {
             parsed_mail: ParsedMail {
-                subject: "Does not matter".into(),
+                subject: Some("Does not matter".into()),
                 sender_addresses: SenderAddresses {
                     from: None,
                     reply_to: None,
@@ -130,7 +130,7 @@ mod populate_tests {
     fn output_data() -> OutputData {
         OutputData {
             parsed_mail: ParsedMail {
-                subject: "Does not matter".into(),
+                subject: Some("Does not matter".into()),
                 sender_addresses: SenderAddresses {
                     from: Some(
                         EmailAddressData {
@@ -1163,7 +1163,7 @@ mod test_support {
             ]
         );
     }
-    
+
     pub fn setup_404_impostor() {
         setup_dns_server(
             vec![

@@ -42,7 +42,7 @@ fn test_fetching_rdap_details() {
     );
 
     cmd
-        .args(&["--human"])
+        .args(["--human"])
         .write_stdin(json_input())
         .env("RDAP_BOOTSTRAP_HOST", "http://localhost:4545")
         .assert()
@@ -65,9 +65,18 @@ fn json_input() -> String {
         "parsed_mail": {
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
             "sender_addresses": {
-                "from": "PIBIeSRqUtiEw1NCg4@fake.net",
-                "reply_to": "blah@possiblynotfake.com",
-                "return_path": "info@morethanlikelyfake.net"
+                "from": {
+                    "address": "PIBIeSRqUtiEw1NCg4@fake.net",
+                    "domain": null
+                },
+                "reply_to": {
+                    "address": "blah@possiblynotfake.com",
+                    "domain": null
+                },
+                "return_path": {
+                    "address": "info@morethanlikelyfake.net",
+                    "domain": null
+                }
             }
         }
     }).to_string()
