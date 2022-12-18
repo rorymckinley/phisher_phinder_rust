@@ -78,7 +78,7 @@ pub fn display_sender_addresses(sender_addresses: &SenderAddresses) -> AppResult
 #[cfg(test)]
 mod display_sender_addresses_extended_tests {
     use super::*;
-    use crate::data::{Domain, EmailAddressData, ParsedMail, SenderAddresses};
+    use crate::data::{Domain, DomainCategory, EmailAddressData, ParsedMail, SenderAddresses};
     use chrono::prelude::*;
 
     #[test]
@@ -92,6 +92,7 @@ mod display_sender_addresses_extended_tests {
                             address: "fr@test.xxx".into(),
                             domain: Some(
                                 Domain {
+                                    category: DomainCategory::Other,
                                     name: "test.xxx".into(),
                                     registrar: Some("Reg One".into()),
                                     registration_date: Some(datetime(2022, 12, 1, 2, 3, 4)),
@@ -105,6 +106,7 @@ mod display_sender_addresses_extended_tests {
                             address: "rt@test.yyy".into(),
                             domain: Some(
                                 Domain {
+                                    category: DomainCategory::Other,
                                     name: "test.yyy".into(),
                                     registrar: Some("Reg Two".into()),
                                     registration_date: Some(datetime(2022, 12, 2, 3, 4, 5)),
@@ -118,6 +120,7 @@ mod display_sender_addresses_extended_tests {
                             address: "rp@test.zzz".into(),
                             domain: Some(
                                 Domain {
+                                    category: DomainCategory::Other,
                                     name: "test.zzz".into(),
                                     registrar: Some("Reg Three".into()),
                                     registration_date: Some(datetime(2022, 12, 3, 4, 5, 6)),
@@ -132,15 +135,15 @@ mod display_sender_addresses_extended_tests {
 
         assert_eq!(
             String::from("\
-            +----------------+-------------+-----------+---------------------+---------------------+\n\
-            | Address Source | Address     | Registrar | Registration Date   | Abuse Email Address |\n\
-            +----------------+-------------+-----------+---------------------+---------------------+\n\
-            | From           | fr@test.xxx | Reg One   | 2022-12-01 02:03:04 | abuse@regone.zzz    |\n\
-            +----------------+-------------+-----------+---------------------+---------------------+\n\
-            | Reply-To       | rt@test.yyy | Reg Two   | 2022-12-02 03:04:05 | abuse@regtwo.zzz    |\n\
-            +----------------+-------------+-----------+---------------------+---------------------+\n\
-            | Return-Path    | rp@test.zzz | Reg Three | 2022-12-03 04:05:06 | abuse@regthree.zzz  |\n\
-            +----------------+-------------+-----------+---------------------+---------------------+\n\
+            +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
+            | Address Source | Address     | Category | Registrar | Registration Date   | Abuse Email Address |\n\
+            +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
+            | From           | fr@test.xxx | Other    | Reg One   | 2022-12-01 02:03:04 | abuse@regone.zzz    |\n\
+            +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
+            | Reply-To       | rt@test.yyy | Other    | Reg Two   | 2022-12-02 03:04:05 | abuse@regtwo.zzz    |\n\
+            +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
+            | Return-Path    | rp@test.zzz | Other    | Reg Three | 2022-12-03 04:05:06 | abuse@regthree.zzz  |\n\
+            +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
             "),
             display_sender_addresses_extended(&data).unwrap()
         )
@@ -157,6 +160,7 @@ mod display_sender_addresses_extended_tests {
                             address: "fr@test.xxx".into(),
                             domain: Some(
                                 Domain {
+                                    category: DomainCategory::Other,
                                     name: "test.xxx".into(),
                                     registrar: Some("Reg One".into()),
                                     registration_date: Some(datetime(2022, 12, 1, 2, 3, 4)),
@@ -176,6 +180,7 @@ mod display_sender_addresses_extended_tests {
                             address: "rp@test.zzz".into(),
                             domain: Some(
                                 Domain {
+                                    category: DomainCategory::Other,
                                     name: "test.zzz".into(),
                                     registrar: Some("Reg Three".into()),
                                     registration_date: Some(datetime(2022, 12, 3, 4, 5, 6)),
@@ -190,15 +195,15 @@ mod display_sender_addresses_extended_tests {
 
         assert_eq!(
             String::from("\
-            +----------------+-------------+-----------+---------------------+---------------------+\n\
-            | Address Source | Address     | Registrar | Registration Date   | Abuse Email Address |\n\
-            +----------------+-------------+-----------+---------------------+---------------------+\n\
-            | From           | fr@test.xxx | Reg One   | 2022-12-01 02:03:04 | abuse@regone.zzz    |\n\
-            +----------------+-------------+-----------+---------------------+---------------------+\n\
-            | Reply-To       | rt@test.yyy | N/A       | N/A                 | N/A                 |\n\
-            +----------------+-------------+-----------+---------------------+---------------------+\n\
-            | Return-Path    | rp@test.zzz | Reg Three | 2022-12-03 04:05:06 | abuse@regthree.zzz  |\n\
-            +----------------+-------------+-----------+---------------------+---------------------+\n\
+            +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
+            | Address Source | Address     | Category | Registrar | Registration Date   | Abuse Email Address |\n\
+            +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
+            | From           | fr@test.xxx | Other    | Reg One   | 2022-12-01 02:03:04 | abuse@regone.zzz    |\n\
+            +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
+            | Reply-To       | rt@test.yyy | N/A      | N/A       | N/A                 | N/A                 |\n\
+            +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
+            | Return-Path    | rp@test.zzz | Other    | Reg Three | 2022-12-03 04:05:06 | abuse@regthree.zzz  |\n\
+            +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
             "),
             display_sender_addresses_extended(&data).unwrap()
         )
@@ -216,6 +221,7 @@ pub fn display_sender_addresses_extended(data: &OutputData) -> AppResult<String>
         Row::new(vec![
             Cell::new("Address Source"),
             Cell::new("Address"),
+            Cell::new("Category"),
             Cell::new("Registrar"),
             Cell::new("Registration Date"),
             Cell::new("Abuse Email Address"),
@@ -252,12 +258,15 @@ fn row_with_optional_value(table: &mut Table, label: &str, value: &Option<EmailA
 
 fn row_with_optional_values(table: &mut Table, label: &str, email_address_data: &Option<EmailAddressData>) {
     if let Some(EmailAddressData {address, domain: possible_domain}) = email_address_data {
-        if let Some(Domain {name: _, registrar, registration_date, abuse_email_address}) = possible_domain {
+        if let Some(
+            Domain {name: _, category, registrar, registration_date, abuse_email_address}
+        ) = possible_domain {
             table.add_row(
                 Row::new(
                     vec![
                         Cell::new(label),
                         Cell::new(address),
+                        Cell::new(&category.to_string()),
                         Cell::new(registrar.as_ref().unwrap()),
                         Cell::new(&registration_date.as_ref().unwrap().format("%Y-%m-%d %H:%M:%S").to_string()),
                         Cell::new(abuse_email_address.as_ref().unwrap())
@@ -270,6 +279,7 @@ fn row_with_optional_values(table: &mut Table, label: &str, email_address_data: 
                     vec![
                         Cell::new(label),
                         Cell::new(address),
+                        Cell::new("N/A"),
                         Cell::new("N/A"),
                         Cell::new("N/A"),
                         Cell::new("N/A"),

@@ -1,5 +1,5 @@
 use chrono::prelude::*;
-use crate:: data::{Domain, EmailAddressData, OutputData};
+use crate:: data::{Domain, DomainCategory, EmailAddressData, OutputData};
 use rdap_client::bootstrap::Bootstrap;
 use rdap_client::Client;
 
@@ -178,6 +178,7 @@ mod populate_tests {
     ) ->  Option<Domain> {
         Some(
             Domain {
+                category: DomainCategory::Other,
                 name: name.into(),
                 registrar: registrar.map(String::from),
                 registration_date,
@@ -326,6 +327,7 @@ async fn lookup_from_rdap(bootstrap: &Bootstrap, data: &mut Option<EmailAddressD
 
                 e_a_d.domain = Some(
                     Domain {
+                        category: DomainCategory::Other,
                         name: domain_part.into(),
                         registrar: registrar_name,
                         registration_date,
@@ -1188,6 +1190,7 @@ mod test_support {
     ) ->  Option<Domain> {
         Some(
             Domain {
+                category: DomainCategory::Other,
                 name: name.into(),
                 registrar: registrar.map(String::from),
                 registration_date,

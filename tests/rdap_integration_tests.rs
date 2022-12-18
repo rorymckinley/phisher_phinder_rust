@@ -83,6 +83,7 @@ fn json_output() -> String {
                     "address": "PIBIeSRqUtiEw1NCg4@fake.net",
                     "domain": {
                         "abuse_email_address": "abuse@regone.zzz",
+                        "category": "other",
                         "name": "fake.net",
                         "registrar": "Reg One",
                         "registration_date": "2022-11-18T10:11:12Z",
@@ -92,6 +93,7 @@ fn json_output() -> String {
                     "address": "blah@possiblynotfake.com",
                     "domain": {
                         "abuse_email_address": "abuse@regtwo.zzz",
+                        "category": "other",
                         "name": "possiblynotfake.com",
                         "registrar": "Reg Two",
                         "registration_date": "2022-11-18T10:11:13Z",
@@ -101,6 +103,7 @@ fn json_output() -> String {
                     "address": "info@morethanlikelyfake.net",
                     "domain": {
                         "abuse_email_address": "abuse@regthree.zzz",
+                        "category": "other",
                         "name": "morethanlikelyfake.net",
                         "registrar": "Reg Three",
                         "registration_date": "2022-11-18T10:11:14Z",
