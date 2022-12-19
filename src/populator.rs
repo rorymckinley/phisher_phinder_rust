@@ -1,12 +1,12 @@
 use chrono::prelude::*;
-use crate:: data::{Domain, DomainCategory, EmailAddressData, OutputData};
+use crate:: data::{Domain, DomainCategory, EmailAddressData, OutputData, Registrar};
 use rdap_client::bootstrap::Bootstrap;
 use rdap_client::Client;
 
 #[cfg(test)]
 mod populate_tests {
     use super::*;
-    use crate:: data::{Domain, EmailAddressData, ParsedMail, SenderAddresses};
+    use crate:: data::{Domain, EmailAddressData, ParsedMail, Registrar, SenderAddresses};
     use crate::mountebank::*;
 
     #[test]
@@ -65,18 +65,21 @@ mod populate_tests {
                         EmailAddressData {
                             address: "someone@fake.net".into(),
                             domain: None,
+                            registrar: None,
                         }
                     ],
                     reply_to: vec![
                         EmailAddressData {
                             address: "anyone@possiblynotfake.com".into(),
                             domain: None,
+                            registrar: None,
                         },
                     ],
                     return_path: vec![
                         EmailAddressData {
                             address: "everyone@morethanlikelyfake.net".into(),
                             domain: None,
+                            registrar: None,
                         },
                     ]
                 }
@@ -93,18 +96,21 @@ mod populate_tests {
                         EmailAddressData {
                             address: "someone@fake.bogus".into(),
                             domain: None,
+                            registrar: None,
                         }
                     ],
                     reply_to: vec![
                         EmailAddressData {
                             address: "anyone@possiblynotfake.bogus".into(),
                             domain: None,
+                            registrar: None,
                         },
                     ],
                     return_path: vec![
                         EmailAddressData {
                             address: "everyone@morethanlikelyfake.bogus".into(),
                             domain: None,
+                            registrar: None,
                         },
                     ]
                 }
@@ -135,10 +141,9 @@ mod populate_tests {
                             address: "someone@fake.net".into(),
                             domain: domain_object(
                                 "fake.net",
-                                Some("Reg One"),
                                 Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
-                                Some("abuse@regone.zzz")
                             ),
+                            registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
                         }
                     ],
                     reply_to: vec![
@@ -146,10 +151,9 @@ mod populate_tests {
                             address: "anyone@possiblynotfake.com".into(),
                             domain: domain_object(
                                 "possiblynotfake.com",
-                                Some("Reg Two"),
                                 Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()),
-                                Some("abuse@regtwo.zzz"),
                             ),
+                            registrar: registrar_object("Reg Two", Some("abuse@regtwo.zzz")),
                         },
                     ],
                     return_path: vec![
@@ -157,10 +161,9 @@ mod populate_tests {
                             address: "everyone@morethanlikelyfake.net".into(),
                             domain: domain_object(
                                 "morethanlikelyfake.net",
-                                Some("Reg Three"),
                                 Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap()),
-                                Some("abuse@regthree.zzz"),
                             ),
+                            registrar: registrar_object("Reg Three", Some("abuse@regthree.zzz")),
                         },
                     ]
                 }
@@ -170,16 +173,22 @@ mod populate_tests {
 
     fn domain_object(
         name: &str,
-        registrar: Option<&str>,
         registration_date: Option<DateTime<Utc>>,
-        abuse_email_address: Option<&str>
     ) ->  Option<Domain> {
         Some(
             Domain {
                 category: DomainCategory::Other,
                 name: name.into(),
-                registrar: registrar.map(String::from),
                 registration_date,
+                abuse_email_address: None
+            }
+        )
+    }
+
+    fn registrar_object(name: &str, abuse_email_address: Option<&str>) -> Option<Registrar> {
+        Some(
+            Registrar {
+                name: Some(name.into()),
                 abuse_email_address: abuse_email_address.map(String::from)
             }
         )
@@ -231,6 +240,7 @@ pub async fn populate(bootstrap: &Bootstrap, output_data: &mut OutputData) {
 mod lookup_from_rdap_tests {
     use super::*;
     use crate::mountebank::*;
+    use crate:: data::Registrar;
     use test_support::*;
 
     #[test]
@@ -295,6 +305,7 @@ mod lookup_from_rdap_tests {
             EmailAddressData {
                 address: "someone@fake.net".into(),
                 domain: None,
+                registrar: None,
             }
         ]
     }
@@ -304,6 +315,7 @@ mod lookup_from_rdap_tests {
             EmailAddressData {
                 address: "someone@fake.unobtainium".into(),
                 domain: None,
+                registrar: None,
             }
         ]
     }
@@ -314,10 +326,9 @@ mod lookup_from_rdap_tests {
                 address: "someone@fake.net".into(),
                 domain: domain_object(
                     "fake.net",
-                    Some("Not Reg One"),
                     Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 59).unwrap()),
-                    Some("abuse@notregone.zzz")
                 ),
+                registrar: registrar_object("Not Reg One", Some("abuse@notregone.zzz")),
             }
         ]
     }
@@ -328,13 +339,36 @@ mod lookup_from_rdap_tests {
                 address: "someone@fake.net".into(),
                 domain: domain_object(
                     "fake.net",
-                    Some("Reg One"),
                     Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
-                    Some("abuse@regone.zzz")
                 ),
+                registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
             }
         ]
     }
+
+    fn registrar_object(name: &str, abuse_email_address: Option<&str>) -> Option<Registrar> {
+        Some(
+            Registrar {
+                name: Some(name.into()),
+                abuse_email_address: abuse_email_address.map(String::from)
+            }
+        )
+    }
+
+   fn domain_object(
+        name: &str,
+        registration_date: Option<DateTime<Utc>>,
+    ) ->  Option<Domain> {
+        Some(
+            Domain {
+                category: DomainCategory::Other,
+                name: name.into(),
+                registration_date,
+                abuse_email_address: None
+            }
+        )
+    }
+
 }
 
 async fn lookup_from_rdap(bootstrap: &Bootstrap, data: &mut [EmailAddressData]) {
@@ -356,8 +390,14 @@ async fn lookup_from_rdap(bootstrap: &Bootstrap, data: &mut [EmailAddressData]) 
                         Domain {
                             category: DomainCategory::Other,
                             name: domain_part.into(),
-                            registrar: registrar_name,
                             registration_date,
+                            abuse_email_address: None,
+                        }
+                    );
+
+                    e_a_d.registrar = Some(
+                        Registrar {
+                            name: registrar_name,
                             abuse_email_address,
                         }
                     )
@@ -1208,22 +1248,5 @@ mod test_support {
         client.set_base_bootstrap_url("http://localhost:4545");
 
         client.fetch_bootstrap().await.unwrap()
-    }
-
-   pub  fn domain_object(
-        name: &str,
-        registrar: Option<&str>,
-        registration_date: Option<DateTime<Utc>>,
-        abuse_email_address: Option<&str>
-    ) ->  Option<Domain> {
-        Some(
-            Domain {
-                category: DomainCategory::Other,
-                name: name.into(),
-                registrar: registrar.map(String::from),
-                registration_date,
-                abuse_email_address: abuse_email_address.map(String::from)
-            }
-        )
     }
 }

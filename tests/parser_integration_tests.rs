@@ -47,7 +47,7 @@ Received-SPF: pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as 
 Authentication-Results: mx.google.com;\r
        spf=pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as permitted sender) smtp.mailfrom=info@xxx.fr\r
 Date: Tue, 6 Sep 2022 19:17:19 -0400\r
-From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@fake.net>\r
+From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@gmail.com>\r
 To: victim@gmail.com\r
 Message-ID: <Ctht0YgNZJDaAVPvcU36z2Iw9f7Bs7Jge.ecdasmtpin_added_missing@mx.google.com>\r
 Subject: We’re sorry that we didn’t touch base with you earlier. f309\r
@@ -67,8 +67,9 @@ fn json_output() -> String {
             "sender_addresses": {
                 "from": [
                     {
-                        "address": "PIBIeSRqUtiEw1NCg4@fake.net",
+                        "address": "PIBIeSRqUtiEw1NCg4@gmail.com",
                         "domain": null,
+                        "registrar": null,
                     }
                 ],
                 "reply_to": [],
@@ -76,6 +77,7 @@ fn json_output() -> String {
                     {
                         "address": "info@xxx.fr",
                         "domain": null,
+                        "registrar": null,
                     }
                 ]
             },

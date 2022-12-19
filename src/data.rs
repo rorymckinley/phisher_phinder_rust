@@ -33,7 +33,7 @@ pub struct SenderAddresses {
 
 impl SenderAddresses {
     pub fn to_email_address_data(address: String) -> EmailAddressData {
-        EmailAddressData {address, domain: None}
+        EmailAddressData {address, domain: None, registrar: None}
     }
 }
 
@@ -41,13 +41,46 @@ impl SenderAddresses {
 pub struct EmailAddressData {
     pub address: String,
     pub domain: Option<Domain>,
+    pub registrar: Option<Registrar>,
+}
+
+#[cfg(test)]
+mod to_email_address_data_tests {
+    use super::*;
+
+    #[test]
+    fn sets_domain_to_none_if_domain_not_open_email_provider() {
+        let address = "scammer@fake.zzz";
+        let expected = EmailAddressData {
+            address: address.into(),
+            domain: None,
+            registrar: None,
+        };
+
+        assert_eq!(expected, EmailAddressData::from_email_address(address))
+    }
+
+    // #[test]
+    // fn sets_domain_if_domain_open_email_provider() {
+    //     let address = "dirtyevilscammer@gmail.com";
+    //     let expected = EmailAddressData {
+    //         address: address.into(),
+    //         domain: Some(
+    //             Domain {
+    //             }
+    //         )
+    //     };
+    //
+    //     assert_eq!(expected, EmailAddressData::from_email_address(address))
+    // }
 }
 
 impl EmailAddressData {
     pub fn from_email_address(address: &str) -> Self {
         Self {
             address: address.into(),
-            domain: None
+            domain: None,
+            registrar: None,
         }
     }
 }
@@ -57,7 +90,6 @@ pub struct Domain {
     pub abuse_email_address: Option<String>,
     pub category: DomainCategory,
     pub name: String,
-    pub registrar: Option<String>,
     pub registration_date: Option<DateTime<Utc>>,
 }
 
@@ -71,4 +103,10 @@ impl fmt::Display for DomainCategory {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) ->fmt::Result {
         write!(f, "{:?}", self)
     }
+}
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+pub struct Registrar {
+    pub abuse_email_address: Option<String>,
+    pub name: Option<String>,
 }
