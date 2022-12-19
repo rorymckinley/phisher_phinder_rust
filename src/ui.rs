@@ -11,9 +11,9 @@ mod tests {
     #[test]
     fn test_display_sender_addresses_no_addresses() {
         let addresses = SenderAddresses {
-            from: None,
-            reply_to: None,
-            return_path: None,
+            from: vec![],
+            reply_to: vec![],
+            return_path: vec![],
         };
 
         assert_eq!(
@@ -35,9 +35,9 @@ mod tests {
     #[test]
     fn test_display_sender_addresses() {
         let addresses = SenderAddresses {
-            from: Some(convert_email_address("fr@test.com")),
-            reply_to: Some(convert_email_address("rt@test.com")),
-            return_path: Some(convert_email_address("rp@test.com"))
+            from: vec![convert_email_address("fr@test.com")],
+            reply_to: vec![convert_email_address("rt@test.com")],
+            return_path: vec![convert_email_address("rp@test.com")],
         };
 
         assert_eq!(
@@ -68,9 +68,9 @@ pub fn display_sender_addresses(sender_addresses: &SenderAddresses) -> AppResult
         Row::new(vec![Cell::new("Address Source"), Cell::new("Values")])
     );
 
-    row_with_optional_value(&mut table, "From", &sender_addresses.from);
-    row_with_optional_value(&mut table, "Reply-To", &sender_addresses.reply_to);
-    row_with_optional_value(&mut table, "Return-Path", &sender_addresses.return_path);
+    row_with_optional_value(&mut table, "From", sender_addresses.from.get(0));
+    row_with_optional_value(&mut table, "Reply-To", sender_addresses.reply_to.get(0));
+    row_with_optional_value(&mut table, "Return-Path", sender_addresses.return_path.get(0));
 
     table_to_string(&table)
 }
@@ -87,7 +87,7 @@ mod display_sender_addresses_extended_tests {
             parsed_mail: ParsedMail {
                 subject: Some("Send me money now! Please?".into()),
                 sender_addresses: SenderAddresses {
-                    from: Some(
+                    from: vec![
                         EmailAddressData {
                             address: "fr@test.xxx".into(),
                             domain: Some(
@@ -100,8 +100,8 @@ mod display_sender_addresses_extended_tests {
                                 }
                             )
                         }
-                    ),
-                    reply_to: Some(
+                    ],
+                    reply_to: vec![
                         EmailAddressData {
                             address: "rt@test.yyy".into(),
                             domain: Some(
@@ -114,8 +114,8 @@ mod display_sender_addresses_extended_tests {
                                 }
                             )
                         }
-                    ),
-                    return_path: Some(
+                    ],
+                    return_path: vec![
                         EmailAddressData {
                             address: "rp@test.zzz".into(),
                             domain: Some(
@@ -128,7 +128,7 @@ mod display_sender_addresses_extended_tests {
                                 }
                             )
                         }
-                    ),
+                    ],
                 }
             }
         };
@@ -155,7 +155,7 @@ mod display_sender_addresses_extended_tests {
             parsed_mail: ParsedMail {
                 subject: Some("Send me money now! Please?".into()),
                 sender_addresses: SenderAddresses {
-                    from: Some(
+                    from: vec![
                         EmailAddressData {
                             address: "fr@test.xxx".into(),
                             domain: Some(
@@ -168,14 +168,14 @@ mod display_sender_addresses_extended_tests {
                                 }
                             )
                         }
-                    ),
-                    reply_to: Some(
+                    ],
+                    reply_to: vec![
                         EmailAddressData {
                             address: "rt@test.yyy".into(),
                             domain: None
                         }
-                    ),
-                    return_path: Some(
+                    ],
+                    return_path: vec![
                         EmailAddressData {
                             address: "rp@test.zzz".into(),
                             domain: Some(
@@ -188,7 +188,7 @@ mod display_sender_addresses_extended_tests {
                                 }
                             )
                         }
-                    ),
+                    ],
                 }
             }
         };
@@ -230,9 +230,9 @@ pub fn display_sender_addresses_extended(data: &OutputData) -> AppResult<String>
 
     let addresses = &data.parsed_mail.sender_addresses;
 
-    row_with_optional_values(&mut table, "From", &addresses.from);
-    row_with_optional_values(&mut table, "Reply-To", &addresses.reply_to);
-    row_with_optional_values(&mut table, "Return-Path", &addresses.return_path);
+    row_with_optional_values(&mut table, "From", addresses.from.get(0));
+    row_with_optional_values(&mut table, "Reply-To", addresses.reply_to.get(0));
+    row_with_optional_values(&mut table, "Return-Path", addresses.return_path.get(0));
 
     table_to_string(&table)
 }
@@ -245,7 +245,7 @@ fn table_to_string(table: &Table) -> AppResult<String> {
     Ok(String::from_utf8(buffer)?)
 }
 
-fn row_with_optional_value(table: &mut Table, label: &str, value: &Option<EmailAddressData>) {
+fn row_with_optional_value(table: &mut Table, label: &str, value: Option<&EmailAddressData>) {
     let val = match value {
         Some(data) => &data.address,
         None => "N/A"
@@ -256,7 +256,7 @@ fn row_with_optional_value(table: &mut Table, label: &str, value: &Option<EmailA
     );
 }
 
-fn row_with_optional_values(table: &mut Table, label: &str, email_address_data: &Option<EmailAddressData>) {
+fn row_with_optional_values(table: &mut Table, label: &str, email_address_data: Option<&EmailAddressData>) {
     if let Some(EmailAddressData {address, domain: possible_domain}) = email_address_data {
         if let Some(
             Domain {name: _, category, registrar, registration_date, abuse_email_address}

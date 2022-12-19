@@ -55,18 +55,18 @@ fn json_input() -> String {
         "parsed_mail": {
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
             "sender_addresses": {
-                "from": {
+                "from": [{
                     "address": "PIBIeSRqUtiEw1NCg4@fake.net",
                     "domain": null
-                },
-                "reply_to": {
+                }],
+                "reply_to": [{
                     "address": "blah@possiblynotfake.com",
                     "domain": null
-                },
-                "return_path": {
+                }],
+                "return_path": [{
                     "address": "info@morethanlikelyfake.net",
                     "domain": null
-                }
+                }]
             }
         }
     }).to_string()
@@ -79,7 +79,7 @@ fn json_output() -> String {
         "parsed_mail": {
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
             "sender_addresses": {
-                "from": {
+                "from": [{
                     "address": "PIBIeSRqUtiEw1NCg4@fake.net",
                     "domain": {
                         "abuse_email_address": "abuse@regone.zzz",
@@ -88,8 +88,8 @@ fn json_output() -> String {
                         "registrar": "Reg One",
                         "registration_date": "2022-11-18T10:11:12Z",
                     },
-                },
-                "reply_to": {
+                }],
+                "reply_to": [{
                     "address": "blah@possiblynotfake.com",
                     "domain": {
                         "abuse_email_address": "abuse@regtwo.zzz",
@@ -98,8 +98,8 @@ fn json_output() -> String {
                         "registrar": "Reg Two",
                         "registration_date": "2022-11-18T10:11:13Z",
                     },
-                },
-                "return_path": {
+                }],
+                "return_path": [{
                     "address": "info@morethanlikelyfake.net",
                     "domain": {
                         "abuse_email_address": "abuse@regthree.zzz",
@@ -108,7 +108,7 @@ fn json_output() -> String {
                         "registrar": "Reg Three",
                         "registration_date": "2022-11-18T10:11:14Z",
                     },
-                }
+                }]
             },
         }
     }).to_string()
