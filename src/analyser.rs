@@ -6,8 +6,9 @@ pub struct Analyser<'a, T> {
 }
 
 #[cfg(test)]
-mod  sender_address_tests {
+mod sender_address_tests {
     use super::*;
+    use crate::data::{Domain, DomainCategory};
 
     #[test]
     fn test_sender_email_addresses() {
@@ -41,7 +42,18 @@ mod  sender_address_tests {
     }
 
     fn convert_email_addresses(address: &str) -> EmailAddressData {
-        SenderAddresses::to_email_address_data(address.into())
+        EmailAddressData {
+            address: address.into(),
+            domain: Some(
+                Domain {
+                    abuse_email_address: None,
+                    category: DomainCategory::Other,
+                    name: "test.com".into(),
+                    registration_date: None,
+                }
+            ),
+            registrar: None,
+        }
     }
 
     struct TestParsedMail {
