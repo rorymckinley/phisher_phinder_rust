@@ -57,15 +57,18 @@ fn json_input() -> String {
             "sender_addresses": {
                 "from": [{
                     "address": "PIBIeSRqUtiEw1NCg4@fake.net",
-                    "domain": null
+                    "domain": null,
+                    "registrar": null,
                 }],
                 "reply_to": [{
                     "address": "blah@possiblynotfake.com",
-                    "domain": null
+                    "domain": null,
+                    "registrar": null,
                 }],
                 "return_path": [{
                     "address": "info@morethanlikelyfake.net",
-                    "domain": null
+                    "domain": null,
+                    "registrar": null,
                 }]
             }
         }
@@ -82,31 +85,40 @@ fn json_output() -> String {
                 "from": [{
                     "address": "PIBIeSRqUtiEw1NCg4@fake.net",
                     "domain": {
-                        "abuse_email_address": "abuse@regone.zzz",
+                        "abuse_email_address": null,
                         "category": "other",
                         "name": "fake.net",
-                        "registrar": "Reg One",
                         "registration_date": "2022-11-18T10:11:12Z",
+                    },
+                    "registrar": {
+                        "abuse_email_address": "abuse@regone.zzz",
+                        "name": "Reg One",
                     },
                 }],
                 "reply_to": [{
                     "address": "blah@possiblynotfake.com",
                     "domain": {
-                        "abuse_email_address": "abuse@regtwo.zzz",
+                        "abuse_email_address": null,
                         "category": "other",
                         "name": "possiblynotfake.com",
-                        "registrar": "Reg Two",
                         "registration_date": "2022-11-18T10:11:13Z",
+                    },
+                    "registrar": {
+                        "abuse_email_address": "abuse@regtwo.zzz",
+                        "name": "Reg Two",
                     },
                 }],
                 "return_path": [{
                     "address": "info@morethanlikelyfake.net",
                     "domain": {
-                        "abuse_email_address": "abuse@regthree.zzz",
+                        "abuse_email_address": null,
                         "category": "other",
                         "name": "morethanlikelyfake.net",
-                        "registrar": "Reg Three",
                         "registration_date": "2022-11-18T10:11:14Z",
+                    },
+                    "registrar": {
+                        "name": "Reg Three",
+                        "abuse_email_address": "abuse@regthree.zzz",
                     },
                 }]
             },
