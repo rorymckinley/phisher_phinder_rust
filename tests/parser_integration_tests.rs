@@ -68,7 +68,12 @@ fn json_output() -> String {
                 "from": [
                     {
                         "address": "PIBIeSRqUtiEw1NCg4@gmail.com",
-                        "domain": null,
+                        "domain": {
+                            "abuse_email_address": null,
+                            "category": "open_email_provider",
+                            "name": "gmail.com",
+                            "registration_date": null,
+                        },
                         "registrar": null,
                     }
                 ],
@@ -76,7 +81,12 @@ fn json_output() -> String {
                 "return_path": [
                     {
                         "address": "info@xxx.fr",
-                        "domain": null,
+                        "domain": {
+                            "abuse_email_address": null,
+                            "category": "other",
+                            "name": "xxx.fr",
+                            "registration_date": null,
+                        },
                         "registrar": null,
                     }
                 ]

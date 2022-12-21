@@ -1,79 +1,7 @@
-use crate::data::SenderAddresses;
 use crate::data::{Domain, EmailAddressData, OutputData, Registrar};
 use crate::result::AppResult;
 
 use prettytable::{Cell, Row, Table};
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_display_sender_addresses_no_addresses() {
-        let addresses = SenderAddresses {
-            from: vec![],
-            reply_to: vec![],
-            return_path: vec![],
-        };
-
-        assert_eq!(
-            String::from("\
-            +----------------+--------+\n\
-            | Address Source | Values |\n\
-            +----------------+--------+\n\
-            | From           | N/A    |\n\
-            +----------------+--------+\n\
-            | Reply-To       | N/A    |\n\
-            +----------------+--------+\n\
-            | Return-Path    | N/A    |\n\
-            +----------------+--------+\n\
-            "),
-            display_sender_addresses(&addresses).unwrap()
-        );
-    }
-
-    #[test]
-    fn test_display_sender_addresses() {
-        let addresses = SenderAddresses {
-            from: vec![convert_email_address("fr@test.com")],
-            reply_to: vec![convert_email_address("rt@test.com")],
-            return_path: vec![convert_email_address("rp@test.com")],
-        };
-
-        assert_eq!(
-            String::from("\
-            +----------------+-------------+\n\
-            | Address Source | Values      |\n\
-            +----------------+-------------+\n\
-            | From           | fr@test.com |\n\
-            +----------------+-------------+\n\
-            | Reply-To       | rt@test.com |\n\
-            +----------------+-------------+\n\
-            | Return-Path    | rp@test.com |\n\
-            +----------------+-------------+\n\
-            "),
-            display_sender_addresses(&addresses).unwrap()
-        );
-    }
-
-    fn convert_email_address(address: &str) -> EmailAddressData {
-        SenderAddresses::to_email_address_data(address.into())
-    }
-}
-
-pub fn display_sender_addresses(sender_addresses: &SenderAddresses) -> AppResult<String> {
-    let mut table = Table::new();
-
-    table.add_row(
-        Row::new(vec![Cell::new("Address Source"), Cell::new("Values")])
-    );
-
-    row_with_optional_value(&mut table, "From", sender_addresses.from.get(0));
-    row_with_optional_value(&mut table, "Reply-To", sender_addresses.reply_to.get(0));
-    row_with_optional_value(&mut table, "Return-Path", sender_addresses.return_path.get(0));
-
-    table_to_string(&table)
-}
 
 #[cfg(test)]
 mod display_sender_addresses_extended_tests {
@@ -278,18 +206,9 @@ fn table_to_string(table: &Table) -> AppResult<String> {
     Ok(String::from_utf8(buffer)?)
 }
 
-fn row_with_optional_value(table: &mut Table, label: &str, value: Option<&EmailAddressData>) {
-    let val = match value {
-        Some(data) => &data.address,
-        None => "N/A"
-    };
-
-    table.add_row(
-        Row::new(vec![Cell::new(label), Cell::new(val)])
-    );
-}
-
-fn row_with_optional_values(table: &mut Table, label: &str, email_address_data: Option<&EmailAddressData>) {
+fn row_with_optional_values(
+    table: &mut Table, label: &str, email_address_data: Option<&EmailAddressData>
+) {
     if let Some(
         EmailAddressData {address, domain, registrar}
     ) = email_address_data {

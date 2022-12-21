@@ -57,17 +57,32 @@ fn json_input() -> String {
             "sender_addresses": {
                 "from": [{
                     "address": "PIBIeSRqUtiEw1NCg4@fake.net",
-                    "domain": null,
+                    "domain": {
+                        "abuse_email_address": null,
+                        "category": "other",
+                        "name": "fake.net",
+                        "registration_date": null,
+                    },
                     "registrar": null,
                 }],
                 "reply_to": [{
                     "address": "blah@possiblynotfake.com",
-                    "domain": null,
+                    "domain": {
+                        "abuse_email_address": null,
+                        "category": "other",
+                        "name": "possiblynotfake.com",
+                        "registration_date": null,
+                    },
                     "registrar": null,
                 }],
                 "return_path": [{
                     "address": "info@morethanlikelyfake.net",
-                    "domain": null,
+                    "domain": {
+                        "abuse_email_address": null,
+                        "category": "other",
+                        "name": "morethanlikelyfake.net",
+                        "registration_date": null,
+                    },
                     "registrar": null,
                 }]
             }

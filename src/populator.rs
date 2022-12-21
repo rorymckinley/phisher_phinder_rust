@@ -64,21 +64,21 @@ mod populate_tests {
                     from: vec![
                         EmailAddressData {
                             address: "someone@fake.net".into(),
-                            domain: None,
+                            domain: domain_object("fake.net", None),
                             registrar: None,
                         }
                     ],
                     reply_to: vec![
                         EmailAddressData {
                             address: "anyone@possiblynotfake.com".into(),
-                            domain: None,
+                            domain: domain_object("possiblynotfake.com", None),
                             registrar: None,
                         },
                     ],
                     return_path: vec![
                         EmailAddressData {
                             address: "everyone@morethanlikelyfake.net".into(),
-                            domain: None,
+                            domain: domain_object("morethanlikelyfake.net", None),
                             registrar: None,
                         },
                     ]
@@ -95,21 +95,21 @@ mod populate_tests {
                     from: vec![
                         EmailAddressData {
                             address: "someone@fake.bogus".into(),
-                            domain: None,
+                            domain: domain_object("fake.bogus", None),
                             registrar: None,
                         }
                     ],
                     reply_to: vec![
                         EmailAddressData {
                             address: "anyone@possiblynotfake.bogus".into(),
-                            domain: None,
+                            domain: domain_object("possiblynotfake.bogus", None),
                             registrar: None,
                         },
                     ],
                     return_path: vec![
                         EmailAddressData {
                             address: "everyone@morethanlikelyfake.bogus".into(),
-                            domain: None,
+                            domain: domain_object("morethanlikelyfake.bogus", None),
                             registrar: None,
                         },
                     ]
@@ -287,24 +287,66 @@ mod lookup_from_rdap_tests {
     }
 
     #[test]
-    fn does_not_lookup_with_existing_domain() {
+    fn does_not_lookup_if_no_domain() {
         clear_all_impostors();
         setup_bootstrap_server();
         setup_impostors();
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
-        let mut input = input_with_domain();
+        let mut input = input_without_domain();
 
         tokio_test::block_on(lookup_from_rdap(&bootstrap, &mut input));
 
-        assert_eq!(input_with_domain(), input);
+        assert_eq!(input_without_domain(), input);
     }
+
+    #[test]
+    fn does_not_lookup_if_registrar() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+        setup_impostors();
+        let bootstrap = tokio_test::block_on(get_bootstrap());
+
+        let mut input = input_with_registrar();
+
+        tokio_test::block_on(lookup_from_rdap(&bootstrap, &mut input));
+
+        assert_eq!(input_with_registrar(), input);
+    }
+
+    #[test]
+    fn does_not_lookup_if_domain_is_open_email_provider() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+        setup_impostors();
+        let bootstrap = tokio_test::block_on(get_bootstrap());
+
+        let mut input = input_open_email_provider();
+
+        tokio_test::block_on(lookup_from_rdap(&bootstrap, &mut input));
+
+        assert_eq!(input_open_email_provider(), input);
+    }
+
+    // #[test]
+    // fn does_not_lookup_with_existing_domain() {
+    //     clear_all_impostors();
+    //     setup_bootstrap_server();
+    //     setup_impostors();
+    //     let bootstrap = tokio_test::block_on(get_bootstrap());
+    //
+    //     let mut input = input_with_domain();
+    //
+    //     tokio_test::block_on(lookup_from_rdap(&bootstrap, &mut input));
+    //
+    //     assert_eq!(input_with_domain(), input);
+    // }
 
     fn input() -> Vec<EmailAddressData> {
         vec![
             EmailAddressData {
                 address: "someone@fake.net".into(),
-                domain: None,
+                domain: domain_object("fake.net", None, DomainCategory::Other),
                 registrar: None,
             }
         ]
@@ -314,21 +356,43 @@ mod lookup_from_rdap_tests {
         vec![
             EmailAddressData {
                 address: "someone@fake.unobtainium".into(),
-                domain: None,
+                domain: domain_object("fake.unobtainium", None, DomainCategory::Other),
                 registrar: None,
             }
         ]
     }
 
-    fn input_with_domain() -> Vec<EmailAddressData> {
+    fn input_without_domain() -> Vec<EmailAddressData> {
         vec![
             EmailAddressData {
                 address: "someone@fake.net".into(),
-                domain: domain_object(
-                    "fake.net",
-                    Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 59).unwrap()),
-                ),
+                domain: None,
                 registrar: registrar_object("Not Reg One", Some("abuse@notregone.zzz")),
+            }
+        ]
+    }
+
+    fn input_with_registrar() -> Vec<EmailAddressData> {
+        vec![
+            EmailAddressData {
+                address: "someone@fake.net".into(),
+                domain: domain_object("fake.net", None, DomainCategory::Other),
+                registrar: Some(
+                    Registrar {
+                        abuse_email_address: None,
+                        name: None,
+                    }
+                )
+            }
+        ]
+    }
+
+    fn input_open_email_provider() -> Vec<EmailAddressData> {
+        vec![
+            EmailAddressData {
+                address: "someone@fake.net".into(),
+                domain: domain_object("fake.net", None, DomainCategory::OpenEmailProvider),
+                registrar: None
             }
         ]
     }
@@ -340,6 +404,7 @@ mod lookup_from_rdap_tests {
                 domain: domain_object(
                     "fake.net",
                     Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
+                    DomainCategory::Other,
                 ),
                 registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
             }
@@ -358,49 +423,40 @@ mod lookup_from_rdap_tests {
    fn domain_object(
         name: &str,
         registration_date: Option<DateTime<Utc>>,
+        category: DomainCategory
     ) ->  Option<Domain> {
         Some(
             Domain {
-                category: DomainCategory::Other,
+                category,
                 name: name.into(),
                 registration_date,
                 abuse_email_address: None
             }
         )
     }
-
 }
 
 async fn lookup_from_rdap(bootstrap: &Bootstrap, data: &mut [EmailAddressData]) {
     let client = Client::new();
 
     if let Some(e_a_d) = data.get_mut(0) {
-        if e_a_d.domain.is_none() {
-            let parts = e_a_d.address.split('@').collect::<Vec<&str>>();
+        if let EmailAddressData {domain: Some(dom), registrar: None, ..} = e_a_d {
+            if let Domain {name, category: DomainCategory::Other, ..} = dom {
+                if let Some(servers) = bootstrap.dns.find(name) {
+                    if let Ok(response) = client.query_domain(&servers[0], name).await {
+                        let registrar_name = extract_registrar_name(&response.entities);
+                        let abuse_email_address = extract_abuse_email(&response.entities);
+                        let registration_date = extract_registration_date(&response.events);
 
-            let domain_part: &str = parts.last().unwrap();
+                        dom.registration_date = registration_date;
 
-            if let Some(servers) = bootstrap.dns.find(domain_part) {
-                if let Ok(response) = client.query_domain(&servers[0], domain_part).await {
-                    let registrar_name = extract_registrar_name(&response.entities);
-                    let abuse_email_address = extract_abuse_email(&response.entities);
-                    let registration_date = extract_registration_date(&response.events);
-
-                    e_a_d.domain = Some(
-                        Domain {
-                            category: DomainCategory::Other,
-                            name: domain_part.into(),
-                            registration_date,
-                            abuse_email_address: None,
-                        }
-                    );
-
-                    e_a_d.registrar = Some(
-                        Registrar {
-                            name: registrar_name,
-                            abuse_email_address,
-                        }
-                    )
+                        e_a_d.registrar = Some(
+                            Registrar {
+                                name: registrar_name,
+                                abuse_email_address,
+                            }
+                        )
+                    }
                 }
             }
         }

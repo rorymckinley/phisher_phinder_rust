@@ -45,41 +45,54 @@ pub struct EmailAddressData {
 }
 
 #[cfg(test)]
-mod to_email_address_data_tests {
+mod email_address_date_from_email_address {
     use super::*;
 
     #[test]
-    fn sets_domain_to_none_if_domain_not_open_email_provider() {
+    fn sets_domain_for_other_domain() {
         let address = "scammer@fake.zzz";
         let expected = EmailAddressData {
             address: address.into(),
-            domain: None,
+            domain: Some(
+                Domain {
+                    abuse_email_address: None,
+                    category: DomainCategory::Other,
+                    name: "fake.zzz".into(),
+                    registration_date: None,
+                }
+            ),
             registrar: None,
         };
 
         assert_eq!(expected, EmailAddressData::from_email_address(address))
     }
 
-    // #[test]
-    // fn sets_domain_if_domain_open_email_provider() {
-    //     let address = "dirtyevilscammer@gmail.com";
-    //     let expected = EmailAddressData {
-    //         address: address.into(),
-    //         domain: Some(
-    //             Domain {
-    //             }
-    //         )
-    //     };
-    //
-    //     assert_eq!(expected, EmailAddressData::from_email_address(address))
-    // }
+    #[test]
+    fn sets_domain_if_domain_open_email_provider() {
+        let address = "dirtyevilscammer@gmail.com";
+        let expected = EmailAddressData {
+            address: address.into(),
+            domain: Some(
+                Domain {
+                    abuse_email_address: None,
+                    category: DomainCategory::OpenEmailProvider,
+                    name: "gmail.com".into(),
+                    registration_date: None,
+                }
+            ),
+            registrar: None,
+        };
+
+        assert_eq!(expected, EmailAddressData::from_email_address(address))
+    }
 }
 
 impl EmailAddressData {
     pub fn from_email_address(address: &str) -> Self {
+
         Self {
             address: address.into(),
-            domain: None,
+            domain: Domain::from_email_address(address),
             registrar: None,
         }
     }
@@ -93,9 +106,75 @@ pub struct Domain {
     pub registration_date: Option<DateTime<Utc>>,
 }
 
+#[cfg(test)]
+mod domain_from_email_address_tests {
+    use super::*;
+
+    #[test]
+    fn other_domain() {
+        let expected = Domain {
+            abuse_email_address: None,
+            category: DomainCategory::Other,
+            name: "test.xxx".into(),
+            registration_date: None,
+        };
+
+        assert_eq!(Some(expected), Domain::from_email_address("foo@test.xxx"))
+    }
+
+    #[test]
+    fn email_provider_domain() {
+        let expected = Domain {
+            abuse_email_address: None,
+            category: DomainCategory::OpenEmailProvider,
+            name: "outlook.com".into(),
+            registration_date: None,
+        };
+
+        assert_eq!(Some(expected), Domain::from_email_address("foo@outlook.com"))
+    }
+
+    #[test]
+    fn address_cannot_be_parsed() {
+        assert_eq!(None, Domain::from_email_address("foo"))
+    }
+}
+
+impl Domain {
+    pub fn from_email_address(address: &str) -> Option<Self> {
+        if let Some((_local_part, domain)) = address.split_once('@') {
+            let open_email_providers = &[
+                "gmail.com",
+                "googlemail.com",
+                "outlook.com",
+                "yahoo.com",
+                "163.com"
+            ];
+
+            let category = if open_email_providers.contains(&domain) {
+                DomainCategory::OpenEmailProvider
+            } else {
+                DomainCategory::Other
+            };
+
+            Some(
+                Self {
+                    abuse_email_address: None,
+                    category,
+                    name: domain.into(),
+                    registration_date: None,
+                }
+            )
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum DomainCategory {
+    OpenEmailProvider,
     Other,
 }
 

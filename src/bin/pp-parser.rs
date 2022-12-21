@@ -22,12 +22,13 @@ fn main() {
     let parsed_mail = Message::parse(mail.as_bytes()).unwrap();
     let analyser = Analyser::new(&parsed_mail);
 
+    let output = OutputData::new(analyser.subject(), analyser.sender_email_addresses());
+
     if cli.human {
         println!("{}", parsed_mail.get_subject().unwrap());
         println!();
-        println!("{}", ui::display_sender_addresses(&analyser.sender_email_addresses()).unwrap())
+        println!("{}", ui::display_sender_addresses_extended(&output).unwrap())
     } else {
-        let output = OutputData::new(analyser.subject(), analyser.sender_email_addresses());
         print!("{}", serde_json::to_string(&output).unwrap());
     }
 }
