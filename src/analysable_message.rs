@@ -92,6 +92,33 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
     }
 
     #[test]
+    fn returns_multiple_reply_to_addresses() {
+        let input = "\
+Delivered-To: victim@gmail.com\r
+Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\r
+        Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\r
+Reply-To: scammer@evil.zzz;scammer@scam.zzz, scammer@dodgy.zzz;scammer@fraud.zzz\r
+Return-Path: <info@xxx.fr>\r
+From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@fake.net>\r
+To: victim@gmail.com\r
+Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
+<div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\r
+</div>\r
+        ";
+
+        let parsed_mail = Message::parse(input.as_bytes()).unwrap();
+
+        let expected = vec![
+            String::from("scammer@evil.zzz"),
+            String::from("scammer@scam.zzz"),
+            String::from("scammer@dodgy.zzz"),
+            String::from("scammer@fraud.zzz"),
+        ];
+
+        assert_eq!(expected, parsed_mail.reply_to())
+    }
+
+    #[test]
     fn returns_none_if_no_from() {
         let input = "\
 Delivered-To: victim@gmail.com\r
@@ -201,6 +228,19 @@ impl AnalysableMessage for Message<'_> {
                     vec![]
                 }
             },
+            HeaderValue::GroupList(groups) => {
+                groups
+                    .iter()
+                    .fold(vec![], |mut acc, mail_parser::Group {addresses, ..}| {
+                        addresses
+                            .iter()
+                            .for_each(|Addr {address, ..}| {
+                                acc.push(address.as_deref().unwrap().into())
+                            });
+
+                        acc
+                    })
+            }
             _ => {
                 vec![]
             }
