@@ -24,11 +24,11 @@ mod display_sender_addresses_extended_tests {
                 sender_addresses: SenderAddresses {
                     from: vec![
                         EmailAddressData {
-                            address: "fr@test.xxx".into(),
+                            address: "fr@test.www".into(),
                             domain: Some(
                                 Domain {
                                     category: DomainCategory::Other,
-                                    name: "test.xxx".into(),
+                                    name: "test.www".into(),
                                     registration_date: Some(datetime(2022, 12, 1, 2, 3, 4)),
                                     abuse_email_address: None,
                                 }
@@ -43,11 +43,11 @@ mod display_sender_addresses_extended_tests {
                     ],
                     reply_to: vec![
                         EmailAddressData {
-                            address: "rt@test.yyy".into(),
+                            address: "rt@test.xxx".into(),
                             domain: Some(
                                 Domain {
                                     category: DomainCategory::Other,
-                                    name: "test.yyy".into(),
+                                    name: "test.xxx".into(),
                                     registration_date: Some(datetime(2022, 12, 2, 3, 4, 5)),
                                     abuse_email_address: None,
                                 }
@@ -58,7 +58,24 @@ mod display_sender_addresses_extended_tests {
                                     name: Some("Reg Two".into()),
                                 }
                             ),
-                        }
+                        },
+                        EmailAddressData {
+                            address: "rt@test.yyy".into(),
+                            domain: Some(
+                                Domain {
+                                    category: DomainCategory::Other,
+                                    name: "test.yyy".into(),
+                                    registration_date: Some(datetime(2022, 12, 2, 3, 4, 6)),
+                                    abuse_email_address: None,
+                                }
+                            ),
+                            registrar: Some(
+                                Registrar {
+                                    abuse_email_address: Some("abuse@regthree.zzz".into()),
+                                    name: Some("Reg Three".into()),
+                                }
+                            ),
+                        },
                     ],
                     return_path: vec![
                         EmailAddressData {
@@ -67,14 +84,14 @@ mod display_sender_addresses_extended_tests {
                                 Domain {
                                     category: DomainCategory::Other,
                                     name: "test.zzz".into(),
-                                    registration_date: Some(datetime(2022, 12, 3, 4, 5, 6)),
+                                    registration_date: Some(datetime(2022, 12, 3, 4, 5, 7)),
                                     abuse_email_address: None,
                                 }
                             ),
                             registrar: Some(
                                 Registrar {
-                                    abuse_email_address: Some("abuse@regthree.zzz".into()),
-                                    name: Some("Reg Three".into()),
+                                    abuse_email_address: Some("abuse@regfour.zzz".into()),
+                                    name: Some("Reg Four".into()),
                                 }
                             ),
                         }
@@ -88,11 +105,13 @@ mod display_sender_addresses_extended_tests {
             +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
             | Address Source | Address     | Category | Registrar | Registration Date   | Abuse Email Address |\n\
             +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
-            | From           | fr@test.xxx | Other    | Reg One   | 2022-12-01 02:03:04 | abuse@regone.zzz    |\n\
+            | From           | fr@test.www | Other    | Reg One   | 2022-12-01 02:03:04 | abuse@regone.zzz    |\n\
             +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
-            | Reply-To       | rt@test.yyy | Other    | Reg Two   | 2022-12-02 03:04:05 | abuse@regtwo.zzz    |\n\
+            | Reply-To       | rt@test.xxx | Other    | Reg Two   | 2022-12-02 03:04:05 | abuse@regtwo.zzz    |\n\
             +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
-            | Return-Path    | rp@test.zzz | Other    | Reg Three | 2022-12-03 04:05:06 | abuse@regthree.zzz  |\n\
+            |                | rt@test.yyy | Other    | Reg Three | 2022-12-02 03:04:06 | abuse@regthree.zzz  |\n\
+            +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
+            | Return-Path    | rp@test.zzz | Other    | Reg Four  | 2022-12-03 04:05:07 | abuse@regfour.zzz   |\n\
             +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
             "),
             display_sender_addresses_extended(&data).unwrap()
@@ -191,9 +210,9 @@ pub fn display_sender_addresses_extended(data: &OutputData) -> AppResult<String>
 
     let addresses = &data.parsed_mail.sender_addresses;
 
-    row_with_optional_values(&mut table, "From", addresses.from.get(0));
-    row_with_optional_values(&mut table, "Reply-To", addresses.reply_to.get(0));
-    row_with_optional_values(&mut table, "Return-Path", addresses.return_path.get(0));
+    row_with_optional_values(&mut table, "From", &addresses.from);
+    row_with_optional_values(&mut table, "Reply-To", &addresses.reply_to);
+    row_with_optional_values(&mut table, "Return-Path", &addresses.return_path);
 
     table_to_string(&table)
 }
@@ -207,15 +226,22 @@ fn table_to_string(table: &Table) -> AppResult<String> {
 }
 
 fn row_with_optional_values(
-    table: &mut Table, label: &str, email_address_data: Option<&EmailAddressData>
+    table: &mut Table, label: &str, email_address_data: &[EmailAddressData]
 ) {
-    if let Some(
+    for (
+        pos,
         EmailAddressData {address, domain, registrar}
-    ) = email_address_data {
+    ) in email_address_data.iter().enumerate() {
+        let actual_label = if pos == 0 {
+            label
+        } else {
+            ""
+        };
+
         table.add_row(
             Row::new(
                 vec![
-                    Cell::new(label),
+                    Cell::new(actual_label),
                     Cell::new(address),
                     domain_category_cell(domain),
                     registrar_name_cell(registrar),
@@ -225,6 +251,26 @@ fn row_with_optional_values(
             )
         );
     }
+    // email_address_data
+    //     .iter()
+    //     .for_each(|| {
+    //         table.add_row(
+    //             Row::new(
+    //                 vec![
+    //                     Cell::new(label),
+    //                     Cell::new(address),
+    //                     domain_category_cell(domain),
+    //                     registrar_name_cell(registrar),
+    //                     registration_date_cell(domain),
+    //                     registrar_abuse_email_cell(registrar)
+    //                 ]
+    //             )
+    //         );
+    //     })
+    // if let Some(
+    //     EmailAddressData {address, domain, registrar}
+    // ) = email_address_data {
+    // }
 }
 
 #[cfg(test)]
