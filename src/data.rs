@@ -144,8 +144,10 @@ impl Domain {
     pub fn from_email_address(address: &str) -> Option<Self> {
         if let Some((_local_part, domain)) = address.split_once('@') {
             let open_email_providers = &[
+                "aol.com",
                 "gmail.com",
                 "googlemail.com",
+                "hotmail.com",
                 "outlook.com",
                 "yahoo.com",
                 "163.com"

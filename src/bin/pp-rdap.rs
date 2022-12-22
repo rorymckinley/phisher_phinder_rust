@@ -17,7 +17,7 @@ async fn main() {
         }
     }
 
-    let mut output: OutputData = serde_json::from_str(&raw_input).unwrap();
+    let input: OutputData = serde_json::from_str(&raw_input).unwrap();
 
     let mut client = Client::new();
 
@@ -27,7 +27,7 @@ async fn main() {
 
     let bootstrap = client.fetch_bootstrap().await.unwrap();
 
-    populate(&bootstrap, &mut output).await;
+    let output = populate(bootstrap, input).await;
 
     let cli = Cli::parse();
 

@@ -1,7 +1,8 @@
 use chrono::prelude::*;
-use crate:: data::{Domain, DomainCategory, EmailAddressData, OutputData, Registrar};
+use crate:: data::{Domain, DomainCategory, EmailAddressData, OutputData, ParsedMail, Registrar, SenderAddresses};
 use rdap_client::bootstrap::Bootstrap;
 use rdap_client::Client;
+use std::sync::Arc;
 
 #[cfg(test)]
 mod populate_tests {
@@ -16,44 +17,12 @@ mod populate_tests {
         setup_impostors();
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
-        let mut input = input_data();
+        let input = input_data();
+        let expected = output_data();
 
-        tokio_test::block_on(populate(&bootstrap, &mut input));
+        let actual = tokio_test::block_on(populate(bootstrap, input));
 
-        assert_eq!(
-            output_data(),
-            input
-        )
-    }
-
-    #[test]
-    fn output_object_with_no_servers_does_not_create_domain_instances() {
-        clear_all_impostors();
-        setup_bootstrap_server();
-        setup_impostors();
-
-        let bootstrap = tokio_test::block_on(get_bootstrap());
-
-        let mut input = input_data_no_servers();
-
-        tokio_test::block_on(populate(&bootstrap, &mut input));
-
-        assert_eq!(input_data_no_servers(), input);
-    }
-
-    #[test]
-    fn output_object_with_no_sender_address_data() {
-        clear_all_impostors();
-        setup_bootstrap_server();
-        setup_impostors();
-
-        let bootstrap = tokio_test::block_on(get_bootstrap());
-
-        let mut input = input_data_no_sender_addresses();
-
-        tokio_test::block_on(populate(&bootstrap, &mut input));
-
-        assert_eq!(input_data_no_sender_addresses(), input);
+        assert_eq!(expected, actual);
     }
 
     fn input_data() -> OutputData {
@@ -82,50 +51,6 @@ mod populate_tests {
                             registrar: None,
                         },
                     ]
-                }
-            }
-        }
-    }
-
-    fn input_data_no_servers() -> OutputData {
-        OutputData {
-            parsed_mail: ParsedMail {
-                subject: Some("Does not matter".into()),
-                sender_addresses: SenderAddresses {
-                    from: vec![
-                        EmailAddressData {
-                            address: "someone@fake.bogus".into(),
-                            domain: domain_object("fake.bogus", None),
-                            registrar: None,
-                        }
-                    ],
-                    reply_to: vec![
-                        EmailAddressData {
-                            address: "anyone@possiblynotfake.bogus".into(),
-                            domain: domain_object("possiblynotfake.bogus", None),
-                            registrar: None,
-                        },
-                    ],
-                    return_path: vec![
-                        EmailAddressData {
-                            address: "everyone@morethanlikelyfake.bogus".into(),
-                            domain: domain_object("morethanlikelyfake.bogus", None),
-                            registrar: None,
-                        },
-                    ]
-                }
-            }
-        }
-    }
-
-    fn input_data_no_sender_addresses() -> OutputData {
-        OutputData {
-            parsed_mail: ParsedMail {
-                subject: Some("Does not matter".into()),
-                sender_addresses: SenderAddresses {
-                    from: vec![],
-                    reply_to: vec![],
-                    return_path: vec![],
                 }
             }
         }
@@ -228,12 +153,26 @@ mod populate_tests {
     }
 }
 
-pub async fn populate(bootstrap: &Bootstrap, output_data: &mut OutputData) {
-    let update_from = lookup_from_rdap(bootstrap, &mut output_data.parsed_mail.sender_addresses.from);
-    let update_reply_to = lookup_from_rdap(bootstrap, &mut output_data.parsed_mail.sender_addresses.reply_to);
-    let update_return_path = lookup_from_rdap(bootstrap, &mut output_data.parsed_mail.sender_addresses.return_path);
+pub async fn populate(bootstrap: Bootstrap, data: OutputData) -> OutputData {
+    let b_strap = Arc::new(bootstrap);
+    let update_from = lookup_from_rdap(Arc::clone(&b_strap), data.parsed_mail.sender_addresses.from);
+    let update_reply_to = lookup_from_rdap(Arc::clone(&b_strap), data.parsed_mail.sender_addresses.reply_to);
+    let update_return_path = lookup_from_rdap(Arc::clone(&b_strap), data.parsed_mail.sender_addresses.return_path);
 
-    tokio::join!(update_from, update_reply_to, update_return_path);
+    let (from, reply_to, return_path) = tokio::join!(update_from, update_reply_to, update_return_path);
+
+    let sender_addresses = SenderAddresses {
+        from,
+        reply_to,
+        return_path,
+    };
+
+    OutputData {
+        parsed_mail: ParsedMail {
+            sender_addresses,
+            ..data.parsed_mail
+        },
+    }
 }
 
 #[cfg(test)]
@@ -250,97 +189,12 @@ mod lookup_from_rdap_tests {
         setup_impostors();
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
-        let mut input = input();
+        let input = input();
 
-        tokio_test::block_on(lookup_from_rdap(&bootstrap, &mut input));
+        let actual = tokio_test::block_on(lookup_from_rdap(Arc::new(bootstrap), input));
 
-        assert_eq!(populated_output(), input);
+        assert_eq!(populated_output(), actual);
     }
-
-    #[test]
-    fn does_not_populate_if_no_servers_available() {
-        clear_all_impostors();
-        setup_bootstrap_server();
-        setup_impostors();
-        let bootstrap = tokio_test::block_on(get_bootstrap());
-
-        let mut input = input_tld_sans_server();
-
-        tokio_test::block_on(lookup_from_rdap(&bootstrap, &mut input));
-
-        assert_eq!(input_tld_sans_server(), input);
-
-    }
-
-    #[test]
-    fn does_not_populate_if_server_returns_404() {
-        clear_all_impostors();
-        setup_bootstrap_server();
-        setup_404_impostor();
-        let bootstrap = tokio_test::block_on(get_bootstrap());
-
-        let mut data = input();
-
-        tokio_test::block_on(lookup_from_rdap(&bootstrap, &mut data));
-
-        assert_eq!(input(), data);
-    }
-
-    #[test]
-    fn does_not_lookup_if_no_domain() {
-        clear_all_impostors();
-        setup_bootstrap_server();
-        setup_impostors();
-        let bootstrap = tokio_test::block_on(get_bootstrap());
-
-        let mut input = input_without_domain();
-
-        tokio_test::block_on(lookup_from_rdap(&bootstrap, &mut input));
-
-        assert_eq!(input_without_domain(), input);
-    }
-
-    #[test]
-    fn does_not_lookup_if_registrar() {
-        clear_all_impostors();
-        setup_bootstrap_server();
-        setup_impostors();
-        let bootstrap = tokio_test::block_on(get_bootstrap());
-
-        let mut input = input_with_registrar();
-
-        tokio_test::block_on(lookup_from_rdap(&bootstrap, &mut input));
-
-        assert_eq!(input_with_registrar(), input);
-    }
-
-    #[test]
-    fn does_not_lookup_if_domain_is_open_email_provider() {
-        clear_all_impostors();
-        setup_bootstrap_server();
-        setup_impostors();
-        let bootstrap = tokio_test::block_on(get_bootstrap());
-
-        let mut input = input_open_email_provider();
-
-        tokio_test::block_on(lookup_from_rdap(&bootstrap, &mut input));
-
-        assert_eq!(input_open_email_provider(), input);
-    }
-
-    // #[test]
-    // fn does_not_lookup_with_existing_domain() {
-    //     clear_all_impostors();
-    //     setup_bootstrap_server();
-    //     setup_impostors();
-    //     let bootstrap = tokio_test::block_on(get_bootstrap());
-    //
-    //     let mut input = input_with_domain();
-    //
-    //     tokio_test::block_on(lookup_from_rdap(&bootstrap, &mut input));
-    //
-    //     assert_eq!(input_with_domain(), input);
-    // }
 
     fn input() -> Vec<EmailAddressData> {
         vec![
@@ -348,52 +202,12 @@ mod lookup_from_rdap_tests {
                 address: "someone@fake.net".into(),
                 domain: domain_object("fake.net", None, DomainCategory::Other),
                 registrar: None,
-            }
-        ]
-    }
-
-    fn input_tld_sans_server() -> Vec<EmailAddressData> {
-        vec![
+            },
             EmailAddressData {
-                address: "someone@fake.unobtainium".into(),
-                domain: domain_object("fake.unobtainium", None, DomainCategory::Other),
+                address: "anyone@possiblynotfake.com".into(),
+                domain: domain_object("possiblynotfake.com", None, DomainCategory::Other),
                 registrar: None,
-            }
-        ]
-    }
-
-    fn input_without_domain() -> Vec<EmailAddressData> {
-        vec![
-            EmailAddressData {
-                address: "someone@fake.net".into(),
-                domain: None,
-                registrar: registrar_object("Not Reg One", Some("abuse@notregone.zzz")),
-            }
-        ]
-    }
-
-    fn input_with_registrar() -> Vec<EmailAddressData> {
-        vec![
-            EmailAddressData {
-                address: "someone@fake.net".into(),
-                domain: domain_object("fake.net", None, DomainCategory::Other),
-                registrar: Some(
-                    Registrar {
-                        abuse_email_address: None,
-                        name: None,
-                    }
-                )
-            }
-        ]
-    }
-
-    fn input_open_email_provider() -> Vec<EmailAddressData> {
-        vec![
-            EmailAddressData {
-                address: "someone@fake.net".into(),
-                domain: domain_object("fake.net", None, DomainCategory::OpenEmailProvider),
-                registrar: None
-            }
+            },
         ]
     }
 
@@ -407,17 +221,17 @@ mod lookup_from_rdap_tests {
                     DomainCategory::Other,
                 ),
                 registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
-            }
+            },
+            EmailAddressData {
+                address: "anyone@possiblynotfake.com".into(),
+                domain: domain_object(
+                    "possiblynotfake.com",
+                    Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()),
+                    DomainCategory::Other,
+                ),
+                registrar: registrar_object("Reg Two", Some("abuse@regtwo.zzz")),
+            },
         ]
-    }
-
-    fn registrar_object(name: &str, abuse_email_address: Option<&str>) -> Option<Registrar> {
-        Some(
-            Registrar {
-                name: Some(name.into()),
-                abuse_email_address: abuse_email_address.map(String::from)
-            }
-        )
     }
 
    fn domain_object(
@@ -434,32 +248,260 @@ mod lookup_from_rdap_tests {
             }
         )
     }
+
+    fn registrar_object(name: &str, abuse_email_address: Option<&str>) -> Option<Registrar> {
+        Some(
+            Registrar {
+                name: Some(name.into()),
+                abuse_email_address: abuse_email_address.map(String::from)
+            }
+        )
+    }
 }
 
-async fn lookup_from_rdap(bootstrap: &Bootstrap, data: &mut [EmailAddressData]) {
+async fn lookup_from_rdap(
+    bootstrap: Arc<Bootstrap>, data: Vec<EmailAddressData>
+) -> Vec<EmailAddressData> {
+    use tokio::task::JoinSet;
+
+    let mut set: JoinSet<EmailAddressData> = JoinSet::new();
+
+    for e_a_d in data.into_iter() {
+        let b_strap = Arc::clone(&bootstrap);
+        set.spawn(async  move{
+            lookup_email_address(b_strap, e_a_d).await
+        });
+    }
+
+    let mut output = vec![];
+
+    while let Some(res) = set.join_next().await {
+        output.push(res.unwrap())
+    }
+
+    output
+}
+
+#[cfg(test)]
+mod lookup_email_address_tests {
+    use super::*;
+    use crate::mountebank::*;
+    use crate:: data::Registrar;
+    use test_support::*;
+
+    #[test]
+    fn updates_email_address_data_with_rdap_data() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+        setup_impostors();
+        let bootstrap = tokio_test::block_on(get_bootstrap());
+
+        let data = email_address_data();
+
+        let actual = tokio_test::block_on(lookup_email_address(Arc::new(bootstrap), data));
+
+        assert_eq!(updated_email_address_data(), actual);
+    }
+
+    #[test]
+    fn does_not_update_if_there_is_no_domain() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+        setup_impostors();
+        let bootstrap = tokio_test::block_on(get_bootstrap());
+
+        let data = email_address_data_without_domain();
+
+        let actual = tokio_test::block_on(lookup_email_address(Arc::new(bootstrap), data));
+
+        assert_eq!(email_address_data_without_domain(), actual);
+    }
+
+    #[test]
+    fn does_not_update_if_no_servers_available() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+        setup_impostors();
+        let bootstrap = tokio_test::block_on(get_bootstrap());
+
+        let data = email_address_data_without_rdap_servers();
+
+        let actual = tokio_test::block_on(lookup_email_address(Arc::new(bootstrap), data));
+
+        assert_eq!(email_address_data_without_rdap_servers(), actual);
+    }
+
+    #[test]
+    fn does_not_update_if_server_returns_404() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+        setup_404_impostor();
+        let bootstrap = tokio_test::block_on(get_bootstrap());
+
+        let data = email_address_data();
+
+        let actual = tokio_test::block_on(lookup_email_address(Arc::new(bootstrap), data));
+
+        assert_eq!(email_address_data(), actual);
+    }
+
+    #[test]
+    fn does_not_update_if_email_address_data_already_has_registrar() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+        setup_impostors();
+        let bootstrap = tokio_test::block_on(get_bootstrap());
+
+        let data = email_address_data_with_populated_registrar();
+
+        let actual = tokio_test::block_on(lookup_email_address(Arc::new(bootstrap), data));
+
+        assert_eq!(email_address_data_with_populated_registrar(), actual);
+    }
+
+    #[test]
+    fn does_not_update_if_email_address_domain_open_email_provider() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+        setup_impostors();
+        let bootstrap = tokio_test::block_on(get_bootstrap());
+
+        let data = email_address_data_with_open_email_provider();
+
+        let actual = tokio_test::block_on(lookup_email_address(Arc::new(bootstrap), data));
+
+        assert_eq!(email_address_data_with_open_email_provider(), actual);
+    }
+
+    pub fn setup_404_impostor() {
+        setup_dns_server(
+            vec![
+                DnsServerConfig::response_404("fake.net"),
+            ]
+        );
+    }
+
+    fn email_address_data() -> EmailAddressData {
+        EmailAddressData {
+            address: "someone@fake.net".into(),
+            domain: domain_object("fake.net", None, DomainCategory::Other),
+            registrar: None,
+        }
+    }
+
+    fn updated_email_address_data() -> EmailAddressData {
+        EmailAddressData {
+            address: "someone@fake.net".into(),
+            domain: domain_object(
+                "fake.net",
+                Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
+                DomainCategory::Other,
+            ),
+            registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
+        }
+    }
+
+    fn email_address_data_without_domain() -> EmailAddressData {
+        EmailAddressData {
+            address: "someone@fake.net".into(),
+            domain: None,
+            registrar: None,
+        }
+    }
+
+    fn email_address_data_without_rdap_servers() -> EmailAddressData {
+        EmailAddressData {
+            address: "someone@fake.unobtainium".into(),
+            domain: domain_object("fake.unobtainium", None, DomainCategory::Other),
+            registrar: None,
+        }
+    }
+
+    fn email_address_data_with_populated_registrar() -> EmailAddressData {
+        EmailAddressData {
+            address: "someone@fake.net".into(),
+            domain: domain_object("fake.net", None, DomainCategory::Other),
+            registrar: Some(
+                Registrar {
+                    abuse_email_address: None,
+                    name: None,
+                }
+            )
+        }
+    }
+
+    fn email_address_data_with_open_email_provider() -> EmailAddressData {
+            EmailAddressData {
+                address: "someone@fake.net".into(),
+                domain: domain_object("fake.net", None, DomainCategory::OpenEmailProvider),
+                registrar: None
+            }
+    }
+
+    fn domain_object(
+        name: &str,
+        registration_date: Option<DateTime<Utc>>,
+        category: DomainCategory
+    ) ->  Option<Domain> {
+        Some(
+            Domain {
+                category,
+                name: name.into(),
+                registration_date,
+                abuse_email_address: None
+            }
+        )
+    }
+
+    fn registrar_object(name: &str, abuse_email_address: Option<&str>) -> Option<Registrar> {
+        Some(
+            Registrar {
+                name: Some(name.into()),
+                abuse_email_address: abuse_email_address.map(String::from)
+            }
+        )
+    }
+}
+
+async fn lookup_email_address(
+    bootstrap: Arc<Bootstrap>, data: EmailAddressData
+) -> EmailAddressData {
+    if let EmailAddressData {
+        domain: Some(
+                    Domain {name, category: DomainCategory::Other, ..}
+                ),
+        registrar: None,
+        ..
+    } = &data {
+        if let Some(response) = get_rdap_data(bootstrap, name).await {
+            let registrar_name = extract_registrar_name(&response.entities);
+            let abuse_email_address = extract_abuse_email(&response.entities);
+            let registration_date = extract_registration_date(&response.events);
+
+            let domain = Domain { registration_date, ..data.domain.unwrap() };
+
+            let registrar = Registrar { name: registrar_name, abuse_email_address, };
+
+            EmailAddressData { domain: Some(domain), registrar: Some(registrar), ..data }
+        } else {
+            data
+        }
+    } else {
+        data
+    }
+}
+
+async fn get_rdap_data(bootstrap: Arc<Bootstrap>, domain_name: &str) -> Option<rdap_types::Domain> {
     let client = Client::new();
 
-    if let Some(e_a_d) = data.get_mut(0) {
-        if let EmailAddressData {domain: Some(dom), registrar: None, ..} = e_a_d {
-            if let Domain {name, category: DomainCategory::Other, ..} = dom {
-                if let Some(servers) = bootstrap.dns.find(name) {
-                    if let Ok(response) = client.query_domain(&servers[0], name).await {
-                        let registrar_name = extract_registrar_name(&response.entities);
-                        let abuse_email_address = extract_abuse_email(&response.entities);
-                        let registration_date = extract_registration_date(&response.events);
-
-                        dom.registration_date = registration_date;
-
-                        e_a_d.registrar = Some(
-                            Registrar {
-                                name: registrar_name,
-                                abuse_email_address,
-                            }
-                        )
-                    }
-                }
-            }
+    if let Some(servers) = bootstrap.dns.find(domain_name) {
+        if let Ok(response) = client.query_domain(&servers[0], domain_name).await {
+            Some(response)
+        } else {
+            None
         }
+    } else {
+        None
     }
 }
 
@@ -1286,14 +1328,6 @@ mod test_support {
                     "abuse@regthree.zzz",
                     Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap()
                 ),
-            ]
-        );
-    }
-
-    pub fn setup_404_impostor() {
-        setup_dns_server(
-            vec![
-                DnsServerConfig::response_404("fake.net"),
             ]
         );
     }
