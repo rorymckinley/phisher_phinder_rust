@@ -251,26 +251,6 @@ fn row_with_optional_values(
             )
         );
     }
-    // email_address_data
-    //     .iter()
-    //     .for_each(|| {
-    //         table.add_row(
-    //             Row::new(
-    //                 vec![
-    //                     Cell::new(label),
-    //                     Cell::new(address),
-    //                     domain_category_cell(domain),
-    //                     registrar_name_cell(registrar),
-    //                     registration_date_cell(domain),
-    //                     registrar_abuse_email_cell(registrar)
-    //                 ]
-    //             )
-    //         );
-    //     })
-    // if let Some(
-    //     EmailAddressData {address, domain, registrar}
-    // ) = email_address_data {
-    // }
 }
 
 #[cfg(test)]
