@@ -28,6 +28,7 @@ mod populate_tests {
     fn input_data() -> OutputData {
         OutputData {
             parsed_mail: ParsedMail {
+                links: vec![],
                 subject: Some("Does not matter".into()),
                 sender_addresses: SenderAddresses {
                     from: vec![
@@ -59,6 +60,7 @@ mod populate_tests {
     fn output_data() -> OutputData {
         OutputData {
             parsed_mail: ParsedMail {
+                links: vec![],
                 subject: Some("Does not matter".into()),
                 sender_addresses: SenderAddresses {
                     from: vec![

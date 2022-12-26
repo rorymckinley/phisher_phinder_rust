@@ -8,6 +8,7 @@ use phisher_phinder_rust::ui;
 
 use clap::Parser;
 
+
 fn main() {
     let cli = Cli::parse();
 
@@ -20,14 +21,20 @@ fn main() {
     }
 
     let parsed_mail = Message::parse(mail.as_bytes()).unwrap();
+
     let analyser = Analyser::new(&parsed_mail);
 
-    let output = OutputData::new(analyser.subject(), analyser.sender_email_addresses());
+    let output = OutputData::new(
+        analyser.subject(), analyser.sender_email_addresses(), analyser.links()
+    );
 
     if cli.human {
         println!("{}", parsed_mail.get_subject().unwrap());
         println!();
-        println!("{}", ui::display_sender_addresses_extended(&output).unwrap())
+        println!("{}", ui::display_sender_addresses_extended(&output).unwrap());
+        println!();
+        println!("{}", ui::display_links(&output).unwrap());
+        
     } else {
         print!("{}", serde_json::to_string(&output).unwrap());
     }

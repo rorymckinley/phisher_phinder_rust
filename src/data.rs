@@ -8,11 +8,16 @@ pub struct OutputData {
 }
 
 impl OutputData {
-    pub fn new(subject: Option<String>, sender_addresses: SenderAddresses) -> Self {
+    pub fn new(
+        subject: Option<String>,
+        sender_addresses: SenderAddresses,
+        links: Vec<Link>,
+    ) -> Self {
         Self {
             parsed_mail: ParsedMail {
+                links,
                 subject,
-                sender_addresses
+                sender_addresses,
             }
         }
     }
@@ -20,8 +25,14 @@ impl OutputData {
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct ParsedMail {
+    pub links: Vec<Link>,
     pub sender_addresses: SenderAddresses,
     pub subject: Option<String>,
+}
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+pub struct Link {
+    pub href: String
 }
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]

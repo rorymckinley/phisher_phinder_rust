@@ -13,6 +13,8 @@ fn test_display_human_parse_results() {
         .stdout(
             predicates::str::contains("info@xxx.fr").and(
                 predicates::str::contains("touch base")
+            ).and(
+                predicates::str::contains("https://foo.bar/baz")
             )
         );
 }
@@ -54,6 +56,7 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r
 MIME-Version: 1.0\r
 Content-Type: text/html\r\n\r
 <div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\r
+<a href=\"https://foo.bar/baz\">Click Me</a>
 </div>\r
 ".into()
 }
@@ -63,6 +66,11 @@ fn json_output() -> String {
 
     json!({
         "parsed_mail": {
+            "links": [
+                {
+                    "href": "https://foo.bar/baz",
+                }
+            ],
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
             "sender_addresses": {
                 "from": [

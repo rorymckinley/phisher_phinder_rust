@@ -1,5 +1,5 @@
 use crate::analysable_message::AnalysableMessage;
-use crate::data::{EmailAddressData, SenderAddresses};
+use crate::data::{Link, EmailAddressData, SenderAddresses};
 
 pub struct Analyser<'a, T> {
     parsed_mail: &'a T
@@ -12,7 +12,7 @@ mod sender_address_tests {
 
     #[test]
     fn test_sender_email_addresses() {
-        let parsed = parsed_mail();
+        let parsed = parsed_mail(vec![]);
         let analyser = Analyser::new(&parsed);
 
         let expected_result = SenderAddresses {
@@ -26,18 +26,87 @@ mod sender_address_tests {
 
     #[test]
     fn test_subject() {
-        let parsed = parsed_mail();
+        let parsed = parsed_mail(vec![]);
         let analyser = Analyser::new(&parsed);
 
         assert_eq!(String::from("My First Phishing Email"), analyser.subject().unwrap());
     }
 
-    fn parsed_mail() -> TestParsedMail {
+    #[test]
+    fn test_links() {
+        let parsed = parsed_mail(
+            vec![
+                "https://foo.biz",
+                "https://foo.baz",
+                "https://foo.bar",
+            ]
+        );
+        let analyser = Analyser::new(&parsed);
+
+        let expected_result = vec![
+            Link { href: "https://foo.bar".into() },
+            Link { href: "https://foo.baz".into() },
+            Link { href: "https://foo.biz".into() },
+        ];
+
+        assert_eq!(
+            expected_result, analyser.links()
+        )
+    }
+
+    #[test]
+    fn test_links_duplicates() {
+        let parsed = parsed_mail(
+            vec![
+                "https://foo.biz",
+                "https://foo.bar",
+                "https://foo.baz",
+                "https://foo.bar",
+            ]
+        );
+        let analyser = Analyser::new(&parsed);
+
+        let expected_result = vec![
+            Link { href: "https://foo.bar".into() },
+            Link { href: "https://foo.baz".into() },
+            Link { href: "https://foo.biz".into() },
+        ];
+
+        assert_eq!(
+            expected_result, analyser.links()
+        )
+    }
+
+    #[test]
+    fn test_links_empty_link() {
+        let parsed = parsed_mail(
+            vec![
+                "https://foo.biz",
+                "https://foo.bar",
+                "https://foo.baz",
+                "",
+            ]
+        );
+        let analyser = Analyser::new(&parsed);
+
+        let expected_result = vec![
+            Link { href: "https://foo.bar".into() },
+            Link { href: "https://foo.baz".into() },
+            Link { href: "https://foo.biz".into() },
+        ];
+
+        assert_eq!(
+            expected_result, analyser.links()
+        )
+    }
+
+    fn parsed_mail(links: Vec<&str>) -> TestParsedMail {
         TestParsedMail::new(
             "from@test.com".into(),
             "reply@test.com".into(),
             "return@test.com".into(),
             "My First Phishing Email".into(),
+            links
         )
     }
 
@@ -56,32 +125,39 @@ mod sender_address_tests {
         }
     }
 
-    struct TestParsedMail {
+    struct TestParsedMail<'a> {
         from: String,
         reply_to: String,
         return_path: String,
         subject: String,
+        links: Vec<&'a str>
     }
 
-    impl TestParsedMail {
+    impl<'a> TestParsedMail<'a> {
         fn new(
             from: String,
             reply_to: String,
             return_path: String,
             subject: String,
+            links: Vec<&'a str>,
         ) -> Self {
             Self {
                 from,
                 reply_to,
                 return_path,
-                subject
+                subject,
+                links
             }
         }
     }
 
-    impl AnalysableMessage for TestParsedMail {
+    impl<'a> AnalysableMessage for TestParsedMail<'a> {
         fn from(&self) -> Vec<String> {
             vec![self.from.clone()]
+        }
+
+        fn links(&self) -> Vec<String> {
+            self.links.clone().into_iter().map(String::from).collect()
         }
 
         fn reply_to(&self) -> Vec<String> {
@@ -113,6 +189,21 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
             reply_to: self.convert_addresses(self.parsed_mail.reply_to()),
             return_path: self.convert_addresses(self.parsed_mail.return_path())
         }
+    }
+
+    pub fn links(&self) -> Vec<Link> {
+        let mut links: Vec<Link> = self
+            .parsed_mail
+            .links()
+            .iter()
+            .filter(|link| !link.is_empty())
+            .map(|href| Link { href: href.into() })
+            .collect();
+
+        links.sort_by(|a,b| a.href.cmp(&b.href));
+        links.dedup();
+
+        links
     }
 
     fn convert_addresses(&self, addresses: Vec<String>) -> Vec<EmailAddressData> {
