@@ -1,6 +1,8 @@
 use mail_parser::{Addr, HeaderValue, Message};
+use scraper::{Html, Selector};
 
 pub trait AnalysableMessage {
+    fn links(&self) -> Vec<String>;
     fn from(&self) -> Vec<String>;
     fn reply_to(&self) -> Vec<String>;
     fn return_path(&self) -> Vec<String>;
@@ -197,6 +199,60 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
             parsed_mail.subject()
         );
     }
+
+    #[test]
+    fn returns_links_from_all_html_body_parts() {
+        let input = "\
+Delivered-To: victim@gmail.com\r
+Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\r
+        Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\r
+Return-Path: <info@xxx.fr>\r
+From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@fake.net>\r
+To: victim@gmail.com\r
+Content-Type: multipart/mixed; boundary=\"bnd_123\"\r
+Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
+\r
+--bnd_123
+Content-Type: text/plain; charset=\"utf-8\"\r
+\r
+<html>\r
+    <body>\r
+        <a href=\"https://foo.bogus\" class=\"bar\">Link 0</a>\r
+    </body>\r
+</html>\r
+\r
+--bnd_123\r
+Content-Type: text/html; charset=\"utf-8\"\r
+\r
+<html>\r
+    <body>\r
+        <a href=\"https://foo.bar\" class=\"bar\">Link 1</a>\r
+        <a href=\"https://foo.baz\" class=\"baz\">Link 2</a>\r
+    </body>\r
+</html>\r
+\r
+--bnd_123\r
+Content-Type: text/html; charset=\"utf-8\"\r
+\r
+<html>\r
+    <body>\r
+        <a href=\"https://foo.biz\" class=\"biz\">Link 3</a>\r
+    </body>\r
+</html>\r
+--bnd_123\r
+        ";
+
+        let parsed_mail = Message::parse(input.as_bytes()).unwrap();
+
+        assert_eq!(
+            vec![
+                String::from("https://foo.bar"),
+                String::from("https://foo.baz"),
+                String::from("https://foo.biz"),
+            ],
+            parsed_mail.links()
+        )
+    }
 }
 
 impl AnalysableMessage for Message<'_> {
@@ -261,5 +317,29 @@ impl AnalysableMessage for Message<'_> {
 
     fn subject(&self) -> Option<String> {
         self.get_subject().map(String::from)
+    }
+
+    fn links(&self) -> Vec<String> {
+        let collector: Vec<String> = vec![];
+        let selector = Selector::parse("a").unwrap();
+
+        self
+            .get_html_bodies()
+            .fold(collector, |mut memo, part| {
+                if let mail_parser::PartType::Html(body) = &part.body {
+
+                    let parsed_body = Html::parse_document(body);
+
+                    for element in parsed_body.select(&selector) {
+                        for (key, value) in element.value().attrs() {
+                            if key == "href" {
+                                memo.push(value.into());
+                            }
+                        }
+                    }
+                }
+
+                memo
+            })
     }
 }

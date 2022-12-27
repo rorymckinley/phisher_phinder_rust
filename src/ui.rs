@@ -1,4 +1,4 @@
-use crate::data::{Domain, EmailAddressData, OutputData, Registrar};
+use crate::data::{Domain, EmailAddressData, Link, OutputData, Registrar};
 use crate::result::AppResult;
 
 use prettytable::{Cell, Row, Table};
@@ -20,6 +20,7 @@ mod display_sender_addresses_extended_tests {
     fn displays_extended_data_for_sender_addresses() {
         let data = OutputData {
             parsed_mail: ParsedMail {
+                links: vec![],
                 subject: Some("Send me money now! Please?".into()),
                 sender_addresses: SenderAddresses {
                     from: vec![
@@ -122,6 +123,7 @@ mod display_sender_addresses_extended_tests {
     fn display_extended_data_no_domain_data() {
         let data = OutputData {
             parsed_mail: ParsedMail {
+                links: vec![],
                 subject: Some("Send me money now! Please?".into()),
                 sender_addresses: SenderAddresses {
                     from: vec![
@@ -210,9 +212,9 @@ pub fn display_sender_addresses_extended(data: &OutputData) -> AppResult<String>
 
     let addresses = &data.parsed_mail.sender_addresses;
 
-    row_with_optional_values(&mut table, "From", &addresses.from);
-    row_with_optional_values(&mut table, "Reply-To", &addresses.reply_to);
-    row_with_optional_values(&mut table, "Return-Path", &addresses.return_path);
+    sender_address_row(&mut table, "From", &addresses.from);
+    sender_address_row(&mut table, "Reply-To", &addresses.reply_to);
+    sender_address_row(&mut table, "Return-Path", &addresses.return_path);
 
     table_to_string(&table)
 }
@@ -225,7 +227,7 @@ fn table_to_string(table: &Table) -> AppResult<String> {
     Ok(String::from_utf8(buffer)?)
 }
 
-fn row_with_optional_values(
+fn sender_address_row(
     table: &mut Table, label: &str, email_address_data: &[EmailAddressData]
 ) {
     for (
@@ -251,6 +253,63 @@ fn row_with_optional_values(
             )
         );
     }
+}
+
+#[cfg(test)]
+mod display_links_tests {
+    use super::*;
+    use crate::data::{Link, ParsedMail, SenderAddresses};
+
+    #[test]
+    fn display_link_details() {
+        let data = OutputData {
+            parsed_mail: ParsedMail {
+                links: vec![
+                    {Link {href: "https://foo.bar".into()}},
+                    {Link {href: "https://foo.baz".into()}},
+                ],
+                subject: None,
+                sender_addresses: SenderAddresses {
+                    from: vec![],
+                    reply_to: vec![],
+                    return_path: vec![],
+                }
+            }
+        };
+
+        assert_eq!(
+            String::from("\
+            +-----------------+\n\
+            | Url             |\n\
+            +-----------------+\n\
+            | https://foo.bar |\n\
+            +-----------------+\n\
+            | https://foo.baz |\n\
+            +-----------------+\n\
+            "),
+            display_links(&data).unwrap()
+        )
+    }
+}
+
+pub fn display_links(data: &OutputData) -> AppResult<String> {
+    let mut table = Table::new();
+
+    table.add_row(
+        Row::new(vec![
+            Cell::new("Url"),
+        ])
+    );
+
+    for link in data.parsed_mail.links.iter() {
+        link_row(&mut table, link);
+    }
+
+    table_to_string(&table)
+}
+
+fn link_row(table: &mut Table, link: &Link) {
+    table.add_row(Row::new(vec![Cell::new(&link.href)]));
 }
 
 #[cfg(test)]

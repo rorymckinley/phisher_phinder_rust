@@ -53,6 +53,7 @@ fn json_input() -> String {
 
     json!({
         "parsed_mail": {
+            "links": [],
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
             "sender_addresses": {
                 "from": [{
@@ -95,6 +96,7 @@ fn json_output() -> String {
 
     json!({
         "parsed_mail": {
+            "links": [],
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
             "sender_addresses": {
                 "from": [{
