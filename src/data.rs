@@ -10,7 +10,7 @@ pub struct OutputData {
 impl OutputData {
     pub fn new(
         subject: Option<String>,
-        email_addresses: SenderAddresses,
+        email_addresses: EmailAddresses,
         links: Vec<Link>,
     ) -> Self {
         Self {
@@ -25,7 +25,7 @@ impl OutputData {
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct ParsedMail {
-    pub email_addresses: SenderAddresses,
+    pub email_addresses: EmailAddresses,
     pub links: Vec<Link>,
     pub subject: Option<String>,
 }
@@ -66,13 +66,14 @@ enum LinkCategory {
 }
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
-pub struct SenderAddresses {
+pub struct EmailAddresses {
     pub from: Vec<EmailAddressData>,
+    pub links: Vec<EmailAddressData>,
     pub reply_to: Vec<EmailAddressData>,
-    pub return_path: Vec<EmailAddressData>
+    pub return_path: Vec<EmailAddressData>,
 }
 
-impl SenderAddresses {
+impl EmailAddresses {
     pub fn to_email_address_data(address: String) -> EmailAddressData {
         EmailAddressData {address, domain: None, registrar: None}
     }

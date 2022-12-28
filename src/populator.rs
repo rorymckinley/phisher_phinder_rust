@@ -1,5 +1,13 @@
 use chrono::prelude::*;
-use crate:: data::{Domain, DomainCategory, EmailAddressData, OutputData, ParsedMail, Registrar, SenderAddresses};
+use crate:: data::{
+    Domain,
+    DomainCategory,
+    EmailAddressData,
+    OutputData,
+    ParsedMail,
+    Registrar,
+    EmailAddresses
+};
 use rdap_client::bootstrap::Bootstrap;
 use rdap_client::Client;
 use std::sync::Arc;
@@ -7,7 +15,7 @@ use std::sync::Arc;
 #[cfg(test)]
 mod populate_tests {
     use super::*;
-    use crate:: data::{Domain, EmailAddressData, ParsedMail, Registrar, SenderAddresses};
+    use crate:: data::{Domain, EmailAddressData, ParsedMail, Registrar, EmailAddresses};
     use crate::mountebank::*;
 
     #[test]
@@ -30,7 +38,7 @@ mod populate_tests {
             parsed_mail: ParsedMail {
                 links: vec![],
                 subject: Some("Does not matter".into()),
-                email_addresses: SenderAddresses {
+                email_addresses: EmailAddresses {
                     from: vec![
                         EmailAddressData {
                             address: "someone@fake.net".into(),
@@ -51,8 +59,9 @@ mod populate_tests {
                             domain: domain_object("morethanlikelyfake.net", None),
                             registrar: None,
                         },
-                    ]
-                }
+                    ],
+                    links: vec![],
+                },
             }
         }
     }
@@ -62,7 +71,7 @@ mod populate_tests {
             parsed_mail: ParsedMail {
                 links: vec![],
                 subject: Some("Does not matter".into()),
-                email_addresses: SenderAddresses {
+                email_addresses: EmailAddresses {
                     from: vec![
                         EmailAddressData {
                             address: "someone@fake.net".into(),
@@ -92,7 +101,8 @@ mod populate_tests {
                             ),
                             registrar: registrar_object("Reg Three", Some("abuse@regthree.zzz")),
                         },
-                    ]
+                    ],
+                    links: vec![]
                 }
             }
         }
@@ -163,10 +173,11 @@ pub async fn populate(bootstrap: Bootstrap, data: OutputData) -> OutputData {
 
     let (from, reply_to, return_path) = tokio::join!(update_from, update_reply_to, update_return_path);
 
-    let email_addresses = SenderAddresses {
+    let email_addresses = EmailAddresses {
         from,
         reply_to,
         return_path,
+        links: vec![],
     };
 
     OutputData {
@@ -195,7 +206,7 @@ mod lookup_from_rdap_tests {
 
         let actual = tokio_test::block_on(lookup_from_rdap(Arc::new(bootstrap), input));
 
-        assert_eq!(populated_output(), actual);
+        assert_eq!(sorted(populated_output()), sorted(actual));
     }
 
     fn input() -> Vec<EmailAddressData> {
@@ -236,7 +247,7 @@ mod lookup_from_rdap_tests {
         ]
     }
 
-   fn domain_object(
+    fn domain_object(
         name: &str,
         registration_date: Option<DateTime<Utc>>,
         category: DomainCategory
@@ -258,6 +269,12 @@ mod lookup_from_rdap_tests {
                 abuse_email_address: abuse_email_address.map(String::from)
             }
         )
+    }
+
+    fn sorted(mut addresses: Vec<EmailAddressData>) -> Vec<EmailAddressData> {
+        addresses.sort_by(|a,b| a.address.cmp(&b.address));
+
+        addresses
     }
 }
 
@@ -378,7 +395,7 @@ mod lookup_email_address_tests {
     pub fn setup_404_impostor() {
         setup_dns_server(
             vec![
-                DnsServerConfig::response_404("fake.net"),
+            DnsServerConfig::response_404("fake.net"),
             ]
         );
     }

@@ -12,7 +12,7 @@ mod display_sender_addresses_extended_tests {
         EmailAddressData,
         ParsedMail,
         Registrar,
-        SenderAddresses
+        EmailAddresses
     };
     use chrono::prelude::*;
 
@@ -22,7 +22,7 @@ mod display_sender_addresses_extended_tests {
             parsed_mail: ParsedMail {
                 links: vec![],
                 subject: Some("Send me money now! Please?".into()),
-                email_addresses: SenderAddresses {
+                email_addresses: EmailAddresses {
                     from: vec![
                         EmailAddressData {
                             address: "fr@test.www".into(),
@@ -97,6 +97,42 @@ mod display_sender_addresses_extended_tests {
                             ),
                         }
                     ],
+                    links: vec![
+                        EmailAddressData {
+                            address: "l1@test.aaa".into(),
+                            domain: Some(
+                                Domain {
+                                    category: DomainCategory::Other,
+                                    name: "test.aaa".into(),
+                                    registration_date: Some(datetime(2022, 12, 4, 5, 6, 8)),
+                                    abuse_email_address: None,
+                                }
+                            ),
+                            registrar: Some(
+                                Registrar {
+                                    abuse_email_address: Some("abuse@regfive.zzz".into()),
+                                    name: Some("Reg Five".into()),
+                                }
+                            ),
+                        },
+                        EmailAddressData {
+                            address: "l2@test.bbb".into(),
+                            domain: Some(
+                                Domain {
+                                    category: DomainCategory::Other,
+                                    name: "test.bbb".into(),
+                                    registration_date: Some(datetime(2022, 12, 4, 5, 6, 9)),
+                                    abuse_email_address: None,
+                                }
+                            ),
+                            registrar: Some(
+                                Registrar {
+                                    abuse_email_address: Some("abuse@regsix.zzz".into()),
+                                    name: Some("Reg Six".into()),
+                                }
+                            ),
+                        },
+                    ],
                 }
             }
         };
@@ -114,6 +150,10 @@ mod display_sender_addresses_extended_tests {
             +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
             | Return-Path    | rp@test.zzz | Other    | Reg Four  | 2022-12-03 04:05:07 | abuse@regfour.zzz   |\n\
             +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
+            | Links          | l1@test.aaa | Other    | Reg Five  | 2022-12-04 05:06:08 | abuse@regfive.zzz   |\n\
+            +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
+            |                | l2@test.bbb | Other    | Reg Six   | 2022-12-04 05:06:09 | abuse@regsix.zzz    |\n\
+            +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
             "),
             display_sender_addresses_extended(&data).unwrap()
         )
@@ -125,7 +165,7 @@ mod display_sender_addresses_extended_tests {
             parsed_mail: ParsedMail {
                 links: vec![],
                 subject: Some("Send me money now! Please?".into()),
-                email_addresses: SenderAddresses {
+                email_addresses: EmailAddresses {
                     from: vec![
                         EmailAddressData {
                             address: "fr@test.xxx".into(),
@@ -171,6 +211,7 @@ mod display_sender_addresses_extended_tests {
                             ),
                         }
                     ],
+                    links: vec![],
                 }
             }
         };
@@ -215,6 +256,7 @@ pub fn display_sender_addresses_extended(data: &OutputData) -> AppResult<String>
     sender_address_row(&mut table, "From", &addresses.from);
     sender_address_row(&mut table, "Reply-To", &addresses.reply_to);
     sender_address_row(&mut table, "Return-Path", &addresses.return_path);
+    sender_address_row(&mut table, "Links", &addresses.links);
 
     table_to_string(&table)
 }
@@ -258,7 +300,7 @@ fn sender_address_row(
 #[cfg(test)]
 mod display_links_tests {
     use super::*;
-    use crate::data::{Link, ParsedMail, SenderAddresses};
+    use crate::data::{Link, ParsedMail, EmailAddresses};
 
     #[test]
     fn display_link_details() {
@@ -269,10 +311,11 @@ mod display_links_tests {
                     Link::new("https://foo.baz"),
                 ],
                 subject: None,
-                email_addresses: SenderAddresses {
+                email_addresses: EmailAddresses {
                     from: vec![],
                     reply_to: vec![],
                     return_path: vec![],
+                    links: vec![],
                 }
             }
         };

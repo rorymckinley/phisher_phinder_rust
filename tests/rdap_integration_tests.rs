@@ -66,6 +66,7 @@ fn json_input() -> String {
                     },
                     "registrar": null,
                 }],
+                "links": [],
                 "reply_to": [{
                     "address": "blah@possiblynotfake.com",
                     "domain": {
@@ -110,6 +111,7 @@ fn json_output() -> String {
                         "name": "Reg One",
                     },
                 }],
+                "links": [],
                 "reply_to": [{
                     "address": "blah@possiblynotfake.com",
                     "domain": {

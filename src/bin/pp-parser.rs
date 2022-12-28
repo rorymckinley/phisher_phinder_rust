@@ -8,7 +8,6 @@ use phisher_phinder_rust::ui;
 
 use clap::Parser;
 
-
 fn main() {
     let cli = Cli::parse();
 
