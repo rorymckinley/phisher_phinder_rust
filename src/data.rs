@@ -30,9 +30,39 @@ pub struct ParsedMail {
     pub subject: Option<String>,
 }
 
+#[cfg(test)]
+mod link_tests {
+    use super::*;
+
+    #[test]
+    fn new_other_domain() {
+        let url = "https://foo.bar";
+
+        let expected = Link {
+            href: url.into(),
+            category: LinkCategory::Other,
+        };
+
+        assert_eq!(expected, Link::new(url))
+    }
+}
+
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct Link {
-    pub href: String
+    category: LinkCategory,
+    pub href: String,
+}
+
+impl Link {
+    pub fn new(href: &str) -> Self {
+        Self { href: href.into(), category: LinkCategory::Other }
+    }
+}
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum LinkCategory {
+    Other
 }
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]

@@ -68,6 +68,7 @@ fn json_output() -> String {
         "parsed_mail": {
             "links": [
                 {
+                    "category": "other",
                     "href": "https://foo.bar/baz",
                 }
             ],

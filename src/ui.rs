@@ -265,8 +265,8 @@ mod display_links_tests {
         let data = OutputData {
             parsed_mail: ParsedMail {
                 links: vec![
-                    {Link {href: "https://foo.bar".into()}},
-                    {Link {href: "https://foo.baz".into()}},
+                    Link::new("https://foo.bar"),
+                    Link::new("https://foo.baz"),
                 ],
                 subject: None,
                 sender_addresses: SenderAddresses {

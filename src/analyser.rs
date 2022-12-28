@@ -44,9 +44,9 @@ mod sender_address_tests {
         let analyser = Analyser::new(&parsed);
 
         let expected_result = vec![
-            Link { href: "https://foo.bar".into() },
-            Link { href: "https://foo.baz".into() },
-            Link { href: "https://foo.biz".into() },
+            Link::new("https://foo.bar"),
+            Link::new("https://foo.baz"),
+            Link::new("https://foo.biz"),
         ];
 
         assert_eq!(
@@ -67,9 +67,9 @@ mod sender_address_tests {
         let analyser = Analyser::new(&parsed);
 
         let expected_result = vec![
-            Link { href: "https://foo.bar".into() },
-            Link { href: "https://foo.baz".into() },
-            Link { href: "https://foo.biz".into() },
+            Link::new("https://foo.bar"),
+            Link::new("https://foo.baz"),
+            Link::new("https://foo.biz"),
         ];
 
         assert_eq!(
@@ -90,9 +90,9 @@ mod sender_address_tests {
         let analyser = Analyser::new(&parsed);
 
         let expected_result = vec![
-            Link { href: "https://foo.bar".into() },
-            Link { href: "https://foo.baz".into() },
-            Link { href: "https://foo.biz".into() },
+            Link::new("https://foo.bar"),
+            Link::new("https://foo.baz"),
+            Link::new("https://foo.biz"),
         ];
 
         assert_eq!(
@@ -197,7 +197,7 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
             .links()
             .iter()
             .filter(|link| !link.is_empty())
-            .map(|href| Link { href: href.into() })
+            .map(|href| Link::new(href))
             .collect();
 
         links.sort_by(|a,b| a.href.cmp(&b.href));
