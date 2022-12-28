@@ -66,14 +66,7 @@ fn json_output() -> String {
 
     json!({
         "parsed_mail": {
-            "links": [
-                {
-                    "category": "other",
-                    "href": "https://foo.bar/baz",
-                }
-            ],
-            "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
-            "sender_addresses": {
+            "email_addresses": {
                 "from": [
                     {
                         "address": "PIBIeSRqUtiEw1NCg4@gmail.com",
@@ -100,6 +93,13 @@ fn json_output() -> String {
                     }
                 ]
             },
+            "links": [
+                {
+                    "category": "other",
+                    "href": "https://foo.bar/baz",
+                }
+            ],
+            "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
         }
     }).to_string()
 }

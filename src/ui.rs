@@ -22,7 +22,7 @@ mod display_sender_addresses_extended_tests {
             parsed_mail: ParsedMail {
                 links: vec![],
                 subject: Some("Send me money now! Please?".into()),
-                sender_addresses: SenderAddresses {
+                email_addresses: SenderAddresses {
                     from: vec![
                         EmailAddressData {
                             address: "fr@test.www".into(),
@@ -125,7 +125,7 @@ mod display_sender_addresses_extended_tests {
             parsed_mail: ParsedMail {
                 links: vec![],
                 subject: Some("Send me money now! Please?".into()),
-                sender_addresses: SenderAddresses {
+                email_addresses: SenderAddresses {
                     from: vec![
                         EmailAddressData {
                             address: "fr@test.xxx".into(),
@@ -210,7 +210,7 @@ pub fn display_sender_addresses_extended(data: &OutputData) -> AppResult<String>
         ])
     );
 
-    let addresses = &data.parsed_mail.sender_addresses;
+    let addresses = &data.parsed_mail.email_addresses;
 
     sender_address_row(&mut table, "From", &addresses.from);
     sender_address_row(&mut table, "Reply-To", &addresses.reply_to);
@@ -269,7 +269,7 @@ mod display_links_tests {
                     Link::new("https://foo.baz"),
                 ],
                 subject: None,
-                sender_addresses: SenderAddresses {
+                email_addresses: SenderAddresses {
                     from: vec![],
                     reply_to: vec![],
                     return_path: vec![],

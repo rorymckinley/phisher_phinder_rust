@@ -30,7 +30,7 @@ mod populate_tests {
             parsed_mail: ParsedMail {
                 links: vec![],
                 subject: Some("Does not matter".into()),
-                sender_addresses: SenderAddresses {
+                email_addresses: SenderAddresses {
                     from: vec![
                         EmailAddressData {
                             address: "someone@fake.net".into(),
@@ -62,7 +62,7 @@ mod populate_tests {
             parsed_mail: ParsedMail {
                 links: vec![],
                 subject: Some("Does not matter".into()),
-                sender_addresses: SenderAddresses {
+                email_addresses: SenderAddresses {
                     from: vec![
                         EmailAddressData {
                             address: "someone@fake.net".into(),
@@ -157,13 +157,13 @@ mod populate_tests {
 
 pub async fn populate(bootstrap: Bootstrap, data: OutputData) -> OutputData {
     let b_strap = Arc::new(bootstrap);
-    let update_from = lookup_from_rdap(Arc::clone(&b_strap), data.parsed_mail.sender_addresses.from);
-    let update_reply_to = lookup_from_rdap(Arc::clone(&b_strap), data.parsed_mail.sender_addresses.reply_to);
-    let update_return_path = lookup_from_rdap(Arc::clone(&b_strap), data.parsed_mail.sender_addresses.return_path);
+    let update_from = lookup_from_rdap(Arc::clone(&b_strap), data.parsed_mail.email_addresses.from);
+    let update_reply_to = lookup_from_rdap(Arc::clone(&b_strap), data.parsed_mail.email_addresses.reply_to);
+    let update_return_path = lookup_from_rdap(Arc::clone(&b_strap), data.parsed_mail.email_addresses.return_path);
 
     let (from, reply_to, return_path) = tokio::join!(update_from, update_reply_to, update_return_path);
 
-    let sender_addresses = SenderAddresses {
+    let email_addresses = SenderAddresses {
         from,
         reply_to,
         return_path,
@@ -171,7 +171,7 @@ pub async fn populate(bootstrap: Bootstrap, data: OutputData) -> OutputData {
 
     OutputData {
         parsed_mail: ParsedMail {
-            sender_addresses,
+            email_addresses,
             ..data.parsed_mail
         },
     }
