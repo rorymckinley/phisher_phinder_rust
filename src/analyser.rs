@@ -1,5 +1,5 @@
 use crate::analysable_message::AnalysableMessage;
-use crate::data::{Link, EmailAddressData, EmailAddresses};
+use crate::data::{EmailAddressData, EmailAddresses, FulfillmentNode};
 use regex::Regex;
 
 pub struct Analyser<'a, T> {
@@ -122,7 +122,7 @@ mod sender_address_tests {
     }
 
     #[test]
-    fn test_links() {
+    fn test_fullfillment_nodes() {
         let parsed = parsed_mail(
             vec![
                 "https://foo.biz",
@@ -133,18 +133,18 @@ mod sender_address_tests {
         let analyser = Analyser::new(&parsed);
 
         let expected_result = vec![
-            Link::new("https://foo.bar"),
-            Link::new("https://foo.baz"),
-            Link::new("https://foo.biz"),
+            FulfillmentNode::new("https://foo.bar"),
+            FulfillmentNode::new("https://foo.baz"),
+            FulfillmentNode::new("https://foo.biz"),
         ];
 
         assert_eq!(
-            expected_result, analyser.links()
+            expected_result, analyser.fulfillment_nodes()
         )
     }
 
     #[test]
-    fn test_links_duplicates() {
+    fn test_fulfillment_nodes_duplicates() {
         let parsed = parsed_mail(
             vec![
                 "https://foo.biz",
@@ -156,18 +156,18 @@ mod sender_address_tests {
         let analyser = Analyser::new(&parsed);
 
         let expected_result = vec![
-            Link::new("https://foo.bar"),
-            Link::new("https://foo.baz"),
-            Link::new("https://foo.biz"),
+            FulfillmentNode::new("https://foo.bar"),
+            FulfillmentNode::new("https://foo.baz"),
+            FulfillmentNode::new("https://foo.biz"),
         ];
 
         assert_eq!(
-            expected_result, analyser.links()
+            expected_result, analyser.fulfillment_nodes()
         )
     }
 
     #[test]
-    fn test_links_empty_link() {
+    fn test_fulfillment_nodes_empty_link() {
         let parsed = parsed_mail(
             vec![
                 "https://foo.biz",
@@ -179,13 +179,13 @@ mod sender_address_tests {
         let analyser = Analyser::new(&parsed);
 
         let expected_result = vec![
-            Link::new("https://foo.bar"),
-            Link::new("https://foo.baz"),
-            Link::new("https://foo.biz"),
+            FulfillmentNode::new("https://foo.bar"),
+            FulfillmentNode::new("https://foo.baz"),
+            FulfillmentNode::new("https://foo.biz"),
         ];
 
         assert_eq!(
-            expected_result, analyser.links()
+            expected_result, analyser.fulfillment_nodes()
         )
     }
 
@@ -293,19 +293,19 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
         }
     }
 
-    pub fn links(&self) -> Vec<Link> {
-        let mut links: Vec<Link> = self
+    pub fn fulfillment_nodes(&self) -> Vec<FulfillmentNode> {
+        let mut nodes: Vec<FulfillmentNode> = self
             .parsed_mail
             .links()
             .iter()
             .filter(|link| !link.is_empty())
-            .map(|href| Link::new(href))
+            .map(|url| FulfillmentNode::new(url))
             .collect();
 
-        links.sort_by(|a,b| a.href.cmp(&b.href));
-        links.dedup();
+        nodes.sort_by(|a,b| a.visible_url().cmp(b.visible_url()));
+        nodes.dedup();
 
-        links
+        nodes
     }
 
     fn convert_addresses(&self, addresses: Vec<String>) -> Vec<EmailAddressData> {

@@ -1,6 +1,7 @@
 use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use url::Url;
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct OutputData {
@@ -11,13 +12,13 @@ impl OutputData {
     pub fn new(
         subject: Option<String>,
         email_addresses: EmailAddresses,
-        links: Vec<Link>,
+        fulfillment_nodes: Vec<FulfillmentNode>,
     ) -> Self {
         Self {
             parsed_mail: ParsedMail {
-                links,
-                subject,
                 email_addresses,
+                fulfillment_nodes,
+                subject,
             }
         }
     }
@@ -26,36 +27,98 @@ impl OutputData {
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct ParsedMail {
     pub email_addresses: EmailAddresses,
-    pub links: Vec<Link>,
+    pub fulfillment_nodes: Vec<FulfillmentNode>,
     pub subject: Option<String>,
 }
 
 #[cfg(test)]
-mod link_tests {
+mod fulfillment_node_tests {
     use super::*;
 
     #[test]
-    fn new_other_domain() {
+    fn new_test() {
         let url = "https://foo.bar";
 
-        let expected = Link {
-            href: url.into(),
-            category: LinkCategory::Other,
+        let expected = FulfillmentNode {
+            hidden: None,
+            visible: Node {
+                domain: Some(Domain {
+                    abuse_email_address: None,
+                    category: DomainCategory::Other,
+                    name: "foo.bar".into(),
+                    registration_date: None,
+                }),
+                registrar: None,
+                url: url.into(),
+            }
         };
 
-        assert_eq!(expected, Link::new(url))
+        assert_eq!(expected, FulfillmentNode::new(url));
+    }
+
+    #[test]
+    fn visible_url_test() {
+        let f_node = FulfillmentNode {
+            hidden: Some(Node::new("https://foo.bar")),
+            visible: Node::new("https://foo.baz")
+        };
+
+        assert_eq!("https://foo.baz", f_node.visible_url());
     }
 }
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
-pub struct Link {
-    category: LinkCategory,
-    pub href: String,
+pub struct FulfillmentNode {
+    hidden: Option<Node>,
+    visible: Node
 }
 
-impl Link {
-    pub fn new(href: &str) -> Self {
-        Self { href: href.into(), category: LinkCategory::Other }
+impl FulfillmentNode {
+    pub fn new(visible_url: &str) -> Self {
+        Self {
+            hidden: None,
+            visible: Node::new(visible_url),
+        }
+    }
+
+    pub fn visible_url(&self) -> &str {
+        &self.visible.url
+    }
+}
+
+#[cfg(test)]
+mod node_tests {
+    use super::*;
+
+    #[test]
+    fn test_new() {
+        let url = "https://foo.bar";
+
+        let expected = Node {
+            domain: Some(Domain {
+                abuse_email_address: None,
+                category: DomainCategory::Other,
+                name: "foo.bar".into(),
+                registration_date: None,
+            }),
+            registrar: None,
+            url: url.into(),
+        };
+
+        assert_eq!(expected, Node::new(url))
+    }
+}
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+pub struct Node {
+    pub domain: Option<Domain>,
+    pub registrar: Option<Registrar>,
+    pub url: String,
+}
+
+impl Node {
+    pub fn new(url: &str) -> Self {
+        Self { url: url.into(), domain: Domain::from_url(url), registrar: None }
     }
 }
 
@@ -182,6 +245,39 @@ mod domain_from_email_address_tests {
     }
 }
 
+#[cfg(test)]
+mod domain_from_url_tests {
+    use super::*;
+
+    #[test]
+    fn creates_domain_instance() {
+        let url = "https://foo.baz";
+
+        let expected = Domain {
+            abuse_email_address: None,
+            category: DomainCategory::Other,
+            name: "foo.baz".into(),
+            registration_date: None,
+        };
+
+        assert_eq!(Some(expected), Domain::from_url(url));
+    }
+
+    #[test]
+    fn retuns_none_if_domain_cannot_be_parsed() {
+        let url = "foo.baz";
+
+        assert_eq!(None, Domain::from_url(url));
+    }
+
+    #[test]
+    fn returns_none_if_no_host_name() {
+        let url = "unix:/run/foo.socket";
+
+        assert_eq!(None, Domain::from_url(url));
+    }
+}
+
 impl Domain {
     pub fn from_email_address(address: &str) -> Option<Self> {
         if let Some((_local_part, domain)) = address.split_once('@') {
@@ -209,6 +305,23 @@ impl Domain {
                     registration_date: None,
                 }
             )
+        } else {
+            None
+        }
+    }
+
+    pub fn from_url(url_str: &str) -> Option<Self> {
+        if let Ok(url) = Url::parse(url_str) {
+            url
+                .host_str()
+                .map(|name| {
+                Self {
+                    abuse_email_address: None,
+                    category: DomainCategory::Other,
+                    name: name.into(),
+                    registration_date: None,
+                }
+            })
         } else {
             None
         }

@@ -53,7 +53,7 @@ fn json_input() -> String {
 
     json!({
         "parsed_mail": {
-            "links": [],
+            "fulfillment_nodes": [],
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
             "email_addresses": {
                 "from": [{
@@ -139,7 +139,7 @@ fn json_output() -> String {
                     },
                 }]
             },
-            "links": [],
+            "fulfillment_nodes": [],
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
         }
     }).to_string()
