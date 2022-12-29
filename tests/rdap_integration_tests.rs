@@ -55,7 +55,7 @@ fn json_input() -> String {
         "parsed_mail": {
             "links": [],
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
-            "sender_addresses": {
+            "email_addresses": {
                 "from": [{
                     "address": "PIBIeSRqUtiEw1NCg4@fake.net",
                     "domain": {
@@ -66,6 +66,7 @@ fn json_input() -> String {
                     },
                     "registrar": null,
                 }],
+                "links": [],
                 "reply_to": [{
                     "address": "blah@possiblynotfake.com",
                     "domain": {
@@ -96,9 +97,7 @@ fn json_output() -> String {
 
     json!({
         "parsed_mail": {
-            "links": [],
-            "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
-            "sender_addresses": {
+            "email_addresses": {
                 "from": [{
                     "address": "PIBIeSRqUtiEw1NCg4@fake.net",
                     "domain": {
@@ -112,6 +111,7 @@ fn json_output() -> String {
                         "name": "Reg One",
                     },
                 }],
+                "links": [],
                 "reply_to": [{
                     "address": "blah@possiblynotfake.com",
                     "domain": {
@@ -139,6 +139,8 @@ fn json_output() -> String {
                     },
                 }]
             },
+            "links": [],
+            "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
         }
     }).to_string()
 }

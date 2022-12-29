@@ -10,14 +10,14 @@ pub struct OutputData {
 impl OutputData {
     pub fn new(
         subject: Option<String>,
-        sender_addresses: SenderAddresses,
+        email_addresses: EmailAddresses,
         links: Vec<Link>,
     ) -> Self {
         Self {
             parsed_mail: ParsedMail {
                 links,
                 subject,
-                sender_addresses,
+                email_addresses,
             }
         }
     }
@@ -25,24 +25,55 @@ impl OutputData {
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct ParsedMail {
+    pub email_addresses: EmailAddresses,
     pub links: Vec<Link>,
-    pub sender_addresses: SenderAddresses,
     pub subject: Option<String>,
+}
+
+#[cfg(test)]
+mod link_tests {
+    use super::*;
+
+    #[test]
+    fn new_other_domain() {
+        let url = "https://foo.bar";
+
+        let expected = Link {
+            href: url.into(),
+            category: LinkCategory::Other,
+        };
+
+        assert_eq!(expected, Link::new(url))
+    }
 }
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct Link {
-    pub href: String
+    category: LinkCategory,
+    pub href: String,
+}
+
+impl Link {
+    pub fn new(href: &str) -> Self {
+        Self { href: href.into(), category: LinkCategory::Other }
+    }
 }
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
-pub struct SenderAddresses {
-    pub from: Vec<EmailAddressData>,
-    pub reply_to: Vec<EmailAddressData>,
-    pub return_path: Vec<EmailAddressData>
+#[serde(rename_all = "snake_case")]
+enum LinkCategory {
+    Other
 }
 
-impl SenderAddresses {
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+pub struct EmailAddresses {
+    pub from: Vec<EmailAddressData>,
+    pub links: Vec<EmailAddressData>,
+    pub reply_to: Vec<EmailAddressData>,
+    pub return_path: Vec<EmailAddressData>,
+}
+
+impl EmailAddresses {
     pub fn to_email_address_data(address: String) -> EmailAddressData {
         EmailAddressData {address, domain: None, registrar: None}
     }

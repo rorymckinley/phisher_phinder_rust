@@ -66,13 +66,7 @@ fn json_output() -> String {
 
     json!({
         "parsed_mail": {
-            "links": [
-                {
-                    "href": "https://foo.bar/baz",
-                }
-            ],
-            "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
-            "sender_addresses": {
+            "email_addresses": {
                 "from": [
                     {
                         "address": "PIBIeSRqUtiEw1NCg4@gmail.com",
@@ -85,6 +79,7 @@ fn json_output() -> String {
                         "registrar": null,
                     }
                 ],
+                "links": [],
                 "reply_to": [],
                 "return_path": [
                     {
@@ -99,6 +94,13 @@ fn json_output() -> String {
                     }
                 ]
             },
+            "links": [
+                {
+                    "category": "other",
+                    "href": "https://foo.bar/baz",
+                }
+            ],
+            "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
         }
     }).to_string()
 }
@@ -149,7 +151,7 @@ fn json_output() -> String {
 // <div style="width:650px;margin:0 auto;font-family:verdana;font-size:16px">
 // <hr>
 // <p><h3>Settlement Payment Came In?</h3>
-// Due to your involvement in a class action or injury lawsuit,<br><br> a <b>settlement payment may have just came in</b> at the following webpage. <br><br> 
+// Due to your involvement in a class action or injury lawsuit,<br><br> a <b>settlement payment may have just came in</b> at the following webpage. <br><br>
 // <b>Go there now to accept what's reserved in your name. </b><br><br>
 // <u><a href="https://storage.googleapis.com/teampass/Ha231120/hrf2zsdf/newb2.html#2395706vW5715755DL628799111Ps1694Ry24Jlr150436OY"  style="text-decoration:none;">>> CHECK FOR POTENTIAL SETTLEMENT <<</a></u>
 //
