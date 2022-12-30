@@ -1,9 +1,7 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
 
-mod mountebank;
-
-use mountebank::{
+use phisher_phinder_rust::mountebank::{
     clear_all_impostors,
     setup_bootstrap_server,
     setup_dns_server,
@@ -153,21 +151,24 @@ fn setup_mountebank() {
         vec![
             DnsServerConfig {
                 domain_name: "fake.net",
-                registrar: "Reg One",
-                abuse_email: "abuse@regone.zzz",
-                registration_date: Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
+                registrar: Some("Reg One"),
+                abuse_email: Some("abuse@regone.zzz"),
+                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
+                response_code: 200,
             },
             DnsServerConfig {
                 domain_name: "possiblynotfake.com",
-                registrar: "Reg Two",
-                abuse_email: "abuse@regtwo.zzz",
-                registration_date: Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()
+                registrar: Some("Reg Two"),
+                abuse_email: Some("abuse@regtwo.zzz"),
+                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()),
+                response_code: 200,
             },
             DnsServerConfig {
                 domain_name: "morethanlikelyfake.net",
-                registrar: "Reg Three",
-                abuse_email: "abuse@regthree.zzz",
-                registration_date: Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap()
+                registrar: Some("Reg Three"),
+                abuse_email: Some("abuse@regthree.zzz"),
+                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap()),
+                response_code: 200,
             },
         ]
     );
