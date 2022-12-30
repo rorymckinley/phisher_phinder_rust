@@ -94,10 +94,19 @@ fn json_output() -> String {
                     }
                 ]
             },
-            "links": [
+            "fulfillment_nodes": [
                 {
-                    "category": "other",
-                    "href": "https://foo.bar/baz",
+                    "visible": {
+                        "domain": {
+                            "abuse_email_address": null,
+                            "category": "other",
+                            "name": "foo.bar",
+                            "registration_date": null,
+                        },
+                        "registrar": null,
+                        "url": "https://foo.bar/baz",
+                    },
+                    "hidden": null,
                 }
             ],
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",

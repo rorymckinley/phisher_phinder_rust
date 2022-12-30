@@ -24,7 +24,7 @@ fn main() {
     let analyser = Analyser::new(&parsed_mail);
 
     let output = OutputData::new(
-        analyser.subject(), analyser.sender_email_addresses(), analyser.links()
+        analyser.subject(), analyser.sender_email_addresses(), analyser.fulfillment_nodes()
     );
 
     if cli.human {
@@ -32,7 +32,7 @@ fn main() {
         println!();
         println!("{}", ui::display_sender_addresses_extended(&output).unwrap());
         println!();
-        println!("{}", ui::display_links(&output).unwrap());
+        println!("{}", ui::display_fulfillment_nodes(&output).unwrap());
         
     } else {
         print!("{}", serde_json::to_string(&output).unwrap());

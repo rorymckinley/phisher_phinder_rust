@@ -1,4 +1,4 @@
-use crate::data::{Domain, EmailAddressData, Link, OutputData, Registrar};
+use crate::data::{Domain, EmailAddressData, FulfillmentNode, OutputData, Registrar};
 use crate::result::AppResult;
 
 use prettytable::{Cell, Row, Table};
@@ -20,7 +20,7 @@ mod display_sender_addresses_extended_tests {
     fn displays_extended_data_for_sender_addresses() {
         let data = OutputData {
             parsed_mail: ParsedMail {
-                links: vec![],
+                fulfillment_nodes: vec![],
                 subject: Some("Send me money now! Please?".into()),
                 email_addresses: EmailAddresses {
                     from: vec![
@@ -163,7 +163,7 @@ mod display_sender_addresses_extended_tests {
     fn display_extended_data_no_domain_data() {
         let data = OutputData {
             parsed_mail: ParsedMail {
-                links: vec![],
+                fulfillment_nodes: vec![],
                 subject: Some("Send me money now! Please?".into()),
                 email_addresses: EmailAddresses {
                     from: vec![
@@ -300,15 +300,15 @@ fn sender_address_row(
 #[cfg(test)]
 mod display_links_tests {
     use super::*;
-    use crate::data::{Link, ParsedMail, EmailAddresses};
+    use crate::data::{FulfillmentNode, ParsedMail, EmailAddresses};
 
     #[test]
     fn display_link_details() {
         let data = OutputData {
             parsed_mail: ParsedMail {
-                links: vec![
-                    Link::new("https://foo.bar"),
-                    Link::new("https://foo.baz"),
+                fulfillment_nodes: vec![
+                    FulfillmentNode::new("https://foo.bar"),
+                    FulfillmentNode::new("https://foo.baz"),
                 ],
                 subject: None,
                 email_addresses: EmailAddresses {
@@ -323,36 +323,36 @@ mod display_links_tests {
         assert_eq!(
             String::from("\
             +-----------------+\n\
-            | Url             |\n\
+            | Visible Url     |\n\
             +-----------------+\n\
             | https://foo.bar |\n\
             +-----------------+\n\
             | https://foo.baz |\n\
             +-----------------+\n\
             "),
-            display_links(&data).unwrap()
+            display_fulfillment_nodes(&data).unwrap()
         )
     }
 }
 
-pub fn display_links(data: &OutputData) -> AppResult<String> {
+pub fn display_fulfillment_nodes(data: &OutputData) -> AppResult<String> {
     let mut table = Table::new();
 
     table.add_row(
         Row::new(vec![
-            Cell::new("Url"),
+            Cell::new("Visible Url"),
         ])
     );
 
-    for link in data.parsed_mail.links.iter() {
-        link_row(&mut table, link);
+    for node in data.parsed_mail.fulfillment_nodes.iter() {
+        fulfillment_node_row(&mut table, node);
     }
 
     table_to_string(&table)
 }
 
-fn link_row(table: &mut Table, link: &Link) {
-    table.add_row(Row::new(vec![Cell::new(&link.href)]));
+fn fulfillment_node_row(table: &mut Table, node: &FulfillmentNode) {
+    table.add_row(Row::new(vec![Cell::new(node.visible_url())]));
 }
 
 #[cfg(test)]
