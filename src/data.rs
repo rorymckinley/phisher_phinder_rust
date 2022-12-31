@@ -65,12 +65,37 @@ mod fulfillment_node_tests {
 
         assert_eq!("https://foo.baz", f_node.visible_url());
     }
+
+    #[test]
+    fn hidden_url_with_hidden_domain_test() {
+        let mut f_node = FulfillmentNode::new("https://foo.bar");
+        f_node.set_hidden("https://redirect.bar");
+
+        assert_eq!(Some(String::from("https://redirect.bar")), f_node.hidden_url());
+    }
+
+    #[test]
+    fn hidden_url_with_no_hidden_domain_test() {
+        let f_node = FulfillmentNode::new("https://foo.bar");
+
+        assert_eq!(None, f_node.hidden_url());
+    }
+
+    #[test]
+    fn set_hidden_test() {
+        let mut f_node = FulfillmentNode::new("https://foo.baz");
+
+        f_node.set_hidden("https://foo.bar");
+
+        assert_eq!(Node::new("https://foo.baz"), f_node.visible);
+        assert_eq!(Some(Node::new("https://foo.bar")), f_node.hidden);
+    }
 }
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct FulfillmentNode {
-    hidden: Option<Node>,
-    visible: Node
+    pub hidden: Option<Node>,
+    pub visible: Node
 }
 
 impl FulfillmentNode {
@@ -81,8 +106,17 @@ impl FulfillmentNode {
         }
     }
 
+    // TODO Return string rather to align with .hidden_url()?
     pub fn visible_url(&self) -> &str {
         &self.visible.url
+    }
+
+    pub fn hidden_url(&self) -> Option<String> {
+        self.hidden.as_ref().map(|node| node.url.clone())
+    }
+
+    pub fn set_hidden(&mut self, url: &str) {
+        self.hidden = Some(Node::new(url));
     }
 }
 

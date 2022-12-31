@@ -1,6 +1,7 @@
 use chrono::prelude::*;
 use reqwest::blocking::Client;
 use serde_json::json;
+use std::collections::HashMap;
 
 pub fn setup_bootstrap_server() {
     use reqwest::header::{HeaderMap, CONTENT_TYPE};
@@ -77,6 +78,29 @@ impl<'a> DnsServerConfig<'a> {
     }
 }
 
+pub fn setup_head_impostor(port: u16, redirect: bool, location: Option<&str>) {
+    let headers = location.map(|loc_str| {
+        HashMap::from([
+            (String::from("Location"), String::from(loc_str))
+        ])
+    });
+    let response_code = if redirect {
+        301
+    } else {
+        200
+    };
+
+    let stub_data = Mountebank {
+        port,
+        protocol: "http".into(),
+        stubs: vec![
+            create_stub("/", None, response_code, headers)
+        ]
+    };
+
+    upload_stub(stub_data);
+}
+
 fn upload_stub(stub: Mountebank) {
     use reqwest::header::{HeaderMap, CONTENT_TYPE};
 
@@ -120,7 +144,8 @@ fn create_dns_bootstrap_stub() -> MountebankStub {
     create_stub(
         "/dns.json",
        Some(body.to_string()),
-       200
+       200,
+       None
     )
 }
 
@@ -155,7 +180,8 @@ fn create_asn_bootstrap_stub() -> MountebankStub {
     create_stub(
         "/asn.json",
         Some(body.to_string()),
-        200
+        200,
+        None
     )
 
 }
@@ -191,7 +217,8 @@ fn create_ip_v4_bootstrap_stub() -> MountebankStub {
     create_stub(
         "/ipv4.json",
         Some(body.to_string()),
-        200
+        200,
+        None
     )
 }
 
@@ -231,7 +258,8 @@ fn create_ip_v6_bootstrap_stub() -> MountebankStub {
     create_stub(
         "/ipv6.json",
         Some(body.to_string()),
-        200
+        200,
+        None
     )
 }
 
@@ -269,7 +297,8 @@ fn create_object_tags_bootstrap_stub() -> MountebankStub {
     create_stub(
         "/object-tags.json",
         Some(body.to_string()),
-        200
+        200,
+        None
     )
 }
 
@@ -286,14 +315,20 @@ fn create_dns_service_stub(config: &DnsServerConfig) -> MountebankStub {
         None
     };
 
-    create_stub(&format!("/domain/{}", config.domain_name), body, config.response_code)
+    create_stub(&format!("/domain/{}", config.domain_name), body, config.response_code, None)
 }
 
 fn create_stub(
     path: &str,
     wrapped_body: Option<String>,
     status_code: u16,
+    optional_headers: Option<HashMap<String, String>>,
 ) -> MountebankStub {
+    let headers = optional_headers.unwrap_or_else(|| {
+        HashMap::from([
+            (String::from("Content-Type"), String::from("application/json"))
+        ])
+    });
     MountebankStub {
         predicates: vec![
             MountebankPredicate {
@@ -305,7 +340,7 @@ fn create_stub(
                 is: Some(
                     MountebankIs {
                         status_code,
-                        headers: MountebankHeaders { content_type: "application/json".into() },
+                        headers,
                         body: wrapped_body
                     }
                 )
@@ -356,7 +391,7 @@ struct MountebankEquals {
 struct MountebankIs {
     #[serde(rename = "statusCode")]
     status_code: u16,
-    headers: MountebankHeaders,
+    headers: HashMap<String, String>,
     body: Option<String>
 }
 
