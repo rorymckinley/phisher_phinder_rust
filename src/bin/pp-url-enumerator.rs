@@ -1,3 +1,5 @@
+use clap::Parser;
+use phisher_phinder_rust::cli::Cli;
 use phisher_phinder_rust::data::OutputData;
 use phisher_phinder_rust::enumerator::enumerate;
 use phisher_phinder_rust::ui;
@@ -17,5 +19,11 @@ async fn main() {
 
     let output = enumerate(input).await;
 
-    println!("{}", ui::display_fulfillment_nodes(&output).unwrap());
+    let cli = Cli::parse();
+
+    if cli.human {
+        println!("{}", ui::display_fulfillment_nodes(&output).unwrap());
+    } else {
+        print!("{}", serde_json::to_string(&output).unwrap());
+    }
 }
