@@ -298,18 +298,21 @@ fn sender_address_row(
 }
 
 #[cfg(test)]
-mod display_links_tests {
+mod display_fulfillment_nodes_tests {
     use super::*;
     use crate::data::{FulfillmentNode, ParsedMail, EmailAddresses};
 
     #[test]
-    fn display_link_details() {
+    fn display_fulfillment_nodes_details() {
+        let mut node_bar = FulfillmentNode::new("https://foo.bar");
+        node_bar.set_hidden("https://redirect.bar");
+        let mut node_baz = FulfillmentNode::new("https://foo.baz");
+        node_baz.set_hidden("https://redirect.baz");
+        let node_biz = FulfillmentNode::new("https://foo.biz");
+
         let data = OutputData {
             parsed_mail: ParsedMail {
-                fulfillment_nodes: vec![
-                    FulfillmentNode::new("https://foo.bar"),
-                    FulfillmentNode::new("https://foo.baz"),
-                ],
+                fulfillment_nodes: vec![node_bar, node_baz, node_biz],
                 subject: None,
                 email_addresses: EmailAddresses {
                     from: vec![],
@@ -322,13 +325,15 @@ mod display_links_tests {
 
         assert_eq!(
             String::from("\
-            +-----------------+\n\
-            | Visible Url     |\n\
-            +-----------------+\n\
-            | https://foo.bar |\n\
-            +-----------------+\n\
-            | https://foo.baz |\n\
-            +-----------------+\n\
+            +-----------------+----------------------+\n\
+            | Visible Url     | Hidden Url           |\n\
+            +-----------------+----------------------+\n\
+            | https://foo.bar | https://redirect.bar |\n\
+            +-----------------+----------------------+\n\
+            | https://foo.baz | https://redirect.baz |\n\
+            +-----------------+----------------------+\n\
+            | https://foo.biz | N/A                  |\n\
+            +-----------------+----------------------+\n\
             "),
             display_fulfillment_nodes(&data).unwrap()
         )
@@ -341,6 +346,7 @@ pub fn display_fulfillment_nodes(data: &OutputData) -> AppResult<String> {
     table.add_row(
         Row::new(vec![
             Cell::new("Visible Url"),
+            Cell::new("Hidden Url"),
         ])
     );
 
@@ -352,7 +358,18 @@ pub fn display_fulfillment_nodes(data: &OutputData) -> AppResult<String> {
 }
 
 fn fulfillment_node_row(table: &mut Table, node: &FulfillmentNode) {
-    table.add_row(Row::new(vec![Cell::new(node.visible_url())]));
+    let hidden_url = if let Some(url) = node.hidden_url() {
+        url
+    } else {
+        "N/A".into()
+    };
+
+    table.add_row(
+        Row::new(vec![
+            Cell::new(node.visible_url()),
+            Cell::new(&hidden_url),
+        ])
+    );
 }
 
 #[cfg(test)]
