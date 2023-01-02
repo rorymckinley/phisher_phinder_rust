@@ -51,7 +51,30 @@ fn json_input() -> String {
 
     json!({
         "parsed_mail": {
-            "fulfillment_nodes": [],
+            "fulfillment_nodes": [
+                {
+                    "visible": {
+                        "domain": {
+                            "abuse_email_address": null,
+                            "category": "other",
+                            "name": "visible.net",
+                            "registration_date": null,
+                        },
+                        "registrar": null,
+                        "url": "https://visible.net",
+                    },
+                    "hidden": {
+                        "domain": {
+                            "abuse_email_address": null,
+                            "category": "other",
+                            "name": "hidden.com",
+                            "registration_date": null,
+                        },
+                        "registrar": null,
+                        "url": "https://hidden.com",
+                    }
+                }
+            ],
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
             "email_addresses": {
                 "from": [{
@@ -64,7 +87,16 @@ fn json_input() -> String {
                     },
                     "registrar": null,
                 }],
-                "links": [],
+                "links": [{
+                    "address": "perp@alsofake.net",
+                    "domain": {
+                        "abuse_email_address": null,
+                        "category": "other",
+                        "name": "alsofake.net",
+                        "registration_date": null,
+                    },
+                    "registrar": null,
+                }],
                 "reply_to": [{
                     "address": "blah@possiblynotfake.com",
                     "domain": {
@@ -109,7 +141,19 @@ fn json_output() -> String {
                         "name": "Reg One",
                     },
                 }],
-                "links": [],
+                "links": [{
+                    "address": "perp@alsofake.net",
+                    "domain": {
+                        "abuse_email_address": null,
+                        "category": "other",
+                        "name": "alsofake.net",
+                        "registration_date": "2022-11-18T10:11:17Z",
+                    },
+                    "registrar": {
+                        "abuse_email_address": "abuse@regsix.zzz",
+                        "name": "Reg Six",
+                    },
+                }],
                 "reply_to": [{
                     "address": "blah@possiblynotfake.com",
                     "domain": {
@@ -137,7 +181,36 @@ fn json_output() -> String {
                     },
                 }]
             },
-            "fulfillment_nodes": [],
+            "fulfillment_nodes": [
+                {
+                    "visible": {
+                        "domain": {
+                            "abuse_email_address": null,
+                            "category": "other",
+                            "name": "visible.net",
+                            "registration_date":  "2022-11-18T10:11:15Z",
+                        },
+                        "registrar": {
+                            "name": "Reg Four",
+                            "abuse_email_address": "abuse@regfour.zzz",
+                        },
+                        "url": "https://visible.net",
+                    },
+                    "hidden": {
+                        "domain": {
+                            "abuse_email_address": null,
+                            "category": "other",
+                            "name": "hidden.com",
+                            "registration_date":  "2022-11-18T10:11:16Z",
+                        },
+                        "registrar": {
+                            "name": "Reg Five",
+                            "abuse_email_address": "abuse@regfive.zzz",
+                        },
+                        "url": "https://hidden.com",
+                    }
+                }
+            ],
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
         }
     }).to_string()
@@ -168,6 +241,27 @@ fn setup_mountebank() {
                 registrar: Some("Reg Three"),
                 abuse_email: Some("abuse@regthree.zzz"),
                 registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap()),
+                response_code: 200,
+            },
+            DnsServerConfig {
+                domain_name: "visible.net",
+                registrar: Some("Reg Four"),
+                abuse_email: Some("abuse@regfour.zzz"),
+                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 15).unwrap()),
+                response_code: 200,
+            },
+            DnsServerConfig {
+                domain_name: "hidden.com",
+                registrar: Some("Reg Five"),
+                abuse_email: Some("abuse@regfive.zzz"),
+                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 16).unwrap()),
+                response_code: 200,
+            },
+            DnsServerConfig {
+                domain_name: "alsofake.net",
+                registrar: Some("Reg Six"),
+                abuse_email: Some("abuse@regsix.zzz"),
+                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap()),
                 response_code: 200,
             },
         ]

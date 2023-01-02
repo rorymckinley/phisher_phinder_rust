@@ -3,6 +3,8 @@ use crate:: data::{
     Domain,
     DomainCategory,
     EmailAddressData,
+    FulfillmentNode,
+    Node,
     OutputData,
     ParsedMail,
     Registrar,
@@ -36,13 +38,22 @@ mod populate_tests {
     fn input_data() -> OutputData {
         OutputData {
             parsed_mail: ParsedMail {
-                fulfillment_nodes: vec![],
+                fulfillment_nodes: vec![
+                    FulfillmentNode::new("https://iamascamsite.com"),
+                ],
                 subject: Some("Does not matter".into()),
                 email_addresses: EmailAddresses {
                     from: vec![
                         EmailAddressData {
                             address: "someone@fake.net".into(),
                             domain: domain_object("fake.net", None),
+                            registrar: None,
+                        }
+                    ],
+                    links: vec![
+                        EmailAddressData {
+                            address: "perp@alsofake.net".into(),
+                            domain: domain_object("alsofake.net", None),
                             registrar: None,
                         }
                     ],
@@ -60,7 +71,6 @@ mod populate_tests {
                             registrar: None,
                         },
                     ],
-                    links: vec![],
                 },
             }
         }
@@ -69,7 +79,19 @@ mod populate_tests {
     fn output_data() -> OutputData {
         OutputData {
             parsed_mail: ParsedMail {
-                fulfillment_nodes: vec![],
+                fulfillment_nodes: vec![
+                    FulfillmentNode {
+                        hidden: None,
+                        visible: Node {
+                            domain: domain_object(
+                                "iamascamsite.com",
+                                Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 16).unwrap())
+                            ),
+                            registrar: registrar_object("Reg Five", Some("abuse@regfive.zzz")),
+                            url: "https://iamascamsite.com".into(),
+                        }
+                    }
+                ],
                 subject: Some("Does not matter".into()),
                 email_addresses: EmailAddresses {
                     from: vec![
@@ -80,6 +102,16 @@ mod populate_tests {
                                 Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
                             ),
                             registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
+                        }
+                    ],
+                    links: vec![
+                        EmailAddressData {
+                            address: "perp@alsofake.net".into(),
+                            domain: domain_object(
+                                "alsofake.net",
+                                Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 15).unwrap()),
+                            ),
+                            registrar: registrar_object("Reg Four", Some("abuse@regfour.zzz")),
                         }
                     ],
                     reply_to: vec![
@@ -102,7 +134,6 @@ mod populate_tests {
                             registrar: registrar_object("Reg Three", Some("abuse@regthree.zzz")),
                         },
                     ],
-                    links: vec![]
                 }
             }
         }
@@ -152,6 +183,18 @@ mod populate_tests {
                     "abuse@regthree.zzz",
                     Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap()
                 ),
+                DnsServerConfig::response_200(
+                    "alsofake.net",
+                    "Reg Four",
+                    "abuse@regfour.zzz",
+                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 15).unwrap()
+                ),
+                DnsServerConfig::response_200(
+                    "iamascamsite.com",
+                    "Reg Five",
+                    "abuse@regfive.zzz",
+                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 16).unwrap()
+                ),
             ]
         );
     }
@@ -167,29 +210,49 @@ mod populate_tests {
 
 pub async fn populate(bootstrap: Bootstrap, data: OutputData) -> OutputData {
     let b_strap = Arc::new(bootstrap);
-    let update_from = lookup_from_rdap(Arc::clone(&b_strap), data.parsed_mail.email_addresses.from);
-    let update_reply_to = lookup_from_rdap(Arc::clone(&b_strap), data.parsed_mail.email_addresses.reply_to);
-    let update_return_path = lookup_from_rdap(Arc::clone(&b_strap), data.parsed_mail.email_addresses.return_path);
+    let update_from = lookup_email_address_from_rdap(
+        Arc::clone(&b_strap),
+        data.parsed_mail.email_addresses.from
+    );
+    let update_links = lookup_email_address_from_rdap(
+        Arc::clone(&b_strap),
+        data.parsed_mail.email_addresses.links
+    );
+    let update_reply_to = lookup_email_address_from_rdap(
+        Arc::clone(&b_strap),
+        data.parsed_mail.email_addresses.reply_to
+    );
+    let update_return_path = lookup_email_address_from_rdap(
+        Arc::clone(&b_strap),
+        data.parsed_mail.email_addresses.return_path
+    );
+    let update_fulfillment_nodes = lookup_fulfillment_nodes_from_rdap(
+        Arc::clone(&b_strap),
+        data.parsed_mail.fulfillment_nodes
+    );
 
-    let (from, reply_to, return_path) = tokio::join!(update_from, update_reply_to, update_return_path);
+    let (from, links, reply_to, return_path, fulfillment_nodes) = tokio::join!(
+        update_from, update_links, update_reply_to, update_return_path, update_fulfillment_nodes
+    );
 
     let email_addresses = EmailAddresses {
         from,
         reply_to,
         return_path,
-        links: vec![],
+        links,
     };
 
     OutputData {
         parsed_mail: ParsedMail {
             email_addresses,
+            fulfillment_nodes,
             ..data.parsed_mail
         },
     }
 }
 
 #[cfg(test)]
-mod lookup_from_rdap_tests {
+mod lookup_email_address_from_rdap_tests {
     use super::*;
     use crate::mountebank::*;
     use crate:: data::Registrar;
@@ -204,7 +267,9 @@ mod lookup_from_rdap_tests {
 
         let input = input();
 
-        let actual = tokio_test::block_on(lookup_from_rdap(Arc::new(bootstrap), input));
+        let actual = tokio_test::block_on(
+            lookup_email_address_from_rdap(Arc::new(bootstrap), input)
+        );
 
         assert_eq!(sorted(populated_output()), sorted(actual));
     }
@@ -278,7 +343,7 @@ mod lookup_from_rdap_tests {
     }
 }
 
-async fn lookup_from_rdap(
+async fn lookup_email_address_from_rdap(
     bootstrap: Arc<Bootstrap>, data: Vec<EmailAddressData>
 ) -> Vec<EmailAddressData> {
     use tokio::task::JoinSet;
@@ -299,6 +364,386 @@ async fn lookup_from_rdap(
     }
 
     output
+}
+
+#[cfg(test)]
+mod lookup_fulfillment_nodes_from_rdap_tests {
+    use super::*;
+    use crate::mountebank::*;
+    use test_support::*;
+
+    #[test]
+    fn populates_fulfillment_nodes_with_rdap_data() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+        setup_impostors();
+        let bootstrap = tokio_test::block_on(get_bootstrap());
+
+        let actual = tokio_test::block_on(
+            lookup_fulfillment_nodes_from_rdap(Arc::new(bootstrap), input())
+        );
+
+        assert_eq!(sorted(output()), sorted(actual));
+    }
+
+    fn input() -> Vec<FulfillmentNode> {
+        vec![
+            FulfillmentNode::new("https://fake.net"),
+            FulfillmentNode::new("https://possiblynotfake.com")
+        ]
+    }
+
+    fn output() -> Vec<FulfillmentNode> {
+        vec![
+            FulfillmentNode {
+                hidden: None,
+                visible: Node {
+                    domain: domain_object(
+                                "fake.net",
+                                Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap())
+                            ),
+                            registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
+                            url: "https://fake.net".into(),
+                }
+            },
+            FulfillmentNode {
+                hidden: None,
+                visible: Node {
+                    domain: domain_object(
+                                "possiblynotfake.com",
+                                Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap())
+                            ),
+                            registrar: registrar_object("Reg Two", Some("abuse@regtwo.zzz")),
+                            url: "https://possiblynotfake.com".into(),
+                }
+            },
+        ]
+    }
+
+    fn setup_impostors() {
+        setup_dns_server(
+            vec![
+                DnsServerConfig::response_200(
+                    "fake.net",
+                    "Reg One",
+                    "abuse@regone.zzz",
+                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
+                ),
+                DnsServerConfig::response_200(
+                    "possiblynotfake.com",
+                    "Reg Two",
+                    "abuse@regtwo.zzz",
+                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()
+                ),
+            ]
+        );
+    }
+
+    // test_support rather?
+    fn domain_object(
+        name: &str,
+        registration_date: Option<DateTime<Utc>>,
+    ) ->  Option<Domain> {
+        Some(
+            Domain {
+                category: DomainCategory::Other,
+                name: name.into(),
+                registration_date,
+                abuse_email_address: None
+            }
+        )
+    }
+
+    fn registrar_object(name: &str, abuse_email_address: Option<&str>) -> Option<Registrar> {
+        Some(
+            Registrar {
+                name: Some(name.into()),
+                abuse_email_address: abuse_email_address.map(String::from)
+            }
+        )
+    }
+
+    fn sorted(mut nodes: Vec<FulfillmentNode>) -> Vec<FulfillmentNode> {
+        nodes.sort_by_key(|node| String::from(node.visible_url()));
+        nodes
+    }
+}
+
+async fn lookup_fulfillment_nodes_from_rdap(
+    bootstrap: Arc<Bootstrap>, data: Vec<FulfillmentNode>
+) -> Vec<FulfillmentNode> {
+    use tokio::task::JoinSet;
+
+    let mut set: JoinSet<FulfillmentNode> = JoinSet::new();
+
+    for node in data.into_iter() {
+        let b_strap = Arc::clone(&bootstrap);
+        set.spawn(async  move{
+            lookup_fulfillment_node(b_strap, node).await
+        });
+    }
+
+    let mut output = vec![];
+
+    while let Some(res) = set.join_next().await {
+        output.push(res.unwrap())
+    }
+
+    output
+}
+
+#[cfg(test)]
+mod lookup_fulfillment_node_tests {
+    use super::*;
+    use crate::mountebank::*;
+    use test_support::*;
+
+    #[test]
+    fn updates_both_visible_and_hidden_nodes() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+        setup_impostors();
+        let bootstrap = tokio_test::block_on(get_bootstrap());
+
+        let actual = tokio_test::block_on(
+            lookup_fulfillment_node(Arc::new(bootstrap), input())
+        );
+
+        assert_eq!(output(), actual);
+    }
+
+    fn input() -> FulfillmentNode {
+        let mut node = FulfillmentNode::new("https://fake.net");
+        node.set_hidden("https://possiblynotfake.com");
+
+        node
+    }
+
+    fn output() -> FulfillmentNode {
+        FulfillmentNode {
+            hidden: Some(Node {
+                domain: domain_object(
+                            "possiblynotfake.com",
+                            Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap())
+                        ),
+                registrar: registrar_object("Reg Two", Some("abuse@regtwo.zzz")),
+                url: "https://possiblynotfake.com".into(),
+            }),
+            visible: Node {
+                domain: domain_object(
+                            "fake.net",
+                            Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap())
+                        ),
+                registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
+                url: "https://fake.net".into(),
+            }
+        }
+    }
+
+    // test_support rather?
+    fn domain_object(
+        name: &str,
+        registration_date: Option<DateTime<Utc>>,
+    ) ->  Option<Domain> {
+        Some(
+            Domain {
+                category: DomainCategory::Other,
+                name: name.into(),
+                registration_date,
+                abuse_email_address: None
+            }
+        )
+    }
+
+    fn registrar_object(name: &str, abuse_email_address: Option<&str>) -> Option<Registrar> {
+        Some(
+            Registrar {
+                name: Some(name.into()),
+                abuse_email_address: abuse_email_address.map(String::from)
+            }
+        )
+    }
+
+    fn setup_impostors() {
+        setup_dns_server(
+            vec![
+                DnsServerConfig::response_200(
+                    "fake.net",
+                    "Reg One",
+                    "abuse@regone.zzz",
+                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
+                ),
+                DnsServerConfig::response_200(
+                    "possiblynotfake.com",
+                    "Reg Two",
+                    "abuse@regtwo.zzz",
+                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()
+                ),
+            ]
+        );
+    }
+}
+
+async fn lookup_fulfillment_node(
+    bootstrap: Arc<Bootstrap>, f_node: FulfillmentNode
+) -> FulfillmentNode {
+    let (hidden, visible) = tokio::join!(
+        lookup_node(Arc::clone(&bootstrap), f_node.hidden),
+        lookup_node(Arc::clone(&bootstrap), Some(f_node.visible))
+    );
+
+    FulfillmentNode {
+        hidden,
+        visible: visible.unwrap(),
+    }
+}
+
+#[cfg(test)]
+mod lookup_node_tests {
+    use super::*;
+    use crate::mountebank::*;
+    use test_support::*;
+
+    #[test]
+    fn updates_node_with_rdap_data() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+        setup_impostors();
+        let bootstrap = tokio_test::block_on(get_bootstrap());
+
+        let actual = tokio_test::block_on(
+            lookup_node(Arc::new(bootstrap), node("https://fake.net"))
+        );
+
+        assert_eq!(Some(populated_node()), actual);
+    }
+
+    #[test]
+    fn returns_none_if_no_node_provided() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+        let bootstrap = tokio_test::block_on(get_bootstrap());
+
+        let actual = tokio_test::block_on(lookup_node(Arc::new(bootstrap), None));
+
+        assert_eq!(None, actual);
+    }
+
+    #[test]
+    fn returns_node_unpopulated_if_no_domain() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+        let bootstrap = tokio_test::block_on(get_bootstrap());
+
+        let actual = tokio_test::block_on(lookup_node(Arc::new(bootstrap), node_sans_domain()));
+
+        assert_eq!(node_sans_domain(), actual);
+    }
+
+    #[test]
+    fn returns_node_unpopulated_if_no_rdap_data() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+        let bootstrap = tokio_test::block_on(get_bootstrap());
+
+        let actual = tokio_test::block_on(
+            lookup_node(Arc::new(bootstrap), node("https://fake.zzz"))
+        );
+
+        assert_eq!(node("https://fake.zzz"), actual);
+    }
+
+    fn node(url: &str) -> Option<Node> {
+        Some(Node::new(url))
+    }
+
+    fn node_sans_domain() -> Option<Node> {
+        Some(
+            Node {
+                domain: None,
+                registrar: None,
+                url: "https://fake.net".into()
+            }
+        )
+    }
+
+    fn populated_node() -> Node {
+        Node {
+            domain: domain_object(
+                        "fake.net", Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap())
+                    ),
+            registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
+            url: "https://fake.net".into(),
+        }
+    }
+
+    // test_support rather?
+    fn domain_object(
+        name: &str,
+        registration_date: Option<DateTime<Utc>>,
+    ) ->  Option<Domain> {
+        Some(
+            Domain {
+                category: DomainCategory::Other,
+                name: name.into(),
+                registration_date,
+                abuse_email_address: None
+            }
+        )
+    }
+
+    fn registrar_object(name: &str, abuse_email_address: Option<&str>) -> Option<Registrar> {
+        Some(
+            Registrar {
+                name: Some(name.into()),
+                abuse_email_address: abuse_email_address.map(String::from)
+            }
+        )
+    }
+
+    fn setup_impostors() {
+        setup_dns_server(
+            vec![
+                DnsServerConfig::response_200(
+                    "fake.net",
+                    "Reg One",
+                    "abuse@regone.zzz",
+                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
+                ),
+            ]
+        );
+    }
+}
+
+async fn lookup_node(bootstrap: Arc<Bootstrap>, node_option: Option<Node>) -> Option<Node> {
+    if let Some(node) = node_option {
+        if let Some(domain) = node.domain {
+            if let Some(response) = get_rdap_data(bootstrap, &domain.name).await {
+                Some(
+                    Node {
+                        domain: Some(Domain {
+                            registration_date: extract_registration_date(&response.events),
+                            ..domain
+                        }),
+                        registrar: Some(Registrar {
+                            abuse_email_address: extract_abuse_email(&response.entities),
+                            name: extract_registrar_name(&response.entities)
+                        }),
+                        ..node
+                    }
+                )
+            } else {
+                Some(Node {
+                    domain: Some(domain),
+                    ..node
+                })
+            }
+        } else {
+            Some(node)
+        }
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
