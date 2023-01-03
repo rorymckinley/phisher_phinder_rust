@@ -167,30 +167,35 @@ mod populate_tests {
             vec![
                 DnsServerConfig::response_200(
                     "fake.net",
+                    None,
                     "Reg One",
                     "abuse@regone.zzz",
                     Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
                 ),
                 DnsServerConfig::response_200(
                     "possiblynotfake.com",
+                    None,
                     "Reg Two",
                     "abuse@regtwo.zzz",
                     Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()
                 ),
                 DnsServerConfig::response_200(
                     "morethanlikelyfake.net",
+                    None,
                     "Reg Three",
                     "abuse@regthree.zzz",
                     Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap()
                 ),
                 DnsServerConfig::response_200(
                     "alsofake.net",
+                    None,
                     "Reg Four",
                     "abuse@regfour.zzz",
                     Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 15).unwrap()
                 ),
                 DnsServerConfig::response_200(
                     "iamascamsite.com",
+                    None,
                     "Reg Five",
                     "abuse@regfive.zzz",
                     Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 16).unwrap()
@@ -425,12 +430,14 @@ mod lookup_fulfillment_nodes_from_rdap_tests {
             vec![
                 DnsServerConfig::response_200(
                     "fake.net",
+                    None,
                     "Reg One",
                     "abuse@regone.zzz",
                     Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
                 ),
                 DnsServerConfig::response_200(
                     "possiblynotfake.com",
+                    None,
                     "Reg Two",
                     "abuse@regtwo.zzz",
                     Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()
@@ -569,12 +576,14 @@ mod lookup_fulfillment_node_tests {
             vec![
                 DnsServerConfig::response_200(
                     "fake.net",
+                    None,
                     "Reg One",
                     "abuse@regone.zzz",
                     Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
                 ),
                 DnsServerConfig::response_200(
                     "possiblynotfake.com",
+                    None,
                     "Reg Two",
                     "abuse@regtwo.zzz",
                     Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()
@@ -706,6 +715,7 @@ mod lookup_node_tests {
             vec![
                 DnsServerConfig::response_200(
                     "fake.net",
+                    None,
                     "Reg One",
                     "abuse@regone.zzz",
                     Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
@@ -955,18 +965,107 @@ async fn lookup_email_address(
     }
 }
 
+#[cfg(test)]
+mod get_rdap_data_tests {
+    use super::*;
+    use test_support::*;
+    use crate::mountebank::*;
+
+    #[test]
+    fn generalises_domain_name_until_match_is_found() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+        setup_impostors();
+        let bootstrap = Arc::new(tokio_test::block_on(get_bootstrap()));
+
+        assert_handle(Arc::clone(&bootstrap), "foo.bar.baz.biz.net", "DOM-BIZ");
+        assert_handle(Arc::clone(&bootstrap), "foo.bar.baz.buzz.net", "DOM-BUZZ");
+        assert_handle(Arc::clone(&bootstrap), "foo.bar.baz.boz.net", "DOM-BOZ");
+        assert_none(Arc::clone(&bootstrap), "un.ob.tai.nium.net");
+    }
+
+    #[test]
+    fn returns_none_if_no_server() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+        let bootstrap = Arc::new(tokio_test::block_on(get_bootstrap()));
+
+        assert_none(Arc::clone(&bootstrap), "no_server.zzz")
+    }
+
+    fn assert_handle(bootstrap: Arc<Bootstrap>, domain_name: &str, expected_handle: &str) {
+        let domain = tokio_test::block_on(
+            get_rdap_data(Arc::clone(&bootstrap), domain_name)
+        ).unwrap();
+
+        assert_eq!(String::from(expected_handle), domain.handle.unwrap())
+    }
+
+    fn assert_none(bootstrap: Arc<Bootstrap>, domain_name: &str) {
+        let result = tokio_test::block_on(
+            get_rdap_data(Arc::clone(&bootstrap), domain_name)
+        );
+
+        assert!(result.is_none())
+    }
+
+    fn setup_impostors() {
+        setup_dns_server(
+            vec![
+                DnsServerConfig::response_200(
+                    "foo.bar.baz.biz.net",
+                    Some("DOM-BIZ"),
+                    "Reg One",
+                    "abuse@regone.zzz",
+                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
+                ),
+                DnsServerConfig::response_200(
+                    "bar.baz.buzz.net",
+                    Some("DOM-BUZZ"),
+                    "Reg One",
+                    "abuse@regone.zzz",
+                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
+                ),
+                DnsServerConfig::response_200(
+                    "boz.net",
+                    Some("DOM-BOZ"),
+                    "Reg One",
+                    "abuse@regone.zzz",
+                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
+                ),
+                // Spurious, just to validate that we do not submit the TLD :)
+                DnsServerConfig::response_200(
+                    "net",
+                    Some("DOM-NET"),
+                    "Reg One",
+                    "abuse@regone.zzz",
+                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
+                ),
+            ]
+        );
+    }
+}
+
 async fn get_rdap_data(bootstrap: Arc<Bootstrap>, domain_name: &str) -> Option<rdap_types::Domain> {
-    let client = Client::new();
+    let mut domain_response: Option<rdap_types::Domain> = None;
 
     if let Some(servers) = bootstrap.dns.find(domain_name) {
-        if let Ok(response) = client.query_domain(&servers[0], domain_name).await {
-            Some(response)
-        } else {
-            None
-        }
-    } else {
-        None
+        let client = Client::new();
+        let domain_name_parts: Vec<&str> = domain_name.split('.').collect();
+        let num_parts = domain_name_parts.len();
+
+        for start_pos in 0..(num_parts - 1) {
+            if domain_response.is_none() {
+                let partial_name = &domain_name_parts[start_pos..num_parts].join(".");
+
+                if let Ok(response) = client.query_domain(&servers[0], partial_name).await {
+                    domain_response = Some(response);
+                }
+            }
+        };
     }
+
+    domain_response
 }
 
 #[cfg(test)]
@@ -1776,18 +1875,21 @@ mod test_support {
             vec![
                 DnsServerConfig::response_200(
                     "fake.net",
+                    None,
                     "Reg One",
                     "abuse@regone.zzz",
                     Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
                 ),
                 DnsServerConfig::response_200(
                     "possiblynotfake.com",
+                    None,
                     "Reg Two",
                     "abuse@regtwo.zzz",
                     Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()
                 ),
                 DnsServerConfig::response_200(
                     "morethanlikelyfake.net",
+                    None,
                     "Reg Three",
                     "abuse@regthree.zzz",
                     Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap()
