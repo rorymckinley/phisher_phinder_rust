@@ -1,7 +1,8 @@
-use crate::data::{Domain, EmailAddressData, FulfillmentNode, OutputData, Registrar};
+use crate::data::{Domain, EmailAddressData, FulfillmentNode, Node, OutputData, Registrar};
 use crate::result::AppResult;
 
 use prettytable::{Cell, Row, Table};
+use regex::Regex;
 
 #[cfg(test)]
 mod display_sender_addresses_extended_tests {
@@ -287,10 +288,10 @@ fn sender_address_row(
                 vec![
                     Cell::new(actual_label),
                     Cell::new(address),
-                    domain_category_cell(domain),
-                    registrar_name_cell(registrar),
-                    registration_date_cell(domain),
-                    registrar_abuse_email_cell(registrar)
+                    domain_category_cell(domain.as_ref()),
+                    registrar_name_cell(registrar.as_ref()),
+                    registration_date_cell(domain.as_ref()),
+                    registrar_abuse_email_cell(registrar.as_ref())
                 ]
             )
         );
@@ -300,12 +301,12 @@ fn sender_address_row(
 #[cfg(test)]
 mod display_fulfillment_nodes_tests {
     use super::*;
-    use crate::data::{FulfillmentNode, ParsedMail, EmailAddresses};
+    use crate::data::{DomainCategory, FulfillmentNode, ParsedMail, EmailAddresses};
+    use chrono::prelude::*;
 
     #[test]
-    fn display_fulfillment_nodes_details() {
-        let mut node_bar = FulfillmentNode::new("https://foo.bar");
-        node_bar.set_hidden("https://redirect.bar");
+    fn display_fulfillment_nodes_details_no_registrar_data() {
+        let node_bar = fulfillment_node_with_rdap_data();
         let mut node_baz = FulfillmentNode::new("https://foo.baz");
         node_baz.set_hidden("https://redirect.baz");
         let node_biz = FulfillmentNode::new("https://foo.biz");
@@ -325,19 +326,68 @@ mod display_fulfillment_nodes_tests {
 
         assert_eq!(
             String::from("\
-            +-----------------+----------------------+\n\
-            | Visible Url     | Hidden Url           |\n\
-            +-----------------+----------------------+\n\
-            | https://foo.bar | https://redirect.bar |\n\
-            +-----------------+----------------------+\n\
-            | https://foo.baz | https://redirect.baz |\n\
-            +-----------------+----------------------+\n\
-            | https://foo.biz | N/A                  |\n\
-            +-----------------+----------------------+\n\
+            +-----------------+----------+-----------+---------------------+---------------------+----------------------+----------+-----------+---------------------+---------------------+\n\
+            | Visible                                                                            | Hidden                                                                                  |\n\
+            +-----------------+----------+-----------+---------------------+---------------------+----------------------+----------+-----------+---------------------+---------------------+\n\
+            | Url             | Category | Registrar | Registration Date   | Abuse Email Address | Url                  | Category | Registrar | Registration Date   | Abuse Email Address |\n\
+            +-----------------+----------+-----------+---------------------+---------------------+----------------------+----------+-----------+---------------------+---------------------+\n\
+            | https://foo.bar | Other    | Reg Two   | 2022-11-18 10:11:15 | abuse@regtwo.zzz    | https://redirect.bar | Other    | Reg One   | 2022-11-18 10:11:14 | abuse@regone.zzz    |\n\
+            +-----------------+----------+-----------+---------------------+---------------------+----------------------+----------+-----------+---------------------+---------------------+\n\
+            | https://foo.baz | Other    | N/A       | N/A                 | N/A                 | https://redirect.baz | Other    | N/A       | N/A                 | N/A                 |\n\
+            +-----------------+----------+-----------+---------------------+---------------------+----------------------+----------+-----------+---------------------+---------------------+\n\
+            | https://foo.biz | Other    | N/A       | N/A                 | N/A                 | N/A                  | N/A      | N/A       | N/A                 | N/A                 |\n\
+            +-----------------+----------+-----------+---------------------+---------------------+----------------------+----------+-----------+---------------------+---------------------+\n\
             "),
             display_fulfillment_nodes(&data).unwrap()
         )
     }
+
+    fn fulfillment_node_with_rdap_data() -> FulfillmentNode {
+        FulfillmentNode {
+            hidden: Some(
+                Node {
+                    domain: domain_object(
+                        "redirect.bar",
+                        Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap()),
+                    ),
+                    registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
+                    url: "https://redirect.bar".into(),
+                }
+            ),
+            visible: Node {
+                domain: domain_object(
+                    "foo.bar",
+                    Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 15).unwrap()),
+                ),
+                registrar: registrar_object("Reg Two", Some("abuse@regtwo.zzz")),
+                url: "https://foo.bar".into(),
+            },
+        }
+    }
+
+    fn domain_object(
+        name: &str,
+        registration_date: Option<DateTime<Utc>>,
+    ) ->  Option<Domain> {
+        Some(
+            Domain {
+                category: DomainCategory::Other,
+                name: name.into(),
+                registration_date,
+                abuse_email_address: None
+            }
+        )
+    }
+
+    fn registrar_object(name: &str, abuse_email_address: Option<&str>) -> Option<Registrar> {
+        Some(
+            Registrar {
+                name: Some(name.into()),
+                abuse_email_address: abuse_email_address.map(String::from)
+            }
+        )
+    }
+
 }
 
 pub fn display_fulfillment_nodes(data: &OutputData) -> AppResult<String> {
@@ -345,8 +395,22 @@ pub fn display_fulfillment_nodes(data: &OutputData) -> AppResult<String> {
 
     table.add_row(
         Row::new(vec![
-            Cell::new("Visible Url"),
-            Cell::new("Hidden Url"),
+            Cell::new("Visible").with_hspan(5),
+            Cell::new("Hidden").with_hspan(5),
+        ]),
+    );
+    table.add_row(
+        Row::new(vec![
+            Cell::new("Url"),
+            Cell::new("Category"),
+            Cell::new("Registrar"),
+            Cell::new("Registration Date"),
+            Cell::new("Abuse Email Address"),
+            Cell::new("Url"),
+            Cell::new("Category"),
+            Cell::new("Registrar"),
+            Cell::new("Registration Date"),
+            Cell::new("Abuse Email Address"),
         ])
     );
 
@@ -364,10 +428,30 @@ fn fulfillment_node_row(table: &mut Table, node: &FulfillmentNode) {
         "N/A".into()
     };
 
+    let hidden_domain = if let Some(Node { domain: Some(domain), .. }) = &node.hidden {
+        Some(domain)
+    } else {
+        None
+    };
+
+    let hidden_registrar = if let Some(Node { registrar: Some(registrar), .. }) = &node.hidden {
+        Some(registrar)
+    } else {
+        None
+    };
+
     table.add_row(
         Row::new(vec![
-            Cell::new(node.visible_url()),
-            Cell::new(&hidden_url),
+            url_cell(node.visible_url()),
+            domain_category_cell(node.visible.domain.as_ref()),
+            registrar_name_cell(node.visible.registrar.as_ref()),
+            registration_date_cell(node.visible.domain.as_ref()),
+            registrar_abuse_email_cell(node.visible.registrar.as_ref()),
+            url_cell(&hidden_url),
+            domain_category_cell(hidden_domain),
+            registrar_name_cell(hidden_registrar),
+            registration_date_cell(hidden_domain),
+            registrar_abuse_email_cell(hidden_registrar),
         ])
     );
 }
@@ -379,7 +463,7 @@ mod domain_category_cell_tests {
 
     #[test]
     fn returns_n_a_cell_if_domain_is_none() {
-        assert_eq!(Cell::new("N/A"), domain_category_cell(&None))
+        assert_eq!(Cell::new("N/A"), domain_category_cell(None))
     }
 
     #[test]
@@ -391,11 +475,11 @@ mod domain_category_cell_tests {
             registration_date: None
         };
 
-        assert_eq!(Cell::new("Other"), domain_category_cell(&Some(domain)));
+        assert_eq!(Cell::new("Other"), domain_category_cell(Some(&domain)));
     }
 }
 
-fn domain_category_cell(domain_opt: &Option<Domain>) -> Cell {
+fn domain_category_cell(domain_opt: Option<&Domain>) -> Cell {
     if let Some(domain) = domain_opt {
         Cell::new(&domain.category.to_string())
     } else {
@@ -411,7 +495,7 @@ mod registration_date_cell_tests {
 
     #[test]
     fn returns_n_a_cell_if_domain_is_none() {
-        assert_eq!(Cell::new("N/A"), registration_date_cell(&None))
+        assert_eq!(Cell::new("N/A"), registration_date_cell(None))
     }
 
     #[test]
@@ -423,7 +507,7 @@ mod registration_date_cell_tests {
             registration_date: Some(datetime(2022, 12, 25, 10, 11, 12))
         };
 
-        assert_eq!(Cell::new("2022-12-25 10:11:12"), registration_date_cell(&Some(domain)));
+        assert_eq!(Cell::new("2022-12-25 10:11:12"), registration_date_cell(Some(&domain)));
     }
 
     #[test]
@@ -435,7 +519,7 @@ mod registration_date_cell_tests {
             registration_date: None,
         };
 
-        assert_eq!(Cell::new("N/A"), registration_date_cell(&Some(domain)));
+        assert_eq!(Cell::new("N/A"), registration_date_cell(Some(&domain)));
     }
 
     fn datetime(y: i32, m: u32, d: u32, h: u32, min: u32, s: u32) -> chrono::DateTime<Utc> {
@@ -443,7 +527,7 @@ mod registration_date_cell_tests {
     }
 }
 
-fn registration_date_cell(domain_opt: &Option<Domain>) -> Cell {
+fn registration_date_cell(domain_opt: Option<&Domain>) -> Cell {
     if let Some(Domain { registration_date: Some(registration_date), .. }) = domain_opt {
         Cell::new(&registration_date.format("%Y-%m-%d %H:%M:%S").to_string())
     } else {
@@ -457,7 +541,7 @@ mod registrar_name_cell_tests {
 
     #[test]
     fn returns_n_a_if_registrar_none() {
-        assert_eq!(Cell::new("N/A"), registrar_name_cell(&None))
+        assert_eq!(Cell::new("N/A"), registrar_name_cell(None))
     }
 
     #[test]
@@ -467,7 +551,7 @@ mod registrar_name_cell_tests {
             name: Some("Reg One".into()),
         };
 
-        assert_eq!(Cell::new("Reg One"), registrar_name_cell(&Some(registrar)));
+        assert_eq!(Cell::new("Reg One"), registrar_name_cell(Some(&registrar)));
     }
 
     #[test]
@@ -477,11 +561,11 @@ mod registrar_name_cell_tests {
             name: None,
         };
 
-        assert_eq!(Cell::new("N/A"), registrar_name_cell(&Some(registrar)));
+        assert_eq!(Cell::new("N/A"), registrar_name_cell(Some(&registrar)));
     }
 }
 
-fn registrar_name_cell(registrar_opt: &Option<Registrar>) -> Cell {
+fn registrar_name_cell(registrar_opt: Option<&Registrar>) -> Cell {
     if let Some(Registrar {name: Some(name), ..}) = registrar_opt {
         Cell::new(name)
     } else {
@@ -495,7 +579,7 @@ mod registrar_abuse_email_cell_tests {
 
     #[test]
     fn returns_n_a_if_registrar_none() {
-        assert_eq!(Cell::new("N/A"), registrar_abuse_email_cell(&None));
+        assert_eq!(Cell::new("N/A"), registrar_abuse_email_cell(None));
     }
 
     #[test]
@@ -505,7 +589,7 @@ mod registrar_abuse_email_cell_tests {
             name: None,
         };
 
-        assert_eq!(Cell::new("abuse@regone.co.za"), registrar_abuse_email_cell(&Some(registrar)));
+        assert_eq!(Cell::new("abuse@regone.co.za"), registrar_abuse_email_cell(Some(&registrar)));
     }
 
     #[test]
@@ -515,14 +599,41 @@ mod registrar_abuse_email_cell_tests {
             name: None,
         };
 
-        assert_eq!(Cell::new("N/A"), registrar_abuse_email_cell(&Some(registrar)));
+        assert_eq!(Cell::new("N/A"), registrar_abuse_email_cell(Some(&registrar)));
     }
 }
 
-fn registrar_abuse_email_cell(registrar_opt: &Option<Registrar>) -> Cell {
+fn registrar_abuse_email_cell(registrar_opt: Option<&Registrar>) -> Cell {
     if let Some(Registrar {abuse_email_address: Some(abuse_email_address), ..}) = registrar_opt {
         Cell::new(abuse_email_address)
     } else {
         Cell::new("N/A")
     }
+}
+
+#[cfg(test)]
+mod display_url_tests {
+    use super::*;
+
+    #[test]
+    fn it_displays_the_url() {
+        assert_eq!(
+            Cell::new("https://foo.bar"),
+            url_cell("https://foo.bar"),
+        )
+    }
+
+    #[test]
+    fn it_trims_query_params_when_displaying() {
+        assert_eq!(
+            Cell::new("https://foo.bar?..."),
+            url_cell("https://foo.bar?baz=buzz")
+        )
+    }
+}
+
+fn url_cell(url: &str) -> Cell {
+    let re = Regex::new(r"\?.+\z").unwrap();
+
+    Cell::new(&re.replace_all(url, "?..."))
 }

@@ -28,6 +28,8 @@ fn test_fetching_rdap_details() { setup_mountebank();
                 predicates::str::contains("Reg Two")
             ).and(
                 predicates::str::contains("2022-11-18 10:11:14")
+            ).and(
+                predicates::str::contains("visible.net")
             )
         );
 }
