@@ -224,6 +224,7 @@ fn setup_mountebank() {
         vec![
             DnsServerConfig {
                 domain_name: "fake.net",
+                handle: None,
                 registrar: Some("Reg One"),
                 abuse_email: Some("abuse@regone.zzz"),
                 registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
@@ -231,6 +232,7 @@ fn setup_mountebank() {
             },
             DnsServerConfig {
                 domain_name: "possiblynotfake.com",
+                handle: None,
                 registrar: Some("Reg Two"),
                 abuse_email: Some("abuse@regtwo.zzz"),
                 registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()),
@@ -238,6 +240,7 @@ fn setup_mountebank() {
             },
             DnsServerConfig {
                 domain_name: "morethanlikelyfake.net",
+                handle: None,
                 registrar: Some("Reg Three"),
                 abuse_email: Some("abuse@regthree.zzz"),
                 registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap()),
@@ -245,6 +248,7 @@ fn setup_mountebank() {
             },
             DnsServerConfig {
                 domain_name: "visible.net",
+                handle: None,
                 registrar: Some("Reg Four"),
                 abuse_email: Some("abuse@regfour.zzz"),
                 registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 15).unwrap()),
@@ -252,6 +256,7 @@ fn setup_mountebank() {
             },
             DnsServerConfig {
                 domain_name: "hidden.com",
+                handle: None,
                 registrar: Some("Reg Five"),
                 abuse_email: Some("abuse@regfive.zzz"),
                 registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 16).unwrap()),
@@ -259,6 +264,7 @@ fn setup_mountebank() {
             },
             DnsServerConfig {
                 domain_name: "alsofake.net",
+                handle: None,
                 registrar: Some("Reg Six"),
                 abuse_email: Some("abuse@regsix.zzz"),
                 registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap()),

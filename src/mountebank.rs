@@ -45,6 +45,7 @@ pub fn setup_dns_server(stub_configs: Vec<DnsServerConfig>) {
 
 pub struct DnsServerConfig<'a> {
     pub domain_name: &'a str,
+    pub handle: Option<&'a str>,
     pub registrar: Option<&'a str>,
     pub abuse_email: Option<&'a str>,
     pub registration_date: Option<DateTime<Utc>>,
@@ -54,12 +55,14 @@ pub struct DnsServerConfig<'a> {
 impl<'a> DnsServerConfig<'a> {
     pub fn response_200(
         domain_name: &'a str,
+        handle: Option<&'a str>,
         registrar: &'a str,
         abuse_email: &'a str,
         registration_date: DateTime<Utc>
     ) -> Self {
         Self {
             domain_name,
+            handle,
             registrar: Some(registrar),
             abuse_email: Some(abuse_email),
             registration_date: Some(registration_date),
@@ -70,6 +73,7 @@ impl<'a> DnsServerConfig<'a> {
     pub fn response_404(domain_name: &'a str) -> Self {
         Self {
             domain_name,
+            handle: None,
             registrar: None,
             abuse_email: None,
             registration_date: None,
@@ -306,6 +310,7 @@ fn create_dns_service_stub(config: &DnsServerConfig) -> MountebankStub {
     let body = if config.response_code == 200 {
         let response = rdap::DomainResponse::new(
             config.domain_name,
+            config.handle,
             config.registrar.unwrap(),
             config.abuse_email.unwrap(),
             config.registration_date.unwrap()
@@ -425,13 +430,16 @@ mod rdap {
     impl DomainResponse {
         pub fn new(
             domain_name: &str,
+            handle_option: Option<&str>,
             registrar: &str,
             abuse_email: &str,
             registration_date: DateTime<Utc>
         ) -> Self {
+            let handle = handle_option.unwrap_or("DOM-XXX").into();
+
             Self {
                 object_class_name: "domain".into(),
-                handle: "DOM-XXX".into(),
+                handle,
                 ldh_name: String::from(domain_name).to_uppercase(),
                 links: vec![],
                 status: Self::status(),
