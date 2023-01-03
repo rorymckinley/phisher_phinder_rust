@@ -33,6 +33,8 @@ async fn main() {
 
     if cli.human {
         println!("{}", ui::display_sender_addresses_extended(&output).unwrap());
+        println!();
+        println!("{}", ui::display_fulfillment_nodes(&output).unwrap());
     } else {
         print!("{}", serde_json::to_string(&output).unwrap());
     }
