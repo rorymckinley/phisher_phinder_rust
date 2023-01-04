@@ -9,6 +9,8 @@ pub fn setup_bootstrap_server() {
     let stub_data = Mountebank {
         port: 4545,
         protocol: "http".into(),
+        record_requests: false,
+        requests: vec![],
         stubs: vec![
             create_asn_bootstrap_stub(),
             create_dns_bootstrap_stub(),
@@ -35,6 +37,8 @@ pub fn setup_dns_server(stub_configs: Vec<DnsServerConfig>) {
     let stub_data = Mountebank {
         port: 4546,
         protocol: "http".into(),
+        record_requests: false,
+        requests: vec![],
         stubs: stub_configs.iter().map(|config| {
             create_dns_service_stub(config)
         }).collect(),
@@ -97,12 +101,48 @@ pub fn setup_head_impostor(port: u16, redirect: bool, location: Option<&str>) {
     let stub_data = Mountebank {
         port,
         protocol: "http".into(),
+        record_requests: false,
+        requests: vec![],
         stubs: vec![
             create_stub("/", None, response_code, headers)
         ]
     };
 
     upload_stub(stub_data);
+}
+
+pub fn setup_smtp_impostor() {
+    let stub_data = Mountebank {
+        port: 4546,
+        protocol: "smtp".into(),
+        record_requests: false,
+        requests: vec![],
+        stubs: vec![]
+    };
+
+    upload_stub(stub_data);
+}
+
+pub fn smtp_recipient_addresses(port: u16) -> Vec<String> {
+    let mut recipient_email_addresses: Vec<String> = lookup_impostor(port).requests
+        .into_iter()
+        .flat_map(|request| request.to)
+        .map(|mb_address| mb_address.address)
+        .collect();
+
+    recipient_email_addresses.sort();
+
+    recipient_email_addresses
+}
+
+pub fn lookup_impostor(port: u16) -> Mountebank {
+    let client = Client::new();
+
+    let response = client.get(format!("http://localhost:2525/imposters/{port}"))
+        .send()
+        .unwrap();
+
+    serde_json::from_str(&response.text().unwrap()).unwrap()
 }
 
 fn upload_stub(stub: Mountebank) {
@@ -362,37 +402,54 @@ pub fn clear_all_impostors() {
         .unwrap();
 }
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize)]
-struct Mountebank {
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all(deserialize="snake_case", serialize="camelCase"))]
+pub struct Mountebank {
     port: u16,
     protocol: String,
+    #[serde(alias="recordRequests")]
+    record_requests: bool,
+    pub requests: Vec<MountebankRequest>,
     stubs: Vec<MountebankStub>
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
+pub struct MountebankRequest {
+    from: MountebankEmailAddress,
+    pub subject: String,
+    pub to: Vec<MountebankEmailAddress>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct MountebankEmailAddress {
+    pub address: String,
+    name: String
+}
+
+#[derive(Deserialize, Serialize)]
 struct MountebankStub {
     predicates: Vec<MountebankPredicate>,
     responses: Vec<MountebankResponse>
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 struct MountebankPredicate {
     equals: Option<MountebankEquals>
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 struct MountebankResponse {
     is: Option<MountebankIs>
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 struct MountebankEquals {
     path: Option<String>
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 struct MountebankIs {
     #[serde(rename = "statusCode")]
     status_code: u16,

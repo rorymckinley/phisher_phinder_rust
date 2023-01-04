@@ -21,12 +21,15 @@ mod enumerate_tests {
 
     fn input() -> OutputData {
         OutputData::new(
-            None,
-            email_addresses(),
-            vec![
-                FulfillmentNode::new("http://localhost:4545"),
-                FulfillmentNode::new("http://localhost:4546"),
-            ]
+            ParsedMail::new(
+                email_addresses(),
+                vec![
+                    FulfillmentNode::new("http://localhost:4545"),
+                    FulfillmentNode::new("http://localhost:4546"),
+                ],
+                None,
+            ),
+            ""
         )
     }
 
@@ -42,7 +45,7 @@ mod enumerate_tests {
             },
         ];
 
-        OutputData::new(None, email_addresses(), f_nodes)
+        OutputData::new(ParsedMail::new(email_addresses(), f_nodes, None), "")
     }
 
     fn email_addresses() -> EmailAddresses {
@@ -82,7 +85,8 @@ pub async fn enumerate(data: OutputData) -> OutputData {
         parsed_mail: ParsedMail {
             fulfillment_nodes,
             ..data.parsed_mail
-        }
+        },
+        raw_mail: "".into()
     }
 }
 
@@ -168,7 +172,7 @@ async fn enumerate_visible_url(mut node: FulfillmentNode) -> FulfillmentNode {
                 }
             }
         }
-    } 
-    
+    }
+
     node
 }

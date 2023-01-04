@@ -6,20 +6,17 @@ use url::Url;
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct OutputData {
     pub parsed_mail: ParsedMail,
+    pub raw_mail: String,
 }
 
 impl OutputData {
     pub fn new(
-        subject: Option<String>,
-        email_addresses: EmailAddresses,
-        fulfillment_nodes: Vec<FulfillmentNode>,
+        parsed_mail: ParsedMail,
+        raw_mail: &str,
     ) -> Self {
         Self {
-            parsed_mail: ParsedMail {
-                email_addresses,
-                fulfillment_nodes,
-                subject,
-            }
+            parsed_mail,
+            raw_mail: raw_mail.into()
         }
     }
 }
@@ -29,6 +26,16 @@ pub struct ParsedMail {
     pub email_addresses: EmailAddresses,
     pub fulfillment_nodes: Vec<FulfillmentNode>,
     pub subject: Option<String>,
+}
+
+impl ParsedMail {
+    pub fn new(
+        email_addresses: EmailAddresses,
+        fulfillment_nodes: Vec<FulfillmentNode>,
+        subject: Option<String>
+    ) -> Self {
+        Self { email_addresses, fulfillment_nodes, subject }
+    }
 }
 
 #[cfg(test)]

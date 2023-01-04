@@ -72,7 +72,8 @@ mod populate_tests {
                         },
                     ],
                 },
-            }
+            },
+            raw_mail: "".into()
         }
     }
 
@@ -135,7 +136,8 @@ mod populate_tests {
                         },
                     ],
                 }
-            }
+            },
+            raw_mail: "".into(),
         }
     }
 
@@ -253,6 +255,7 @@ pub async fn populate(bootstrap: Bootstrap, data: OutputData) -> OutputData {
             fulfillment_nodes,
             ..data.parsed_mail
         },
+        raw_mail: "".into()
     }
 }
 

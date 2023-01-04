@@ -90,7 +90,8 @@ fn json_input() -> String {
                     "registrar": null,
                 }]
             }
-        }
+        },
+        "raw_mail": "",
     }).to_string()
 }
 
@@ -157,6 +158,7 @@ fn json_output() -> String {
                     "registrar": null,
                 }]
             }
-        }
+        },
+        "raw_mail": ""
     }).to_string()
 }

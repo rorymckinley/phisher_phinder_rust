@@ -5,6 +5,9 @@ pub mod data;
 pub mod enumerator;
 pub mod errors;
 #[cfg(feature = "test-mocks")]
+pub mod mail_trap;
+pub mod mailer;
+#[cfg(feature = "test-mocks")]
 pub mod mountebank;
 pub mod populator;
 pub mod result;

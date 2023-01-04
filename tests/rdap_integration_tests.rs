@@ -120,7 +120,8 @@ fn json_input() -> String {
                     "registrar": null,
                 }]
             }
-        }
+        },
+        "raw_mail": ""
     }).to_string()
 }
 
@@ -214,7 +215,8 @@ fn json_output() -> String {
                 }
             ],
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
-        }
+        },
+        "raw_mail": ""
     }).to_string()
 }
 
