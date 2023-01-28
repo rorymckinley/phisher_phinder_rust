@@ -27,7 +27,7 @@ fn test_display_json_parse_results() {
         .write_stdin(input())
         .assert()
         .success()
-        .stdout(json_output());
+        .stdout(json_output(input()));
 }
 
 fn input() -> String {
@@ -61,7 +61,7 @@ Content-Type: text/html\r\n\r
 ".into()
 }
 
-fn json_output() -> String {
+fn json_output(raw_mail: String) -> String {
     use serde_json::json;
 
     json!({
@@ -110,7 +110,8 @@ fn json_output() -> String {
                 }
             ],
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
-        }
+        },
+        "raw_mail": raw_mail
     }).to_string()
 }
 

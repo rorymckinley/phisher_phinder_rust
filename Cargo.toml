@@ -11,7 +11,10 @@ edition = "2021"
 [dependencies]
 chrono = "0.4.23"
 clap = { version = "4.0.7", features = ["derive"] }
+lettre = { version = "0.10.1", features = ["tokio1", "tokio1-native-tls"] }
+mail-builder = "0.2.4"
 mail-parser = "0.7.0"
+mail-send = "0.2.3"
 prettytable-rs = "0.9.0"
 rand = "0.8.5"
 rdap_client = { path="/home/rory/data/git/rdap_client/rdap_client", version="0.3.0" }

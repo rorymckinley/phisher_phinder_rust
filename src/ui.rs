@@ -135,7 +135,8 @@ mod display_sender_addresses_extended_tests {
                         },
                     ],
                 }
-            }
+            },
+            raw_mail: "".into()
         };
 
         assert_eq!(
@@ -214,7 +215,8 @@ mod display_sender_addresses_extended_tests {
                     ],
                     links: vec![],
                 }
-            }
+            },
+            raw_mail: "".into()
         };
 
         assert_eq!(
@@ -321,7 +323,8 @@ mod display_fulfillment_nodes_tests {
                     return_path: vec![],
                     links: vec![],
                 }
-            }
+            },
+            raw_mail: "".into()
         };
 
         assert_eq!(
@@ -454,6 +457,10 @@ fn fulfillment_node_row(table: &mut Table, node: &FulfillmentNode) {
             registrar_abuse_email_cell(hidden_registrar),
         ])
     );
+}
+
+pub fn display_abuse_contact_notifications(data: &OutputData) -> AppResult<String> {
+    Ok(String::from(""))
 }
 
 #[cfg(test)]

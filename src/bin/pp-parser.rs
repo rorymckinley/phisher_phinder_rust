@@ -3,7 +3,7 @@ use mail_parser::*;
 
 use phisher_phinder_rust::cli::Cli;
 use phisher_phinder_rust::analyser::Analyser;
-use phisher_phinder_rust::data::OutputData;
+use phisher_phinder_rust::data::{OutputData, ParsedMail};
 use phisher_phinder_rust::ui;
 
 use clap::Parser;
@@ -24,7 +24,10 @@ fn main() {
     let analyser = Analyser::new(&parsed_mail);
 
     let output = OutputData::new(
-        analyser.subject(), analyser.sender_email_addresses(), analyser.fulfillment_nodes()
+        ParsedMail::new(
+            analyser.sender_email_addresses(), analyser.fulfillment_nodes(), analyser.subject(), 
+        ),
+        &mail,
     );
 
     if cli.human {
