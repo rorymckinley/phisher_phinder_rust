@@ -4,7 +4,7 @@ use phisher_phinder_rust::mailer::{build_mail_definitions, Mailer, Server};
 use std::io;
 
 fn get_env(var: &str) -> String {
-    std::env::var(var).expect("{var} ENV var is required")
+    std::env::var(var).unwrap_or_else(|_| panic!("{var} ENV var is required"))
 }
 
 #[tokio::main]

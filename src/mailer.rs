@@ -470,22 +470,6 @@ fn build_mail_definition_from_node(node: &Node) -> MailDefinition {
     }
 }
 
-// #[cfg(test)]
-// mod send_mails_tests {
-//     use super::*;
-//
-//     #[test]
-//     fn sends_mails() {
-//         let messages = vec![
-//             MailDefinition::new("phishing_1@test.zzz", Some("abuse@regone.zzz")),
-//             MailDefinition::new("phishing_2@test.zzz", Some("abuse@regtwo.zzz")),
-//         ];
-//         let from_address = "security@mydomain.com";
-//         let raw_email = "Foo bar baz";
-//
-//     }
-// }
-
 #[derive(Debug, PartialEq)]
 pub struct MailDefinition {
     entity: String,
@@ -603,6 +587,29 @@ mod  mailer_tests {
         assert_eq!(expected, sorted_mail_trap_records(mailtrap.get_all_emails()));
     }
 
+    #[test]
+    fn does_not_send_emails_if_no_abuse_address() {
+        let mailtrap = initialise_mail_trap();
+
+        let mailer = Mailer::new(mailtrap_server(), "from@test.com");
+
+        tokio_test::block_on(
+            mailer.send_mails(&mail_definitions_including_no_abuse_contact(), &raw_email())
+        );
+
+        let expected = sorted_mail_trap_records(vec![
+            Email::new(
+                "from@test.com",
+                "abuse@regone.zzz",
+                &mail_subject("foo"),
+                &mail_body("foo"),
+                &raw_email()
+            )
+        ]);
+
+        assert_eq!(expected, sorted_mail_trap_records(mailtrap.get_all_emails()));
+    }
+
     fn mailtrap_server() -> Server {
         Server::new(
             &std::env::var("TEST_SMTP_URI").unwrap(),
@@ -613,8 +620,15 @@ mod  mailer_tests {
 
     fn mail_definitions() -> Vec<MailDefinition> {
         vec![
-            MailDefinition::new("foo", Some("abuse@regone.zzz".into())),
-            MailDefinition::new("bar", Some("abuse@regtwo.zzz".into())),
+            MailDefinition::new("foo", Some("abuse@regone.zzz")),
+            MailDefinition::new("bar", Some("abuse@regtwo.zzz")),
+        ]
+    }
+
+    fn mail_definitions_including_no_abuse_contact() -> Vec<MailDefinition> {
+        vec![
+            MailDefinition::new("foo", Some("abuse@regone.zzz")),
+            MailDefinition::new("bar", None),
         ]
     }
 
@@ -668,54 +682,53 @@ impl Mailer {
 
         let mut set: JoinSet<Result<lettre::transport::smtp::response::Response, lettre::transport::smtp::Error>> = JoinSet::new();
         for definition in definitions.iter() {
-            let creds = Credentials::new(String::from(&self.server.username), String::from(&self.server.password));
-            let smtp_server = String::from(&self.server.host_uri);
-            let from_address = String::from(&self.from_address);
-            let to_address = if let Some(address) = &definition.abuse_email_address {
-                String::from(address)
-            } else {
-                String::from("oops@test.needed")
-            };
-            let entity = &definition.entity;
-            let subject = format!(
-                "`{entity}` appears to be involved with \
+            if let Some(abuse_email_address) = &definition.abuse_email_address {
+                let to_address = String::from(abuse_email_address);
+
+                let creds = Credentials::new(String::from(&self.server.username), String::from(&self.server.password));
+                let smtp_server = String::from(&self.server.host_uri);
+                let from_address = String::from(&self.from_address);
+                let entity = &definition.entity;
+                let subject = format!(
+                    "`{entity}` appears to be involved with \
                 the sending of spam emails. Please investigate."
-            );
-            let attachment = Attachment::new(String::from("suspect_email.eml"))
-                .body(String::from(raw_email), ContentType::TEXT_PLAIN);
-            let body = format!(
-                "Hello\n\
+                );
+                let attachment = Attachment::new(String::from("suspect_email.eml"))
+                    .body(String::from(raw_email), ContentType::TEXT_PLAIN);
+                let body = format!(
+                    "Hello\n\
                 I recently received a phishing email that suggests that `{entity}` \
                 may be supporting \n\
                 phishing. The original email is attached, can you \
                 please take the appropriate action?\
                 "
-            );
+                );
 
-            set.spawn(async move {
+                set.spawn(async move {
 
-                let mailer: AsyncSmtpTransport<Tokio1Executor> =
-                    AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&smtp_server)
-                    .unwrap()
-                    .credentials(creds)
-                    .build();
+                    let mailer: AsyncSmtpTransport<Tokio1Executor> =
+                        AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&smtp_server)
+                        .unwrap()
+                        .credentials(creds)
+                        .build();
 
-                let mail = Message::builder()
-                    .from(from_address.parse().unwrap())
-                    .to(to_address.parse().unwrap())
-                    .subject(subject)
-                    .multipart(
-                        MultiPart::mixed()
+                    let mail = Message::builder()
+                        .from(from_address.parse().unwrap())
+                        .to(to_address.parse().unwrap())
+                        .subject(subject)
+                        .multipart(
+                            MultiPart::mixed()
                             .singlepart(
                                 SinglePart::builder()
-                                    .header(ContentType::TEXT_PLAIN)
-                                    .body(body)
+                                .header(ContentType::TEXT_PLAIN)
+                                .body(body)
                             )
                             .singlepart(attachment)
-                    ).unwrap();
+                        ).unwrap();
 
-                mailer.send(mail).await
-            });
+                    mailer.send(mail).await
+                });
+            }
         }
 
         while let Some(res) = set.join_next().await {

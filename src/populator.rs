@@ -73,7 +73,7 @@ mod populate_tests {
                     ],
                 },
             },
-            raw_mail: "".into()
+            raw_mail: "raw mail text goes here".into()
         }
     }
 
@@ -137,7 +137,7 @@ mod populate_tests {
                     ],
                 }
             },
-            raw_mail: "".into(),
+            raw_mail: "raw mail text goes here".into(),
         }
     }
 
@@ -255,7 +255,7 @@ pub async fn populate(bootstrap: Bootstrap, data: OutputData) -> OutputData {
             fulfillment_nodes,
             ..data.parsed_mail
         },
-        raw_mail: "".into()
+        ..data
     }
 }
 
@@ -1449,6 +1449,18 @@ mod extract_abuse_email_tests {
         )
     }
 
+    #[test]
+    fn registrar_abuse_entity_email_is_empty_string_returns_none() {
+        let entities = &[
+            registrar_abuse_entity_email_is_empty_string(),
+        ];
+
+        assert_eq!(
+            None,
+            extract_abuse_email(entities)
+        );
+    }
+
     fn registrar_entity() -> rdap_types::Entity {
         build_entity(
             &[rdap_types::Role::Registrar],
@@ -1601,6 +1613,23 @@ mod extract_abuse_email_tests {
             None
         )
     }
+
+    fn registrar_abuse_entity_email_is_empty_string() -> rdap_types::Entity {
+        build_entity(
+            &[rdap_types::Role::Registrar],
+            Some(vec![
+                build_entity(
+                    &[
+                        rdap_types::Role::Abuse,
+                    ],
+                    None,
+                    Some(&[("email", &[""])])
+                ),
+            ]),
+            None
+        )
+    }
+
     fn build_entity(
         roles: &[rdap_types::Role],
         entities: Option<Vec<rdap_types::Entity>>,
@@ -1667,10 +1696,9 @@ fn extract_abuse_email(entities: &[rdap_types::Entity]) -> Option<String> {
 
             if let Some(abuse_entity) = abuse_entities.last() {
                 if let Some(vcards) = &abuse_entity.vcard_array {
-                    vcards
-                        .items_by_name("email")
-                        .last()
-                        .map(stringify_last_value)
+                    extract_value_from_last_vcard(
+                        vcards.items_by_name("email").last()
+                    )
                 } else {
                     None
                 }
@@ -1685,14 +1713,25 @@ fn extract_abuse_email(entities: &[rdap_types::Entity]) -> Option<String> {
     }
 }
 
-fn stringify_last_value(item: &&rdap_types::JCardItem) -> String {
-    item
-        .values
-        .last()
-        .unwrap()
-        .as_str()
-        .unwrap()
-        .into()
+fn extract_value_from_last_vcard(item_option: Option<&&rdap_types::JCardItem>) -> Option<String> {
+    //TODO Get rid of these unwraps
+
+    if let Some(item) = item_option {
+        let last_value = item
+            .values
+            .last()
+            .unwrap()
+            .as_str()
+            .unwrap();
+
+        if !last_value.is_empty() {
+            Some(last_value.into())
+        } else {
+            None
+        }
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
