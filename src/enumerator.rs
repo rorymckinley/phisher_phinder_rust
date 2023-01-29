@@ -29,7 +29,7 @@ mod enumerate_tests {
                 ],
                 None,
             ),
-            ""
+            "raw mail text"
         )
     }
 
@@ -45,7 +45,10 @@ mod enumerate_tests {
             },
         ];
 
-        OutputData::new(ParsedMail::new(email_addresses(), f_nodes, None), "")
+        OutputData::new(
+            ParsedMail::new(email_addresses(), f_nodes, None),
+            "raw mail text"
+        )
     }
 
     fn email_addresses() -> EmailAddresses {
@@ -86,7 +89,7 @@ pub async fn enumerate(data: OutputData) -> OutputData {
             fulfillment_nodes,
             ..data.parsed_mail
         },
-        raw_mail: "".into()
+        ..data
     }
 }
 
