@@ -2,6 +2,8 @@ use crate::data::{EmailAddressData, EmailAddresses, FulfillmentNode, Node, Outpu
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, AsyncSmtpTransport, AsyncTransport, Tokio1Executor};
 use lettre::message::{Attachment, header::ContentType, MultiPart, SinglePart};
+use url::Url;
+use std::fmt;
 
 #[cfg(test)]
 mod build_mail_definitions_tests {
@@ -65,7 +67,7 @@ mod build_mail_definitions_tests {
 
     fn expected() -> Vec<MailDefinition> {
         vec![
-            MailDefinition::new("foo@test.com", Some("abuse@regone.zzz".into())),
+            MailDefinition::new("foo@test.com", Some("abuse@regone.zzz")),
             MailDefinition::new("https://dodgy.phishing.link", Some("abuse@regtwo.zzz"))
         ]
     }
@@ -472,7 +474,7 @@ fn build_mail_definition_from_node(node: &Node) -> MailDefinition {
 
 #[derive(Debug, PartialEq)]
 pub struct MailDefinition {
-    entity: String,
+    entity: Entity,
     abuse_email_address: Option<String>
 }
 
@@ -481,22 +483,150 @@ mod mail_definition_tests {
     use super::*;
 
     #[test]
-    fn instantiation() {
+    fn instantiation_with_email_address() {
         assert_eq!(
             MailDefinition {
-                entity: "foo".into(),
+                entity: Entity::EmailAddress("foo@test.zzz".into()),
                 abuse_email_address: Some("abuse@regone.zzz".into())
             },
-            MailDefinition::new("foo", Some("abuse@regone.zzz"))
+            MailDefinition::new("foo@test.zzz", Some("abuse@regone.zzz"))
         );
+    }
+
+    #[test]
+    fn instantiation_with_url() {
+        let url = Url::parse("https://foo.bar.baz").unwrap();
+
+        assert_eq!(
+            MailDefinition {
+                entity: Entity::FulfillmentNode(url),
+                abuse_email_address: Some("abuse@regone.zzz".into())
+            },
+            MailDefinition::new("https://foo.bar.baz", Some("abuse@regone.zzz"))
+        );
+    }
+
+    #[test]
+    fn is_reportable_if_entity_is_email_address() {
+        let definition = MailDefinition::new("a@test.com", Some("abuse@regone.zzz"));
+
+        assert!(definition.reportable());
+    }
+
+    #[test]
+    fn is_reportable_if_entity_is_url_and_protocol_is_https() {
+        let definition = MailDefinition::new("https://foo.bar.baz", Some("abuse@regone.zzz"));
+
+        assert!(definition.reportable());
+    }
+
+    #[test]
+    fn is_reportable_if_entity_is_url_and_protocol_is_http() {
+        let definition = MailDefinition::new("http://foo.bar.baz", Some("abuse@regone.zzz"));
+
+        assert!(definition.reportable());
+    }
+
+    #[test]
+    fn is_not_reportable_if_entity_is_url_and_protocol_is_neither_http_not_https() {
+        let definition = MailDefinition::new("file:///foo/bar", Some("abuse@regone.zzz"));
+
+        assert!(!definition.reportable());
     }
 }
 
 impl MailDefinition {
     fn new(entity: &str, abuse_email_address: Option<&str>) -> Self {
+        let entity = match  Url::parse(entity) {
+            Ok(url) => Entity::FulfillmentNode(url),
+            Err(_) => Entity::EmailAddress(entity.into())
+        };
+
         Self {
-            entity: entity.into(),
+            entity,
             abuse_email_address: abuse_email_address.map(String::from)
+        }
+    }
+
+    fn reportable(&self) -> bool {
+        match &self.entity {
+            Entity::FulfillmentNode(url) => {
+                url.scheme() == "https" || url.scheme() == "http"
+            },
+            Entity::EmailAddress(_) => true
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum Entity {
+    EmailAddress(String),
+    FulfillmentNode(Url)
+}
+
+#[cfg(test)]
+mod entity_tests {
+    use super::*;
+
+    #[test]
+    fn email_variant_as_string() {
+        let entity = Entity::EmailAddress("foo@test.com".into());
+
+        assert_eq!(
+            String::from("foo@test.com"),
+            entity.to_string()
+        );
+    }
+
+    #[test]
+    fn url_variant_as_string() {
+        let url = "https://foo.bar.baz.com/fuzzy/wuzzy";
+
+        let entity = Entity::FulfillmentNode(url::Url::parse(url).unwrap());
+
+        assert_eq!(
+            String::from(url),
+            entity.to_string()
+        );
+    }
+
+    #[test]
+    fn noisy_url_variant_as_string() {
+        let url = "https://user:secret@foo.bar.baz.com:1234/fuzzy/wuzzy?blah=meh#xyz";
+        let expected_url = "https://foo.bar.baz.com/fuzzy/wuzzy";
+
+        let entity = Entity::FulfillmentNode(url::Url::parse(url).unwrap());
+
+        assert_eq!(
+            String::from(expected_url),
+            entity.to_string()
+        );
+    }
+
+    #[test]
+    fn url_variant_without_host_as_string() {
+        let url = "file:///foo/bar";
+
+        let entity = Entity::FulfillmentNode(url::Url::parse(url).unwrap());
+
+        assert_eq!(
+            String::from(url),
+            entity.to_string()
+        );
+    }
+}
+
+impl fmt::Display for Entity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Entity::EmailAddress(email_address) => {
+                write!(f, "{email_address}")
+            },
+            Entity::FulfillmentNode(original_url) => {
+                let host = original_url.host_str().unwrap_or("");
+                let url = format!("{}://{}{}", original_url.scheme(), host, original_url.path());
+                write!(f, "{url}")
+            }
         }
     }
 }
@@ -610,6 +740,29 @@ mod  mailer_tests {
         assert_eq!(expected, sorted_mail_trap_records(mailtrap.get_all_emails()));
     }
 
+    #[test]
+    fn does_not_send_mails_if_reportable_entity_is_not_reportable() {
+        let mailtrap = initialise_mail_trap();
+
+        let mailer = Mailer::new(mailtrap_server(), "from@test.com");
+
+        tokio_test::block_on(
+            mailer.send_mails(&mail_definitions_including_no_reportable_entity(), &raw_email())
+        );
+
+        let expected = sorted_mail_trap_records(vec![
+            Email::new(
+                "from@test.com",
+                "abuse@regone.zzz",
+                &mail_subject("foo"),
+                &mail_body("foo"),
+                &raw_email()
+            )
+        ]);
+
+        assert_eq!(expected, sorted_mail_trap_records(mailtrap.get_all_emails()));
+    }
+
     fn mailtrap_server() -> Server {
         Server::new(
             &std::env::var("TEST_SMTP_URI").unwrap(),
@@ -629,6 +782,13 @@ mod  mailer_tests {
         vec![
             MailDefinition::new("foo", Some("abuse@regone.zzz")),
             MailDefinition::new("bar", None),
+        ]
+    }
+
+    fn mail_definitions_including_no_reportable_entity() -> Vec<MailDefinition> {
+        vec![
+            MailDefinition::new("foo", Some("abuse@regone.zzz")),
+            MailDefinition::new("file:///foo/bar", Some("abuse@regtwo.zzz")),
         ]
     }
 
@@ -682,57 +842,78 @@ impl Mailer {
 
         let mut set: JoinSet<Result<lettre::transport::smtp::response::Response, lettre::transport::smtp::Error>> = JoinSet::new();
         for definition in definitions.iter() {
-            if let Some(abuse_email_address) = &definition.abuse_email_address {
-                let to_address = String::from(abuse_email_address);
+            if definition.reportable() {
+                if let Some(abuse_email_address) = &definition.abuse_email_address {
 
-                let creds = Credentials::new(String::from(&self.server.username), String::from(&self.server.password));
-                let smtp_server = String::from(&self.server.host_uri);
-                let from_address = String::from(&self.from_address);
-                let entity = &definition.entity;
-                let subject = format!(
-                    "`{entity}` appears to be involved with \
-                the sending of spam emails. Please investigate."
-                );
-                let attachment = Attachment::new(String::from("suspect_email.eml"))
-                    .body(String::from(raw_email), ContentType::TEXT_PLAIN);
-                let body = format!(
-                    "Hello\n\
-                I recently received a phishing email that suggests that `{entity}` \
-                may be supporting \n\
-                phishing. The original email is attached, can you \
-                please take the appropriate action?\
-                "
-                );
+                    let mailer = self.build_mailer();
 
-                set.spawn(async move {
+                    let mail = self.build_mail(abuse_email_address, &definition.entity, raw_email);
 
-                    let mailer: AsyncSmtpTransport<Tokio1Executor> =
-                        AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&smtp_server)
-                        .unwrap()
-                        .credentials(creds)
-                        .build();
-
-                    let mail = Message::builder()
-                        .from(from_address.parse().unwrap())
-                        .to(to_address.parse().unwrap())
-                        .subject(subject)
-                        .multipart(
-                            MultiPart::mixed()
-                            .singlepart(
-                                SinglePart::builder()
-                                .header(ContentType::TEXT_PLAIN)
-                                .body(body)
-                            )
-                            .singlepart(attachment)
-                        ).unwrap();
-
-                    mailer.send(mail).await
-                });
+                    set.spawn(async move {
+                        mailer.send(mail).await
+                    });
+                }
             }
         }
 
         while let Some(res) = set.join_next().await {
             res.unwrap().unwrap();
         }
+    }
+
+    fn build_mail(&self, abuse_email_address: &str, entity: &Entity, raw_email: &str) -> Message {
+        // TODO find some way to exercise these `unwrap()` calls and put better 
+        // handling in
+        Message::builder()
+            .from(self.from_address.parse().unwrap())
+            .to(abuse_email_address.parse().unwrap())
+            .subject(self.build_subject(entity))
+            .multipart(
+                MultiPart::mixed()
+                    .singlepart(self.build_body(entity))
+                    .singlepart(self.build_attachment(raw_email))
+            ).unwrap()
+    }
+
+    fn credentials(&self) -> Credentials {
+        Credentials::new(
+            String::from(&self.server.username),
+            String::from(&self.server.password)
+        )
+    }
+
+    fn build_subject(&self, entity: &Entity) -> String {
+        format!(
+            "`{entity}` appears to be involved with \
+            the sending of spam emails. Please investigate."
+        )
+    }
+
+    fn build_body(&self, entity: &Entity) -> SinglePart {
+        let text = format!(
+            "\
+            Hello\n\
+            I recently received a phishing email that suggests that `{entity}` \
+            may be supporting \n\
+            phishing. The original email is attached, can you \
+            please take the appropriate action?\
+            "
+        );
+
+        SinglePart::builder()
+            .header(ContentType::TEXT_PLAIN)
+            .body(text)
+    }
+
+    fn build_attachment(&self, raw_email: &str) -> SinglePart {
+        Attachment::new(String::from("suspect_email.eml"))
+            .body(String::from(raw_email), ContentType::TEXT_PLAIN)
+    }
+
+    fn build_mailer(&self) -> AsyncSmtpTransport<Tokio1Executor> {
+        AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&self.server.host_uri)
+            .unwrap()
+            .credentials(self.credentials())
+            .build()
     }
 }
