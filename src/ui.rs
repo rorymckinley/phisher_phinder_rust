@@ -459,10 +459,6 @@ fn fulfillment_node_row(table: &mut Table, node: &FulfillmentNode) {
     );
 }
 
-pub fn display_abuse_contact_notifications(data: &OutputData) -> AppResult<String> {
-    Ok(String::from(""))
-}
-
 #[cfg(test)]
 mod domain_category_cell_tests {
     use super::*;
