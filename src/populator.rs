@@ -12,6 +12,7 @@ use crate:: data::{
 };
 use rdap_client::bootstrap::Bootstrap;
 use rdap_client::Client;
+use rdap_client::parser;
 use std::sync::Arc;
 
 #[cfg(test)]
@@ -1049,8 +1050,8 @@ mod get_rdap_data_tests {
     }
 }
 
-async fn get_rdap_data(bootstrap: Arc<Bootstrap>, domain_name: &str) -> Option<rdap_types::Domain> {
-    let mut domain_response: Option<rdap_types::Domain> = None;
+async fn get_rdap_data(bootstrap: Arc<Bootstrap>, domain_name: &str) -> Option<parser::Domain> {
+    let mut domain_response: Option<parser::Domain> = None;
 
     if let Some(servers) = bootstrap.dns.find(domain_name) {
         let client = Client::new();
@@ -1105,77 +1106,77 @@ mod extract_registrar_name_tests {
         );
     }
 
-    fn entities_including_registrar() -> Vec<rdap_types::Entity> {
+    fn entities_including_registrar() -> Vec<parser::Entity> {
         vec![
             build_entity(
-                Some(vec![rdap_types::Role::Registrant, rdap_types::Role::Sponsor]),
+                Some(vec![parser::Role::Registrant, parser::Role::Sponsor]),
                 ("fn", "Not Reg One"),
             ),
             build_entity(
                 Some(vec![
-                    rdap_types::Role::Noc,
-                    rdap_types::Role::Registrar,
-                    rdap_types::Role::Sponsor
+                    parser::Role::Noc,
+                    parser::Role::Registrar,
+                    parser::Role::Sponsor
                 ]),
                 ("fn", "Reg One"),
             ),
             build_entity(
-                Some(vec![rdap_types::Role::Noc, rdap_types::Role::Sponsor]),
+                Some(vec![parser::Role::Noc, parser::Role::Sponsor]),
                 ("fn", "Not Reg Two")
             )
         ]
     }
 
-    fn entities_no_registrar() -> Vec<rdap_types::Entity> {
+    fn entities_no_registrar() -> Vec<parser::Entity> {
         vec![
             build_entity(
-                Some(vec![rdap_types::Role::Registrant, rdap_types::Role::Sponsor]),
+                Some(vec![parser::Role::Registrant, parser::Role::Sponsor]),
                 ("fn", "Not Reg One"),
             ),
             build_entity(
                 Some(vec![
-                    rdap_types::Role::Noc,
-                    rdap_types::Role::Sponsor
+                    parser::Role::Noc,
+                    parser::Role::Sponsor
                 ]),
                 ("fn", "Not Reg Two"),
             ),
             build_entity(
                 Some(vec![
-                    rdap_types::Role::Noc,
-                    rdap_types::Role::Sponsor,
+                    parser::Role::Noc,
+                    parser::Role::Sponsor,
                 ]),
                 ("fn", "Not Reg Three")
             )
         ]
     }
 
-    fn entities_including_registrar_no_fn() -> Vec<rdap_types::Entity> {
+    fn entities_including_registrar_no_fn() -> Vec<parser::Entity> {
         vec![
             build_entity(
-                Some(vec![rdap_types::Role::Registrant, rdap_types::Role::Sponsor]),
+                Some(vec![parser::Role::Registrant, parser::Role::Sponsor]),
                 ("fn", "Not Reg One"),
             ),
             build_entity(
                 Some(vec![
-                    rdap_types::Role::Noc,
-                    rdap_types::Role::Registrar,
-                    rdap_types::Role::Sponsor
+                    parser::Role::Noc,
+                    parser::Role::Registrar,
+                    parser::Role::Sponsor
                 ]),
                 ("not-fn", "Reg One"),
             ),
             build_entity(
-                Some(vec![rdap_types::Role::Noc, rdap_types::Role::Sponsor]),
+                Some(vec![parser::Role::Noc, parser::Role::Sponsor]),
                 ("fn", "Not Reg Two")
             )
         ]
     }
 
     fn build_entity(
-        roles: Option<Vec<rdap_types::Role>>,
+        roles: Option<Vec<parser::Role>>,
         additional_vcard_item: (&str, &str)
-    ) -> rdap_types::Entity {
-        let vcard_array = rdap_types::JCard(
-            rdap_types::JCardType::Vcard,
+    ) -> parser::Entity {
+        let vcard_array = parser::JCard(
+            parser::JCardType::Vcard,
             vec![
                 build_jcard_item("foo", "bar"),
                 build_jcard_item(additional_vcard_item.0, additional_vcard_item.1),
@@ -1185,7 +1186,7 @@ mod extract_registrar_name_tests {
 
         let handle: Option<String> = None;
 
-        rdap_types::Entity {
+        parser::Entity {
             roles,
             vcard_array: Some(vcard_array),
             handle,
@@ -1202,21 +1203,21 @@ mod extract_registrar_name_tests {
         }
     }
 
-    fn build_jcard_item(property_name: &str, value: &str) -> rdap_types::JCardItem {
+    fn build_jcard_item(property_name: &str, value: &str) -> parser::JCardItem {
         use serde_json::map::Map;
         use serde_json::json;
 
-        rdap_types::JCardItem {
+        parser::JCardItem {
             property_name: property_name.into(),
             parameters: Map::new(),
-            type_identifier: rdap_types::JCardItemDataType::Text,
+            type_identifier: parser::JCardItemDataType::Text,
             values: vec![json!(value)]
 
         }
     }
 }
 
-fn extract_registrar_name(entities: &[rdap_types::Entity]) -> Option<String> {
+fn extract_registrar_name(entities: &[parser::Entity]) -> Option<String> {
     if let Some(entity) = find_registrar_entity(entities) {
         extract_full_name(entity)
     } else {
@@ -1270,14 +1271,14 @@ mod extract_full_name_tests {
         );
     }
 
-    fn entity_with_full_name() -> rdap_types::Entity {
+    fn entity_with_full_name() -> parser::Entity {
         build_entity(None, vec![("fn", &["Reg One"])])
     }
 
     fn build_entity(
-        roles: Option<Vec<rdap_types::Role>>,
+        roles: Option<Vec<parser::Role>>,
         additional_items: Vec<(&str, &[&str])>
-    ) -> rdap_types::Entity {
+    ) -> parser::Entity {
         let mut vcard_items = vec![build_jcard_item("foo", &["bar"])];
         let mut additional_vcard_items = additional_items.iter().map(|(c_type, c_values)| {
             build_jcard_item(c_type, c_values)
@@ -1287,11 +1288,11 @@ mod extract_full_name_tests {
         vcard_items.append(&mut additional_vcard_items);
         vcard_items.append(&mut trailing_vcard_items);
 
-        let vcard_array = rdap_types::JCard(rdap_types::JCardType::Vcard, vcard_items);
+        let vcard_array = parser::JCard(parser::JCardType::Vcard, vcard_items);
 
         let handle: Option<String> = None;
 
-        rdap_types::Entity {
+        parser::Entity {
             roles,
             vcard_array: Some(vcard_array),
             handle,
@@ -1308,22 +1309,22 @@ mod extract_full_name_tests {
         }
     }
 
-    fn build_jcard_item(property_name: &str, values: &[&str]) -> rdap_types::JCardItem {
+    fn build_jcard_item(property_name: &str, values: &[&str]) -> parser::JCardItem {
         use serde_json::map::Map;
         use serde_json::json;
 
-        rdap_types::JCardItem {
+        parser::JCardItem {
             property_name: property_name.into(),
             parameters: Map::new(),
-            type_identifier: rdap_types::JCardItemDataType::Text,
+            type_identifier: parser::JCardItemDataType::Text,
             values: values.iter().map(|v| json!(v)).collect()
         }
     }
 
-    fn entity_without_vcards() -> rdap_types::Entity {
+    fn entity_without_vcards() -> parser::Entity {
         let handle: Option<String> = None;
 
-        rdap_types::Entity {
+        parser::Entity {
             roles: None,
             vcard_array: None,
             handle,
@@ -1340,16 +1341,16 @@ mod extract_full_name_tests {
         }
     }
 
-    fn entity_without_fn_vcard() -> rdap_types::Entity {
+    fn entity_without_fn_vcard() -> parser::Entity {
         build_entity(None, vec![("not-fn", &["Reg One"])])
     }
 
-    fn entity_with_multiple_fn_vcards() -> rdap_types::Entity {
+    fn entity_with_multiple_fn_vcards() -> parser::Entity {
         build_entity(None, vec![("fn", &["Reg One"]), ("fn", &["Reg Two"])])
     }
 }
 
-fn extract_full_name(entity: &rdap_types::Entity) -> Option<String> {
+fn extract_full_name(entity: &parser::Entity) -> Option<String> {
     if let Some(vcards) = &entity.vcard_array {
         let full_name_items = vcards.items_by_name("fn");
 
@@ -1461,31 +1462,31 @@ mod extract_abuse_email_tests {
         );
     }
 
-    fn registrar_entity() -> rdap_types::Entity {
+    fn registrar_entity() -> parser::Entity {
         build_entity(
-            &[rdap_types::Role::Registrar],
+            &[parser::Role::Registrar],
             Some(vec![
                 build_entity(
                     &[
-                        rdap_types::Role::Administrative,
-                        rdap_types::Role::Technical,
+                        parser::Role::Administrative,
+                        parser::Role::Technical,
                     ],
                     None,
                     Some(&[("email", &["notabuse@test.zzz"])])
                 ),
                 build_entity(
                     &[
-                        rdap_types::Role::Administrative,
-                        rdap_types::Role::Abuse,
-                        rdap_types::Role::Technical,
+                        parser::Role::Administrative,
+                        parser::Role::Abuse,
+                        parser::Role::Technical,
                     ],
                     None,
                     Some(&[("email", &["abuse@test.zzz"])])
                 ),
                 build_entity(
                     &[
-                        rdap_types::Role::Administrative,
-                        rdap_types::Role::Technical,
+                        parser::Role::Administrative,
+                        parser::Role::Technical,
                     ],
                     None,
                     Some(&[("email", &["alsonotabuse@test.zzz"])])
@@ -1495,13 +1496,13 @@ mod extract_abuse_email_tests {
         )
     }
 
-    fn non_registrar_entity() -> rdap_types::Entity {
+    fn non_registrar_entity() -> parser::Entity {
         build_entity(
-            &[rdap_types::Role::Sponsor],
+            &[parser::Role::Sponsor],
             Some(vec![
                 build_entity(
                     &[
-                        rdap_types::Role::Abuse,
+                        parser::Role::Abuse,
                     ],
                     None,
                     Some(&[("email", &["notregabuse@test.zzz"])])
@@ -1511,21 +1512,21 @@ mod extract_abuse_email_tests {
         )
     }
 
-    fn registrar_entity_none_entities() -> rdap_types::Entity {
+    fn registrar_entity_none_entities() -> parser::Entity {
         build_entity(
-            &[rdap_types::Role::Registrar],
+            &[parser::Role::Registrar],
             None,
             None
         )
     }
 
-    fn registrar_entity_no_abuse_entities() -> rdap_types::Entity {
+    fn registrar_entity_no_abuse_entities() -> parser::Entity {
         build_entity(
-            &[rdap_types::Role::Registrar],
+            &[parser::Role::Registrar],
             Some(vec![
                 build_entity(
                     &[
-                        rdap_types::Role::Administrative,
+                        parser::Role::Administrative,
                     ],
                     None,
                     Some(&[("email", &["notabuse@test.zzz"])])
@@ -1535,28 +1536,28 @@ mod extract_abuse_email_tests {
         )
     }
 
-    fn registrar_entity_multiple_abuse_entities() -> rdap_types::Entity {
+    fn registrar_entity_multiple_abuse_entities() -> parser::Entity {
         build_entity(
-            &[rdap_types::Role::Registrar],
+            &[parser::Role::Registrar],
             Some(vec![
                 build_entity(
                     &[
-                        rdap_types::Role::Administrative,
-                        rdap_types::Role::Technical,
+                        parser::Role::Administrative,
+                        parser::Role::Technical,
                     ],
                     None,
                     Some(&[("email", &["notabuse@test.zzz"])])
                 ),
                 build_entity(
                     &[
-                        rdap_types::Role::Abuse,
+                        parser::Role::Abuse,
                     ],
                     None,
                     Some(&[("email", &["abuse@test.zzz"])])
                 ),
                 build_entity(
                     &[
-                        rdap_types::Role::Abuse,
+                        parser::Role::Abuse,
                     ],
                     None,
                     Some(&[("email", &["alsoabuse@test.zzz"])]),
@@ -1566,13 +1567,13 @@ mod extract_abuse_email_tests {
         )
     }
 
-    fn registrar_entity_abuse_none_vcards() -> rdap_types::Entity {
+    fn registrar_entity_abuse_none_vcards() -> parser::Entity {
         build_entity(
-            &[rdap_types::Role::Registrar],
+            &[parser::Role::Registrar],
             Some(vec![
                 build_entity(
                     &[
-                        rdap_types::Role::Abuse,
+                        parser::Role::Abuse,
                     ],
                     None,
                     None
@@ -1582,13 +1583,13 @@ mod extract_abuse_email_tests {
         )
     }
 
-    fn registrar_entity_no_abuse_email() -> rdap_types::Entity {
+    fn registrar_entity_no_abuse_email() -> parser::Entity {
         build_entity(
-            &[rdap_types::Role::Registrar],
+            &[parser::Role::Registrar],
             Some(vec![
                 build_entity(
                     &[
-                        rdap_types::Role::Abuse,
+                        parser::Role::Abuse,
                     ],
                     None,
                     Some(&[])
@@ -1598,13 +1599,13 @@ mod extract_abuse_email_tests {
         )
     }
 
-    fn registrar_entity_abuse_multiple_email_values() -> rdap_types::Entity {
+    fn registrar_entity_abuse_multiple_email_values() -> parser::Entity {
         build_entity(
-            &[rdap_types::Role::Registrar],
+            &[parser::Role::Registrar],
             Some(vec![
                 build_entity(
                     &[
-                        rdap_types::Role::Abuse,
+                        parser::Role::Abuse,
                     ],
                     None,
                     Some(&[("email", &["abuse@test.zzz", "alsoabuse@test.zzz"])])
@@ -1614,13 +1615,13 @@ mod extract_abuse_email_tests {
         )
     }
 
-    fn registrar_abuse_entity_email_is_empty_string() -> rdap_types::Entity {
+    fn registrar_abuse_entity_email_is_empty_string() -> parser::Entity {
         build_entity(
-            &[rdap_types::Role::Registrar],
+            &[parser::Role::Registrar],
             Some(vec![
                 build_entity(
                     &[
-                        rdap_types::Role::Abuse,
+                        parser::Role::Abuse,
                     ],
                     None,
                     Some(&[("email", &[""])])
@@ -1631,10 +1632,10 @@ mod extract_abuse_email_tests {
     }
 
     fn build_entity(
-        roles: &[rdap_types::Role],
-        entities: Option<Vec<rdap_types::Entity>>,
+        roles: &[parser::Role],
+        entities: Option<Vec<parser::Entity>>,
         additional_items: Option<&[(&str, &[&str])]>
-    ) -> rdap_types::Entity {
+    ) -> parser::Entity {
         let vcard_array = if let Some(additional) = additional_items {
             let mut vcard_items = vec![build_jcard_item("foo", &["bar"])];
             let mut additional_vcard_items = additional.iter().map(|(c_type, c_values)| {
@@ -1645,12 +1646,12 @@ mod extract_abuse_email_tests {
             vcard_items.append(&mut additional_vcard_items);
             vcard_items.append(&mut trailing_vcard_items);
 
-            Some(rdap_types::JCard(rdap_types::JCardType::Vcard, vcard_items))
+            Some(parser::JCard(parser::JCardType::Vcard, vcard_items))
         } else {
             None
         };
 
-        rdap_types::Entity {
+        parser::Entity {
             roles: Some(roles.to_vec()),
             vcard_array,
             handle: None,
@@ -1667,27 +1668,27 @@ mod extract_abuse_email_tests {
         }
     }
 
-    fn build_jcard_item(property_name: &str, values: &[&str]) -> rdap_types::JCardItem {
+    fn build_jcard_item(property_name: &str, values: &[&str]) -> parser::JCardItem {
         use serde_json::map::Map;
         use serde_json::json;
 
-        rdap_types::JCardItem {
+        parser::JCardItem {
             property_name: property_name.into(),
             parameters: Map::new(),
-            type_identifier: rdap_types::JCardItemDataType::Text,
+            type_identifier: parser::JCardItemDataType::Text,
             values: values.iter().map(|v| json!(v)).collect()
         }
     }
 }
 
-fn extract_abuse_email(entities: &[rdap_types::Entity]) -> Option<String> {
+fn extract_abuse_email(entities: &[parser::Entity]) -> Option<String> {
     if let Some(registrar_entity) = find_registrar_entity(entities) {
         if let Some(r_entities) = &registrar_entity.entities {
-            let abuse_entities: Vec<&rdap_types::Entity> = r_entities
+            let abuse_entities: Vec<&parser::Entity> = r_entities
                 .iter()
                 .filter(|e| {
                     if let Some(roles) = &e.roles {
-                        roles.contains(&rdap_types::Role::Abuse)
+                        roles.contains(&parser::Role::Abuse)
                     } else {
                         false
                     }
@@ -1713,7 +1714,7 @@ fn extract_abuse_email(entities: &[rdap_types::Entity]) -> Option<String> {
     }
 }
 
-fn extract_value_from_last_vcard(item_option: Option<&&rdap_types::JCardItem>) -> Option<String> {
+fn extract_value_from_last_vcard(item_option: Option<&&parser::JCardItem>) -> Option<String> {
     //TODO Get rid of these unwraps
 
     if let Some(item) = item_option {
@@ -1740,7 +1741,7 @@ mod extract_registration_date_tests {
 
     #[test]
     fn returns_registration_date() {
-        let events = rdap_types::Events(vec![
+        let events = parser::Events(vec![
             non_registration_event(), registration_event(), non_registration_event()
         ]);
         let expected_registration_date = chrono::Utc
@@ -1756,37 +1757,37 @@ mod extract_registration_date_tests {
 
     #[test]
     fn returns_none_if_no_registration_event() {
-        let events = rdap_types::Events(vec![
+        let events = parser::Events(vec![
             non_registration_event(), non_registration_event()
         ]);
 
         assert!(extract_registration_date(&events).is_none());
     }
 
-    fn registration_event() -> rdap_types::Event {
+    fn registration_event() -> parser::Event {
         let event_date = time_zone()
             .with_ymd_and_hms(2022, 12, 11, 14, 5, 30)
             .single()
             .unwrap();
 
-        rdap_types::Event {
+        parser::Event {
             event_actor: None,
-            event_action: rdap_types::EventAction::Registration,
+            event_action: parser::EventAction::Registration,
             event_date,
             links: None,
         }
     }
 
-    fn non_registration_event() -> rdap_types::Event {
+    fn non_registration_event() -> parser::Event {
 
         let event_date = time_zone()
             .with_ymd_and_hms(2022, 12, 25, 16, 5, 30)
             .single()
             .unwrap();
 
-        rdap_types::Event {
+        parser::Event {
             event_actor: None,
-            event_action: rdap_types::EventAction::Locked,
+            event_action: parser::EventAction::Locked,
             event_date,
             links: None,
         }
@@ -1797,9 +1798,9 @@ mod extract_registration_date_tests {
     }
 }
 
-fn extract_registration_date(events: &rdap_types::Events) -> Option<DateTime<Utc>> {
+fn extract_registration_date(events: &parser::Events) -> Option<DateTime<Utc>> {
     events
-        .action_date(rdap_types::EventAction::Registration)
+        .action_date(parser::EventAction::Registration)
         .map(|date| date.into())
 }
 
@@ -1840,32 +1841,32 @@ mod find_registrar_entity_tests {
         assert!(find_registrar_entity(&entities).is_none());
     }
 
-    fn non_registrar_entity() -> rdap_types::Entity {
+    fn non_registrar_entity() -> parser::Entity {
         build_entity(&[
-            rdap_types::Role::Noc,
-            rdap_types::Role::Sponsor
+            parser::Role::Noc,
+            parser::Role::Sponsor
         ])
     }
 
-    fn registrar_entity_1() -> rdap_types::Entity {
+    fn registrar_entity_1() -> parser::Entity {
         build_entity(&[
-            rdap_types::Role::Noc,
-            rdap_types::Role::Registrar,
-            rdap_types::Role::Sponsor
+            parser::Role::Noc,
+            parser::Role::Registrar,
+            parser::Role::Sponsor
         ])
     }
 
-    fn registrar_entity_2() -> rdap_types::Entity {
+    fn registrar_entity_2() -> parser::Entity {
         build_entity(&[
-            rdap_types::Role::Noc,
-            rdap_types::Role::Registrar,
+            parser::Role::Noc,
+            parser::Role::Registrar,
         ])
     }
 
     fn build_entity(
-        roles: &[rdap_types::Role],
-    ) -> rdap_types::Entity {
-        rdap_types::Entity {
+        roles: &[parser::Role],
+    ) -> parser::Entity {
+        parser::Entity {
             roles: Some(roles.to_vec()),
             vcard_array: None,
             handle: None,
@@ -1882,18 +1883,18 @@ mod find_registrar_entity_tests {
         }
     }
 
-    fn compare(expected: &rdap_types::Entity, actual: &rdap_types::Entity) {
+    fn compare(expected: &parser::Entity, actual: &parser::Entity) {
         // Use the assigned roles as a unique 'id'
         assert_eq!(expected.roles, actual.roles);
     }
 }
 
-fn find_registrar_entity(entities: &[rdap_types::Entity]) -> Option<&rdap_types::Entity> {
-    let mut registrar_entities: Vec<&rdap_types::Entity> = entities
+fn find_registrar_entity(entities: &[parser::Entity]) -> Option<&parser::Entity> {
+    let mut registrar_entities: Vec<&parser::Entity> = entities
         .iter()
         .filter(|e| {
             if let Some(roles) = &e.roles {
-                roles.contains(&rdap_types::Role::Registrar)
+                roles.contains(&parser::Role::Registrar)
             } else {
                 false
             }
