@@ -118,15 +118,6 @@ impl MailTrap {
         serde_json::from_str(&response.text().unwrap()).unwrap()
     }
 
-    fn extract_address(&self, address_header: &HeaderValue) -> Option<String> {
-        match address_header {
-            HeaderValue::Address(Addr {address, ..}) => {
-                address.as_ref().map(|addr| addr.clone().into_owned())
-            },
-            _ => None
-        }
-    }
-
     fn download_raw_mail(&self, download_path: &str) -> String {
         let request_url = self.url.join(download_path).unwrap();
 
