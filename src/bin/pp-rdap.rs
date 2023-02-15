@@ -3,7 +3,7 @@ use phisher_phinder_rust::cli::Cli;
 use phisher_phinder_rust::data::OutputData;
 use phisher_phinder_rust::populator::populate;
 use phisher_phinder_rust::ui;
-use rdap_client::Client;
+use test_friendly_rdap_client::Client;
 use std::io;
 
 #[tokio::main]

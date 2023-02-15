@@ -10,9 +10,9 @@ use crate:: data::{
     Registrar,
     EmailAddresses
 };
-use rdap_client::bootstrap::Bootstrap;
-use rdap_client::Client;
-use rdap_client::parser;
+use test_friendly_rdap_client::bootstrap::Bootstrap;
+use test_friendly_rdap_client::Client;
+use test_friendly_rdap_client::parser;
 use std::sync::Arc;
 
 #[cfg(test)]
