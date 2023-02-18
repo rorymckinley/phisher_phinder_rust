@@ -178,16 +178,16 @@ impl Email {
 
     fn from_parsed_email(parsed_mail: mail_parser::Message) -> Self {
         let attachment_contents = parsed_mail
-            .get_attachment(0).unwrap()
-            .get_text_contents()
+            .attachment(0).unwrap()
+            .text_contents()
             .map(String::from);
 
         Self {
-            from: Self::extract_address(parsed_mail.get_from()),
-            to: Self::extract_address(parsed_mail.get_to()),
-            subject: parsed_mail.get_subject().map(String::from),
-            body: parsed_mail.get_text_body(0).map(String::from),
-            attachment_contents 
+            from: Self::extract_address(parsed_mail.from()),
+            to: Self::extract_address(parsed_mail.to()),
+            subject: parsed_mail.subject().map(String::from),
+            body: parsed_mail.body_text(0).map(String::from),
+            attachment_contents
         }
     }
 

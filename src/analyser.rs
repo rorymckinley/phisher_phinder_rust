@@ -230,23 +230,23 @@ impl<'a> TestParsedMail<'a> {
 
 #[cfg(test)]
 impl<'a> AnalysableMessage for TestParsedMail<'a> {
-    fn from(&self) -> Vec<String> {
+    fn get_from(&self) -> Vec<String> {
         vec![self.from.clone()]
     }
 
-    fn links(&self) -> Vec<String> {
+    fn get_links(&self) -> Vec<String> {
         self.links.clone().into_iter().map(String::from).collect()
     }
 
-    fn reply_to(&self) -> Vec<String> {
+    fn get_reply_to(&self) -> Vec<String> {
         vec![self.reply_to.clone()]
     }
 
-    fn return_path(&self) -> Vec<String> {
+    fn get_return_path(&self) -> Vec<String> {
         vec![self.return_path.clone()]
     }
 
-    fn subject(&self) -> Option<String> {
+    fn get_subject(&self) -> Option<String> {
         Some(self.subject.clone())
     }
 }
@@ -257,7 +257,7 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
     }
 
     pub fn subject(&self) -> Option<String> {
-        self.parsed_mail.subject()
+        self.parsed_mail.get_subject()
     }
 
     pub fn sender_email_addresses(&self) -> EmailAddresses {
@@ -266,7 +266,7 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
 
         let mut links: Vec<EmailAddressData> = self
             .parsed_mail
-            .links()
+            .get_links()
             .iter()
             .filter(|address_string| pattern.is_match(address_string))
             .flat_map(|link| {
@@ -286,9 +286,9 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
         links.dedup();
 
         EmailAddresses {
-            from: self.convert_addresses(self.parsed_mail.from()),
-            reply_to: self.convert_addresses(self.parsed_mail.reply_to()),
-            return_path: self.convert_addresses(self.parsed_mail.return_path()),
+            from: self.convert_addresses(self.parsed_mail.get_from()),
+            reply_to: self.convert_addresses(self.parsed_mail.get_reply_to()),
+            return_path: self.convert_addresses(self.parsed_mail.get_return_path()),
             links,
         }
     }
@@ -296,7 +296,7 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
     pub fn fulfillment_nodes(&self) -> Vec<FulfillmentNode> {
         let mut nodes: Vec<FulfillmentNode> = self
             .parsed_mail
-            .links()
+            .get_links()
             .iter()
             .filter(|link| !link.is_empty())
             .map(|url| FulfillmentNode::new(url))

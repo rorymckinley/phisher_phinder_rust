@@ -1204,9 +1204,9 @@ dependencies = [
 
 [[package]]
 name = "mail-parser"
-version = "0.7.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9c5c7e7ee68a597425d5e4134dfa0dbbc1f86cc047c9a8c1dde1bf34fafe461"
+checksum = "9a2e03aa1d18528b45d0e79e46790f38cfeece6cce3af17a85912677272f36cd"
 dependencies = [
  "encoding_rs",
 ]
