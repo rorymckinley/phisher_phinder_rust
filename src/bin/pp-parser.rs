@@ -25,18 +25,18 @@ fn main() {
 
     let output = OutputData::new(
         ParsedMail::new(
-            analyser.sender_email_addresses(), analyser.fulfillment_nodes(), analyser.subject(), 
+            analyser.sender_email_addresses(), analyser.fulfillment_nodes(), analyser.subject(),
         ),
         &mail,
     );
 
     if cli.human {
-        println!("{}", parsed_mail.get_subject().unwrap());
+        println!("{}", parsed_mail.subject().unwrap());
         println!();
         println!("{}", ui::display_sender_addresses_extended(&output).unwrap());
         println!();
         println!("{}", ui::display_fulfillment_nodes(&output).unwrap());
-        
+
     } else {
         print!("{}", serde_json::to_string(&output).unwrap());
     }

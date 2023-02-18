@@ -2,11 +2,11 @@ use mail_parser::{Addr, HeaderValue, Message};
 use scraper::{Html, Selector};
 
 pub trait AnalysableMessage {
-    fn links(&self) -> Vec<String>;
-    fn from(&self) -> Vec<String>;
-    fn reply_to(&self) -> Vec<String>;
-    fn return_path(&self) -> Vec<String>;
-    fn subject(&self) -> Option<String>;
+    fn get_links(&self) -> Vec<String>;
+    fn get_from(&self) -> Vec<String>;
+    fn get_reply_to(&self) -> Vec<String>;
+    fn get_return_path(&self) -> Vec<String>;
+    fn get_subject(&self) -> Option<String>;
 }
 
 #[cfg(test)]
@@ -29,7 +29,7 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
 
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
 
-        assert_eq!(expected, parsed_mail.return_path());
+        assert_eq!(expected, parsed_mail.get_return_path());
     }
 
     #[test]
@@ -49,7 +49,7 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
 
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
 
-        assert_eq!(expected, parsed_mail.return_path());
+        assert_eq!(expected, parsed_mail.get_return_path());
     }
 
     #[test]
@@ -70,7 +70,7 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
 
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
 
-        assert_eq!(expected, parsed_mail.reply_to())
+        assert_eq!(expected, parsed_mail.get_reply_to())
     }
 
     #[test]
@@ -90,7 +90,7 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
 
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
 
-        assert_eq!(vec![String::from("scammer@evildomain.zzz")], parsed_mail.reply_to())
+        assert_eq!(vec![String::from("scammer@evildomain.zzz")], parsed_mail.get_reply_to())
     }
 
     #[test]
@@ -117,7 +117,7 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
             String::from("scammer@fraud.zzz"),
         ];
 
-        assert_eq!(expected, parsed_mail.reply_to())
+        assert_eq!(expected, parsed_mail.get_reply_to())
     }
 
     #[test]
@@ -135,7 +135,7 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
         let expected: Vec<String> = vec![];
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
 
-        assert_eq!(expected, parsed_mail.from());
+        assert_eq!(expected, parsed_mail.get_from());
     }
 
     #[test]
@@ -156,7 +156,7 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
 
         assert_eq!(
             vec![String::from("PIBIeSRqUtiEw1NCg4@fake.net")],
-            parsed_mail.from()
+            parsed_mail.get_from()
         );
     }
 
@@ -175,7 +175,7 @@ To: victim@gmail.com\r\n\r
 
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
 
-        assert_eq!(None, parsed_mail.subject());
+        assert_eq!(None, parsed_mail.get_subject());
     }
 
     #[test]
@@ -196,7 +196,7 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
 
         assert_eq!(
             Some(String::from("We’re sorry that we didn’t touch base with you earlier. f309")),
-            parsed_mail.subject()
+            parsed_mail.get_subject()
         );
     }
 
@@ -250,15 +250,15 @@ Content-Type: text/html; charset=\"utf-8\"\r
                 String::from("https://foo.baz"),
                 String::from("https://foo.biz"),
             ],
-            parsed_mail.links()
+            parsed_mail.get_links()
         )
     }
 }
 
 impl AnalysableMessage for Message<'_> {
-    fn from(&self) -> Vec<String> {
+    fn get_from(&self) -> Vec<String> {
         // TODO Cover other options
-        match self.get_from() {
+        match self.from() {
             HeaderValue::Address(Addr {name: _, address}) => {
                 if let Some(addr) = address.as_deref() {
                     vec![String::from(addr)]
@@ -273,9 +273,9 @@ impl AnalysableMessage for Message<'_> {
         }
     }
 
-    fn reply_to(&self) -> Vec<String> {
+    fn get_reply_to(&self) -> Vec<String> {
         // TODO Cover other options
-        match self.get_reply_to() {
+        match self.reply_to() {
             HeaderValue::Address(Addr {name: _, address}) => {
                 if let Some(addr) = address.as_deref() {
                     vec![String::from(addr)]
@@ -303,9 +303,9 @@ impl AnalysableMessage for Message<'_> {
         }
     }
 
-    fn return_path(&self) -> Vec<String> {
+    fn get_return_path(&self) -> Vec<String> {
         // TODO Cover other options
-        match self.get_return_path() {
+        match self.return_path() {
             HeaderValue::Text(address) => {
                 vec![address.to_string()]
             },
@@ -315,16 +315,16 @@ impl AnalysableMessage for Message<'_> {
         }
     }
 
-    fn subject(&self) -> Option<String> {
-        self.get_subject().map(String::from)
+    fn get_subject(&self) -> Option<String> {
+        self.subject().map(String::from)
     }
 
-    fn links(&self) -> Vec<String> {
+    fn get_links(&self) -> Vec<String> {
         let collector: Vec<String> = vec![];
         let selector = Selector::parse("a").unwrap();
 
         self
-            .get_html_bodies()
+            .html_bodies()
             .fold(collector, |mut memo, part| {
                 if let mail_parser::PartType::Html(body) = &part.body {
 
