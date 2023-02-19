@@ -21,6 +21,7 @@ mod display_sender_addresses_extended_tests {
     fn displays_extended_data_for_sender_addresses() {
         let data = OutputData {
             parsed_mail: ParsedMail {
+                delivery_nodes: vec![],
                 fulfillment_nodes: vec![],
                 subject: Some("Send me money now! Please?".into()),
                 email_addresses: EmailAddresses {
@@ -165,6 +166,7 @@ mod display_sender_addresses_extended_tests {
     fn display_extended_data_no_domain_data() {
         let data = OutputData {
             parsed_mail: ParsedMail {
+                delivery_nodes: vec![],
                 fulfillment_nodes: vec![],
                 subject: Some("Send me money now! Please?".into()),
                 email_addresses: EmailAddresses {
@@ -315,6 +317,7 @@ mod display_fulfillment_nodes_tests {
 
         let data = OutputData {
             parsed_mail: ParsedMail {
+                delivery_nodes: vec![],
                 fulfillment_nodes: vec![node_bar, node_baz, node_biz],
                 subject: None,
                 email_addresses: EmailAddresses {

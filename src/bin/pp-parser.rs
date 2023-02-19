@@ -25,7 +25,10 @@ fn main() {
 
     let output = OutputData::new(
         ParsedMail::new(
-            analyser.sender_email_addresses(), analyser.fulfillment_nodes(), analyser.subject(),
+            analyser.sender_email_addresses(),
+            analyser.delivery_nodes(),
+            analyser.fulfillment_nodes(),
+            analyser.subject(),
         ),
         &mail,
     );

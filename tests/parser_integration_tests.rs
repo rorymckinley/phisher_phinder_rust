@@ -66,6 +66,7 @@ fn json_output(raw_mail: String) -> String {
 
     json!({
         "parsed_mail": {
+            "delivery_nodes": [],
             "email_addresses": {
                 "from": [
                     {

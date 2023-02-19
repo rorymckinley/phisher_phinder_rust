@@ -1,5 +1,5 @@
 use crate::analysable_message::AnalysableMessage;
-use crate::data::{EmailAddressData, EmailAddresses, FulfillmentNode};
+use crate::data::{DeliveryNode, EmailAddressData, EmailAddresses, FulfillmentNode};
 use regex::Regex;
 
 pub struct Analyser<'a, T> {
@@ -261,7 +261,6 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
     }
 
     pub fn sender_email_addresses(&self) -> EmailAddresses {
-
         let pattern = Regex::new(r"\Amailto:").unwrap();
 
         let mut links: Vec<EmailAddressData> = self
@@ -291,6 +290,10 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
             return_path: self.convert_addresses(self.parsed_mail.get_return_path()),
             links,
         }
+    }
+
+    pub fn delivery_nodes(&self) -> Vec<DeliveryNode> {
+        vec![]
     }
 
     pub fn fulfillment_nodes(&self) -> Vec<FulfillmentNode> {

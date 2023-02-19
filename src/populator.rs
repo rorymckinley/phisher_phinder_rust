@@ -39,6 +39,7 @@ mod populate_tests {
     fn input_data() -> OutputData {
         OutputData {
             parsed_mail: ParsedMail {
+                delivery_nodes: vec![],
                 fulfillment_nodes: vec![
                     FulfillmentNode::new("https://iamascamsite.com"),
                 ],
@@ -81,6 +82,7 @@ mod populate_tests {
     fn output_data() -> OutputData {
         OutputData {
             parsed_mail: ParsedMail {
+                delivery_nodes: vec![],
                 fulfillment_nodes: vec![
                     FulfillmentNode {
                         hidden: None,
