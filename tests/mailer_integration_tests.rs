@@ -52,6 +52,7 @@ fn json_input() -> String {
 
     json!({
         "parsed_mail": {
+            "delivery_nodes": [],
             "fulfillment_nodes": [],
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
             "email_addresses": {

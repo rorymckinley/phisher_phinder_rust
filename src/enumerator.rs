@@ -23,6 +23,7 @@ mod enumerate_tests {
         OutputData::new(
             ParsedMail::new(
                 email_addresses(),
+                vec![],
                 vec![
                     FulfillmentNode::new("http://localhost:4545"),
                     FulfillmentNode::new("http://localhost:4546"),
@@ -46,7 +47,7 @@ mod enumerate_tests {
         ];
 
         OutputData::new(
-            ParsedMail::new(email_addresses(), f_nodes, None),
+            ParsedMail::new(email_addresses(), vec![], f_nodes, None),
             "raw mail text"
         )
     }

@@ -22,6 +22,7 @@ mod build_mail_definitions_tests {
     fn input_data() -> OutputData {
         let parsed_mail = ParsedMail::new(
             email_addresses(),
+            vec![],
             fulfillment_nodes(),
             Some("".into())
         );

@@ -41,6 +41,7 @@ fn json_input() -> String {
 
     json!({
         "parsed_mail": {
+            "delivery_nodes": [],
             "fulfillment_nodes": [
                 {
                     "visible": {
@@ -100,6 +101,7 @@ fn json_output() -> String {
 
     json!({
         "parsed_mail": {
+            "delivery_nodes": [],
             "fulfillment_nodes": [
                 {
                     "visible": {

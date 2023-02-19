@@ -23,6 +23,7 @@ impl OutputData {
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct ParsedMail {
+    pub delivery_nodes: Vec<DeliveryNode>,
     pub email_addresses: EmailAddresses,
     pub fulfillment_nodes: Vec<FulfillmentNode>,
     pub subject: Option<String>,
@@ -31,11 +32,16 @@ pub struct ParsedMail {
 impl ParsedMail {
     pub fn new(
         email_addresses: EmailAddresses,
+        delivery_nodes: Vec<DeliveryNode>,
         fulfillment_nodes: Vec<FulfillmentNode>,
         subject: Option<String>
     ) -> Self {
-        Self { email_addresses, fulfillment_nodes, subject }
+        Self { delivery_nodes, email_addresses, fulfillment_nodes, subject }
     }
+}
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+pub struct DeliveryNode {
 }
 
 #[cfg(test)]
