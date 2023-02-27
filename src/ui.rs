@@ -1,4 +1,12 @@
-use crate::data::{Domain, EmailAddressData, FulfillmentNode, Node, OutputData, Registrar};
+use crate::data::{
+    Domain,
+    EmailAddressData,
+    FulfillmentNode,
+    HostNode,
+    Node,
+    OutputData,
+    Registrar
+};
 use crate::result::AppResult;
 
 use prettytable::{Cell, Row, Table};
@@ -642,4 +650,188 @@ fn url_cell(url: &str) -> Cell {
     let re = Regex::new(r"\?.+\z").unwrap();
 
     Cell::new(&re.replace_all(url, "?..."))
+}
+
+#[cfg(test)]
+mod display_delivery_nodes_tests {
+    use crate::data::{DeliveryNode, EmailAddresses, HostNode, ParsedMail};
+    use super::*;
+
+    #[test]
+    fn displays_delivery_nodes() {
+        let data = build_output_data(vec![
+            delivery_node(
+                Some("a.bar.com"),
+                Some("b.bar.com"),
+                Some("10.10.10.10"),
+                Some("a.foo.com"),
+            ),
+            delivery_node(None, Some("b.baz.com"), None, None),
+        ]);
+
+        assert_eq!(
+            String::from("\
+            +-----------------+---------------+-------------+-----------+\n\
+            | Advertised host | Observed host | Observed IP | Recipient |\n\
+            +-----------------+---------------+-------------+-----------+\n\
+            | a.bar.com       | b.bar.com     | 10.10.10.10 | a.foo.com |\n\
+            +-----------------+---------------+-------------+-----------+\n\
+            | N/A             | b.baz.com     | N/A         | N/A       |\n\
+            +-----------------+---------------+-------------+-----------+\n\
+            "),
+            display_delivery_nodes(&data).unwrap()
+        )
+    }
+
+    fn build_output_data(delivery_nodes: Vec<DeliveryNode>) -> OutputData {
+        OutputData {
+            parsed_mail: ParsedMail {
+                delivery_nodes,
+                fulfillment_nodes: vec![],
+                subject: None,
+                email_addresses: EmailAddresses {
+                    from: vec![],
+                    reply_to: vec![],
+                    return_path: vec![],
+                    links: vec![],
+                }
+            },
+            raw_mail: "".into()
+        }
+    }
+
+    fn delivery_node(
+        advertised_host: Option<&str>,
+        observed_host: Option<&str>,
+        observed_ip: Option<&str>,
+        recipient: Option<&str>
+    ) -> DeliveryNode {
+        DeliveryNode {
+            advertised_sender: host_node(advertised_host, None),
+            observed_sender: host_node(observed_host, observed_ip),
+            recipient: recipient.map(String::from),
+            time: None
+        }
+    }
+
+    fn host_node(host: Option<&str>, ip: Option<&str>) -> Option<HostNode> {
+        HostNode::new(host, ip).ok()
+    }
+}
+
+pub fn display_delivery_nodes(data: &OutputData) -> AppResult<String> {
+    let mut table = Table::new();
+
+    table.add_row(
+        Row::new(vec![
+            Cell::new("Advertised host"),
+            Cell::new("Observed host"),
+            Cell::new("Observed IP"),
+            Cell::new("Recipient")
+        ]),
+    );
+
+    for node in data.parsed_mail.delivery_nodes.iter() {
+        table.add_row(
+            Row::new(
+                vec![
+                    Cell::new(&display_host(node.advertised_sender.as_ref())),
+                    Cell::new(&display_host(node.observed_sender.as_ref())),
+                    Cell::new(&display_ip(node.observed_sender.as_ref())),
+                    Cell::new(&display_recipient(node.recipient.as_ref())),
+                ]
+            )
+        );
+    }
+
+    table_to_string(&table)
+}
+
+#[cfg(test)]
+mod display_host_tests {
+    use crate::data::HostNode;
+    use super::*;
+
+    #[test]
+    fn returns_the_host() {
+        let node = HostNode::new(Some("foo"), None).unwrap();
+
+        assert_eq!("foo", display_host(Some(&node)));
+    }
+
+    #[test]
+    fn returns_na_if_no_host() {
+        let node = HostNode::new(None, Some("10.10.10.10")).unwrap();
+
+        assert_eq!("N/A", display_host(Some(&node)));
+    }
+
+    #[test]
+    fn returns_na_if_no_node() {
+        assert_eq!("N/A", display_host(None));
+    }
+}
+
+fn display_host(node_option: Option<&HostNode>) -> String {
+    if let Some(HostNode { host: Some(host_val), .. }) = node_option {
+        String::from(host_val)
+    } else {
+        String::from("N/A")
+    }
+}
+
+#[cfg(test)]
+mod display_ip_tests {
+    use crate::data::HostNode;
+    use super::*;
+
+    #[test]
+    fn returns_the_ip() {
+        let node = HostNode::new(Some("foo"), Some("10.10.10.10")).unwrap();
+
+        assert_eq!("10.10.10.10", display_ip(Some(&node)));
+    }
+
+    #[test]
+    fn returns_na_if_no_ip() {
+        let node = HostNode::new(Some("foo"), None).unwrap();
+
+        assert_eq!("N/A", display_ip(Some(&node)));
+    }
+
+    #[test]
+    fn returns_na_if_no_node() {
+        assert_eq!("N/A", display_ip(None));
+    }
+}
+
+fn display_ip(node_option: Option<&HostNode>) -> String {
+    if let Some(HostNode { ip_address: Some(ip_val), .. }) = node_option {
+        String::from(ip_val)
+    } else {
+        String::from("N/A")
+    }
+}
+
+#[cfg(test)]
+mod display_recipient_tests {
+    use super::*;
+
+    #[test]
+    fn returns_the_recipient() {
+        assert_eq!("foo", display_recipient(Some(&String::from("foo"))))
+    }
+
+    #[test]
+    fn returns_na_if_no_recipient() {
+        assert_eq!("N/A", display_recipient(None))
+    }
+}
+
+fn display_recipient(recipient_opt: Option<&String>) -> String {
+    if let Some(recipient) = recipient_opt {
+        String::from(recipient)
+    } else {
+        String::from("N/A")
+    }
 }

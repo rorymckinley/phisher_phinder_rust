@@ -39,6 +39,8 @@ fn main() {
         println!("{}", ui::display_sender_addresses_extended(&output).unwrap());
         println!();
         println!("{}", ui::display_fulfillment_nodes(&output).unwrap());
+        println!();
+        println!("{}", ui::display_delivery_nodes(&output).unwrap());
 
     } else {
         print!("{}", serde_json::to_string(&output).unwrap());

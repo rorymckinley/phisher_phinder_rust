@@ -104,13 +104,14 @@ mod email_addresses_tests {
             "reply@test.com".into(),
             "return@test.com".into(),
             "My First Phishing Email".into(),
-            links
+            links,
+            vec![],
         )
     }
 }
 
 #[cfg(test)]
-mod sender_address_tests {
+mod fulfillment_nodes_tests {
     use super::*;
 
     #[test]
@@ -195,8 +196,73 @@ mod sender_address_tests {
             "reply@test.com".into(),
             "return@test.com".into(),
             "My First Phishing Email".into(),
-            links
+            links,
+            vec![]
         )
+    }
+}
+
+#[cfg(test)]
+mod delivery_nodes_tests {
+    use super::*;
+    use chrono::prelude::*;
+    use crate::data::{DeliveryNode, HostNode};
+
+    #[test]
+    fn return_delivery_nodes() {
+        let h_1 = header(
+            ("a.bar.com", "b.bar.com.", "10.10.10.12"),
+            "a.baz.com",
+            "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)"
+        );
+        let h_2 = header(
+            ("c.bar.com", "d.bar.com.", "10.10.10.11"),
+            "b.baz.com",
+            "Tue, 06 Sep 2022 16:17:21 -0700 (PDT)"
+        );
+
+        let parsed = parsed_mail(vec![&h_1, &h_2]);
+        let analyser = Analyser::new(&parsed);
+
+        let expected_result = vec![
+            DeliveryNode {
+                advertised_sender: Some(HostNode::new(Some("a.bar.com"), None).unwrap()),
+                observed_sender: Some(HostNode::new(Some("b.bar.com"), Some("10.10.10.12")).unwrap()),
+                recipient: Some("a.baz.com".into()),
+                time: Some(Utc.with_ymd_and_hms(2022, 9, 6, 23, 17, 22).unwrap())
+            },
+            DeliveryNode {
+                advertised_sender: Some(HostNode::new(Some("c.bar.com"), None).unwrap()),
+                observed_sender: Some(HostNode::new(Some("d.bar.com"), Some("10.10.10.11")).unwrap()),
+                recipient: Some("b.baz.com".into()),
+                time: Some(Utc.with_ymd_and_hms(2022, 9, 6, 23, 17, 21).unwrap()),
+            },
+        ];
+
+        assert_eq!(
+            expected_result, analyser.delivery_nodes()
+        )
+    }
+
+    fn parsed_mail(received_headers: Vec<&str>) -> TestParsedMail {
+        TestParsedMail::new(
+            "from@test.com".into(),
+            "reply@test.com".into(),
+            "return@test.com".into(),
+            "My First Phishing Email".into(),
+            vec![],
+            received_headers
+        )
+    }
+
+    fn header(from_parts: (&str, &str, &str), by_host: &str, date: &str) -> String {
+        let (advertised_host, actual_host, ip) = from_parts;
+
+        let from = format!("{advertised_host} ({actual_host} [{ip}])");
+        let by = format!("{by_host} with ESMTP id jg8-2002");
+        let f_o_r = "<victim@gmail.com>";
+
+        format!("from {from}\r\n        by {by}\r\n        for {f_o_r};\r\n        {date}")
     }
 }
 
@@ -206,7 +272,8 @@ struct TestParsedMail<'a> {
     reply_to: String,
     return_path: String,
     subject: String,
-    links: Vec<&'a str>
+    links: Vec<&'a str>,
+    received_headers: Vec<&'a str>
 }
 
 #[cfg(test)]
@@ -217,13 +284,15 @@ impl<'a> TestParsedMail<'a> {
         return_path: String,
         subject: String,
         links: Vec<&'a str>,
+        received_headers: Vec<&'a str>
     ) -> Self {
         Self {
             from,
             reply_to,
             return_path,
             subject,
-            links
+            links,
+            received_headers
         }
     }
 }
@@ -248,6 +317,14 @@ impl<'a> AnalysableMessage for TestParsedMail<'a> {
 
     fn get_subject(&self) -> Option<String> {
         Some(self.subject.clone())
+    }
+
+    fn get_received_headers(&self) -> Vec<String> {
+        self
+            .received_headers
+            .iter()
+            .map (|header_value| String::from(*header_value))
+            .collect()
     }
 }
 
@@ -293,7 +370,12 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
     }
 
     pub fn delivery_nodes(&self) -> Vec<DeliveryNode> {
-        vec![]
+        self
+            .parsed_mail
+            .get_received_headers()
+            .iter()
+            .map(|header_value| DeliveryNode::from_header_value(header_value))
+            .collect()
     }
 
     pub fn fulfillment_nodes(&self) -> Vec<FulfillmentNode> {

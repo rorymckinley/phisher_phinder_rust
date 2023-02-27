@@ -1,7 +1,9 @@
 use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
+use regex::Regex;
 use std::fmt;
 use url::Url;
+use thiserror::Error;
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct OutputData {
@@ -40,8 +42,410 @@ impl ParsedMail {
     }
 }
 
+#[cfg(test)]
+mod delivery_node_tests {
+    use super::*;
+
+    #[test]
+    fn builds_a_delivery_node_from_header_value() {
+        let value = header_value(
+            ("a.bar.com", "b.bar.com.", "10.10.10.12"),
+            "a.baz.com",
+            "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)"
+        );
+
+        let expected = DeliveryNode {
+            advertised_sender: host_node_option("a.bar.com", None),
+            observed_sender: host_node_option("b.bar.com", Some("10.10.10.12")),
+            recipient: recipient_option(),
+            time: date_option()
+        };
+
+        assert_eq!(
+            expected,
+            DeliveryNode::from_header_value(&value)
+        )
+    }
+
+    fn header_value(from_parts: (&str, &str, &str), by_host: &str, date: &str) -> String {
+        let (advertised_host, actual_host, ip) = from_parts;
+
+        let from = format!("{advertised_host} ({actual_host} [{ip}])");
+        let by = format!("{by_host} with ESMTP id jg8-2002");
+        let f_o_r = "<victim@gmail.com>";
+
+        format!("from {from}\r\n        by {by}\r\n        for {f_o_r};\r\n        {date}")
+    }
+
+    fn host_node_option(host: &str, ip_address: Option<&str>) -> Option<HostNode> {
+        Some(
+            HostNode::new(Some(host), ip_address).unwrap()
+        )
+    }
+
+    fn recipient_option() -> Option<String> {
+        Some("a.baz.com".into())
+    }
+
+    fn date_option() -> Option<DateTime<Utc>> {
+        Some(Utc.with_ymd_and_hms(2022, 9, 6, 23, 17, 22).unwrap())
+    }
+}
+
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct DeliveryNode {
+    pub advertised_sender: Option<HostNode>,
+    pub observed_sender: Option<HostNode>,
+    pub recipient: Option<String>,
+    pub time: Option<DateTime<Utc>>,
+}
+
+impl DeliveryNode {
+    pub fn from_header_value(header_value: &str) -> Self {
+        Self {
+            advertised_sender: extract_advertised_sender(header_value),
+            observed_sender: extract_observed_sender(header_value),
+            recipient: extract_recipient(header_value),
+            time: extract_time_from_header(header_value)
+        }
+    }
+}
+
+#[cfg(test)]
+mod extract_advertised_sender_tests {
+    use super::*;
+
+    #[test]
+    fn returns_the_advertised_sender() {
+        let expected = Some(HostNode::new(Some("a.bar.com"), None).unwrap());
+
+        let header = header_value("a.bar.com", "b.bar.com.", "10.10.10.10");
+
+        assert_eq!(expected, extract_advertised_sender(&header));
+    }
+
+    #[test]
+    fn returns_none_if_no_from() {
+        let header = no_from_header_value();
+
+        assert_eq!(None, extract_advertised_sender(&header));
+    }
+
+    #[test]
+    fn returns_none_if_empty_string() {
+        assert_eq!(None, extract_advertised_sender(""));
+    }
+
+    // TODO Generalise this for use by all tests
+    fn header_value(advertised_host: &str, observed_host: &str, ip: &str) -> String {
+        let from = format!("{advertised_host} ({observed_host} [{ip}])");
+
+        let rest_of_header = no_from_header_value();
+
+        format!("from {from}\r\n        {rest_of_header}")
+    }
+
+    fn no_from_header_value() -> String {
+        let by = "does.not.matter with ESMTP id jg8-2002";
+        let f_o_r = "<victim@gmail.com>";
+        let date = "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)";
+
+        format!("by {by}\r\n        for {f_o_r};\r\n        {date}")
+    }
+}
+
+fn extract_advertised_sender(header_value: &str) -> Option<HostNode> {
+    let regex = Regex::new(r"from\s(\S+)\s\(").unwrap();
+
+    regex.captures(header_value).map(|captures| {
+        HostNode::new(Some(&captures[1]), None).expect("Creating a HostNode for advertised sender")
+    })
+
+}
+
+#[cfg(test)]
+mod extract_observed_sender_tests {
+    use super::*;
+
+    #[test]
+    fn returns_host_node_with_host_and_ip() {
+        let header = header_value("a.bar.com", Some("b.bar.com."), Some("[10.10.10.10]"));
+
+        let expected = Some(HostNode::new(Some("b.bar.com"), Some("10.10.10.10")).unwrap());
+
+        assert_eq!(expected, extract_observed_sender(&header));
+    }
+
+    #[test]
+    fn returns_host_node_with_host_and_ip_host_has_no_trailing_period() {
+        let header = header_value("a.bar.com", Some("b.bar.com"), Some("[10.10.10.10]"));
+
+        let expected = Some(HostNode::new(Some("b.bar.com"), Some("10.10.10.10")).unwrap());
+
+        assert_eq!(expected, extract_observed_sender(&header));
+    }
+
+    #[test]
+    fn returns_host_node_with_host_and_ip_ip_not_in_squares() {
+        let header = header_value("a.bar.com", Some("b.bar.com."), Some("10.10.10.10"));
+
+        let expected = Some(HostNode::new(Some("b.bar.com"), Some("10.10.10.10")).unwrap());
+
+        assert_eq!(expected, extract_observed_sender(&header));
+    }
+
+    #[test]
+    fn returns_host_node_with_ip_no_observed_host() {
+        let header = header_value("a.bar.com", None, Some("[10.10.10.10]"));
+
+        let expected = Some(HostNode::new(None, Some("10.10.10.10")).unwrap());
+
+        assert_eq!(expected, extract_observed_sender(&header));
+    }
+
+    #[test]
+    fn returns_host_node_with_ip_no_host_ip_not_in_squares() {
+        let header = header_value("a.bar.com", None, Some("10.10.10.10"));
+
+        let expected = Some(HostNode::new(None, Some("10.10.10.10")).unwrap());
+
+        assert_eq!(expected, extract_observed_sender(&header));
+    }
+
+    #[test]
+    fn returns_host_node_with_host_no_ip() {
+        let header = header_value("a.bar.com", Some("b.bar.com."), None);
+
+        let expected = Some(HostNode::new(Some("b.bar.com"), None).unwrap());
+
+        assert_eq!(expected, extract_observed_sender(&header));
+    }
+
+    #[test]
+    fn returns_host_node_with_ip_no_host_but_ehlo() {
+        let header = header_with_ehlo("10.10.10.10");
+        println!("{header}");
+
+        let expected = Some(HostNode::new(None, Some("10.10.10.10")).unwrap());
+
+        assert_eq!(expected, extract_observed_sender(&header));
+    }
+
+    #[test]
+    fn returns_none_if_no_observed_sender() {
+        let header = no_observed_sender();
+
+        assert_eq!(None, extract_observed_sender(&header));
+    }
+
+    #[test]
+    fn returns_none_if_no_from_header() {
+        let header = no_from_header_value();
+
+        assert_eq!(None, extract_observed_sender(&header));
+    }
+
+    #[test]
+    fn returns_none_if_empty_header() {
+        assert_eq!(None, extract_observed_sender(""))
+    }
+
+    fn header_value(
+        advertised_host: &str,
+        observed_host_opt: Option<&str>,
+        ip_opt: Option<&str>
+    ) -> String {
+        let observed_host_padded = if let Some(observed_host) = observed_host_opt {
+            format!("{observed_host} ")
+        } else {
+            String::from("")
+        };
+
+        let ip = ip_opt.unwrap_or("");
+
+        let from = format!("{advertised_host} ({observed_host_padded}{ip})");
+
+        let rest_of_header = no_from_header_value();
+
+        format!("from {from}\r\n        {rest_of_header}")
+    }
+
+    fn header_with_ehlo(ip: &str) -> String {
+        let from = format!("10.217.130.145 (EHLO foo.bar.baz) ({ip})");
+
+        let rest_of_header = no_from_header_value();
+
+        format!("from {from}\r\n        {rest_of_header}")
+    }
+
+    fn no_from_header_value() -> String {
+        let by = "does.not.matter with ESMTP id jg8-2002";
+        let f_o_r = "<victim@gmail.com>";
+        let date = "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)";
+
+        format!("by {by}\r\n        for {f_o_r};\r\n        {date}")
+    }
+
+    fn no_observed_sender() -> String {
+        let from = "does.not.matter ()";
+
+        let rest_of_header = no_from_header_value();
+
+        format!("from {from}\r\n        {rest_of_header}")
+    }
+}
+
+fn extract_observed_sender(header_value: &str) -> Option<HostNode> {
+    let pattern = format!(
+        r"{}\({}{}\)",
+        observed_sender_ignore_snippet(),
+        observed_sender_observed_host_snippet(),
+        observed_sender_observed_ip_snippet()
+    );
+    let regex = Regex::new(&pattern).unwrap();
+
+    if let Some(captures) = regex.captures(header_value) {
+        HostNode::new(
+            captures.name("host").map(|m| m.as_str()),
+            captures.name("ip").map(|m| m.as_str())
+        ).ok()
+    } else {
+        None
+    }
+}
+
+fn observed_sender_ignore_snippet() -> String {
+    r"from\s\S+\s(\(EHLO[^\)]+\)\s)?".into()
+}
+
+fn observed_sender_observed_host_snippet() -> String {
+    r"((?P<host>\S+?)\.?\s)?".into()
+}
+
+fn observed_sender_observed_ip_snippet() -> String {
+    r"(\[?(?P<ip>[[A-Za-z0-9.:]+]+)\]?)?".into()
+}
+
+#[cfg(test)]
+mod extract_recipient_tests {
+    use super::*;
+
+    #[test]
+    fn returns_name_of_recipient() {
+        let header = header_value("a.baz.com");
+
+        let expected = Some("a.baz.com".into());
+
+        assert_eq!(
+            expected,
+            extract_recipient(&header)
+        );
+    }
+
+    #[test]
+    fn returns_name_of_recipient_if_no_from_section() {
+        let header = no_from_header_value("a.baz.com");
+
+        let expected = Some("a.baz.com".into());
+
+        assert_eq!(
+            expected,
+            extract_recipient(&header)
+        );
+    }
+
+    #[test]
+    fn returns_none_if_no_by_section() {
+        let header = no_by_header_value();
+
+        assert_eq!(None, extract_recipient(&header))
+    }
+
+    #[test]
+    fn returns_none_if_empty_string() {
+        assert_eq!(None, extract_recipient(""))
+    }
+
+    fn header_value(recipient: &str) -> String {
+        let from = String::from("does.not.matter (does.not.matter [10.10.10.10])");
+        let by = format!("{recipient} (Postfix) with ESMTP id jg8-2002");
+        let f_o_r = "<victim@gmail.com>";
+        let date = "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)";
+
+        format!("from {from}\r\n        by {by}\r\n        for {f_o_r};\r\n        {date}")
+    }
+
+    fn no_from_header_value(recipient: &str) -> String {
+        let by = format!("{recipient} does.not.matter with ESMTP id jg8-2002");
+        let f_o_r = "<victim@gmail.com>";
+        let date = "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)";
+
+        format!("by {by}\r\n        for {f_o_r};\r\n        {date}")
+    }
+
+    fn no_by_header_value() -> String {
+        let from = String::from("does.not.matter (does.not.matter [10.10.10.10])");
+        let f_o_r = "<victim@gmail.com>";
+        let date = "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)";
+
+        format!("from {from}\r\n        for {f_o_r};\r\n        {date}")
+    }
+}
+
+fn extract_recipient(header_value: &str) -> Option<String> {
+    let regex = Regex::new(r"by\s(?P<recipient>\S+)\s").unwrap();
+
+    regex.captures(header_value).map(|captures| {
+        captures["recipient"].into()
+    })
+}
+
+#[cfg(test)]
+mod extract_time_from_header_tests {
+    use super::*;
+
+    #[test]
+    fn parses_rfc_2822_time_component() {
+        let header_value = "does not matter;\r\n        Tue, 06 Sep 2022 16:17:22 -0700 (PDT)";
+
+        let expected = Utc.with_ymd_and_hms(2022, 9, 6, 23, 17, 22).unwrap();
+
+        assert_eq!(Some(expected), extract_time_from_header(header_value));
+    }
+
+    #[test]
+    fn returns_none_when_empty_string() {
+        assert_eq!(None, extract_time_from_header(""))
+    }
+
+    #[test]
+    fn returns_none_when_not_rfc_compliant_no_semicolon() {
+        let header_value = "does not matter\r\n        Tue, 06 Sep 2022 16:17:22 -0700 (PDT)";
+
+        assert_eq!(None, extract_time_from_header(header_value));
+    }
+
+    #[test]
+    fn returns_none_when_date_is_not_parseable() {
+        let header_value = "dnm;\r\n        2023-03-02 17:20:58.194078568 +0000 UTC m=+755221.897";
+
+        assert_eq!(None, extract_time_from_header(header_value));
+    }
+}
+
+fn extract_time_from_header(header_value: &str) -> Option<DateTime<Utc>> {
+    let header_parts = header_value
+        .split(';')
+        .collect::<Vec<&str>>();
+
+    if let &[_, date_part] = header_parts.as_slice() {
+        match DateTime::parse_from_rfc2822(date_part.trim()) {
+            Ok(date) => Some(date.into()),
+            Err(_) => None
+        }
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
@@ -130,6 +534,109 @@ impl FulfillmentNode {
 
     pub fn set_hidden(&mut self, url: &str) {
         self.hidden = Some(Node::new(url));
+    }
+}
+
+#[cfg(test)]
+mod host_node_tests {
+    use super::*;
+
+    #[test]
+    fn new_with_just_host() {
+        let host = "foo.bar";
+        let ip_address = None;
+
+        let expected = HostNode {
+            domain: Some(Domain {
+                abuse_email_address: None,
+                category: DomainCategory::Other,
+                name: "foo.bar".into(),
+                registration_date: None,
+            }),
+            host: Some(host.into()),
+            ip_address: None,
+            registrar: None,
+        };
+
+        assert_eq!(expected, HostNode::new(Some(host), ip_address).unwrap())
+    }
+
+    #[test]
+    fn new_with_host_and_ip_address() {
+        let host = "foo.bar";
+        let ip_address = Some("10.10.10.10");
+
+        let expected = HostNode {
+            domain: Some(Domain {
+                abuse_email_address: None,
+                category: DomainCategory::Other,
+                name: "foo.bar".into(),
+                registration_date: None,
+            }),
+            host: Some(host.into()),
+            ip_address: Some("10.10.10.10".into()),
+            registrar: None,
+        };
+
+        assert_eq!(expected, HostNode::new(Some(host), ip_address).unwrap())
+    }
+
+    #[test]
+    fn new_with_just_ip() {
+        let ip_address = Some("10.10.10.10");
+
+        let expected = HostNode {
+            domain: None,
+            host: None,
+            ip_address: Some("10.10.10.10".into()),
+            registrar: None,
+        };
+
+        assert_eq!(expected, HostNode::new(None, ip_address).unwrap())
+    }
+
+    #[test]
+    fn new_without_host_and_ip() {
+        match HostNode::new(None, None) {
+            Err(_) => (),
+            Ok(_) => panic!("Returned OK"),
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum HostNodeError {
+    #[error("error instantiating HostNode")]
+    InstantiationError
+}
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+pub struct HostNode {
+    pub domain: Option<Domain>,
+    pub host: Option<String>,
+    pub ip_address: Option<String>,
+    pub registrar: Option<Registrar>,
+}
+
+impl HostNode {
+    pub fn new(host: Option<&str>, ip_address: Option<&str>) -> Result<Self, HostNodeError> {
+        if let (None, None) = (host, ip_address) {
+            return Err(HostNodeError::InstantiationError)
+        }
+
+        let domain = match host {
+            Some(h) => Domain::from_host(h),
+            None => None
+        };
+
+        Ok(
+            Self {
+                domain,
+                host: host.map(|h| h.into()),
+                ip_address: ip_address.map(|ip_a| ip_a.into()),
+                registrar: None,
+            }
+        )
     }
 }
 
@@ -325,6 +832,30 @@ mod domain_from_url_tests {
     }
 }
 
+#[cfg(test)]
+mod from_host_tests {
+    use super::*;
+
+    #[test]
+    fn instantiates_a_domain() {
+        let host = "foo.baz";
+
+        let expected = Domain {
+            abuse_email_address: None,
+            category: DomainCategory::Other,
+            name: "foo.baz".into(),
+            registration_date: None,
+        };
+
+        assert_eq!(Some(expected), Domain::from_host(host));
+    }
+
+    #[test]
+    fn does_not_instantiate_if_host_string_is_empty() {
+        assert_eq!(None, Domain::from_host(""));
+    }
+}
+
 impl Domain {
     pub fn from_email_address(address: &str) -> Option<Self> {
         if let Some((_local_part, domain)) = address.split_once('@') {
@@ -371,6 +902,21 @@ impl Domain {
             })
         } else {
             None
+        }
+    }
+
+    pub fn from_host(host: &str) -> Option<Self> {
+        if host.is_empty() {
+            None
+        } else {
+            Some(
+                Self {
+                    abuse_email_address: None,
+                    category: DomainCategory::Other,
+                    name: host.into(),
+                    registration_date: None,
+                }
+            )
         }
     }
 }

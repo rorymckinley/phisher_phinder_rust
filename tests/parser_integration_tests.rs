@@ -15,6 +15,8 @@ fn test_display_human_parse_results() {
                 predicates::str::contains("touch base")
             ).and(
                 predicates::str::contains("https://foo.bar/baz")
+            ).and(
+            predicates::str::contains("gp13mtaq123")
             )
         );
 }
@@ -33,7 +35,7 @@ fn test_display_json_parse_results() {
 fn input() -> String {
     "\
 Delivered-To: victim@gmail.com\r
-Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\r
+Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp;\r
         Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\r
 X-Google-Smtp-Source: AA6agR7rW0ljZbXj2cQn9NgC8m6wViE4veg3Wroa/sb4ZEQMZAmVYdUGb9EAPvGvoF9UkmUip/o+\r
 X-Received: by 2002:a05:6402:35cf:b0:448:84a9:12cf with SMTP id z15-20020a05640235cf00b0044884a912cfmr745701edc.51.1662506240653;\r
@@ -42,12 +44,16 @@ ARC-Authentication-Results: i=1; mx.google.com;\r
        spf=pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as permitted sender) smtp.mailfrom=info@xxx.fr\r
 Return-Path: <info@xxx.fr>\r
 Received: from foo.bar.com (foo.bar.com. [10.10.10.10])\r
-        by mx.google.com with ESMTP id jg8-20020a170907970800b0072b83ed8d42si10970498ejc.82.2022.09.06.16.17.19\r
+        by mx.google.com with ESMTP id jg8-2002\r
         for <victim@gmail.com>;\r
         Tue, 06 Sep 2022 16:17:20 -0700 (PDT)\r
 Received-SPF: pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as permitted sender) client-ip=10.10.10.10;\r
 Authentication-Results: mx.google.com;\r
        spf=pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as permitted sender) smtp.mailfrom=info@xxx.fr\r
+Received: from not-real-one.com (not-real-one.com )\r
+  (envelope-from <g-123-456-789-012@blah.not-real-two.com (g-123-456-789-012@blah.not-real-two.com)>)\r
+  by gp13mtaq123 (mtaq-receiver/2.20190311.1) with ESMTP id yA3jJ-_S5g8Z\r
+  for <not.real.three@comcast.net>; Thu, 30 May 2019 19:00:22 +0200\r
 Date: Tue, 6 Sep 2022 19:17:19 -0400\r
 From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@gmail.com>\r
 To: victim@gmail.com\r
@@ -66,7 +72,66 @@ fn json_output(raw_mail: String) -> String {
 
     json!({
         "parsed_mail": {
-            "delivery_nodes": [],
+            "delivery_nodes": [
+                {
+                    "advertised_sender": null,
+                    "observed_sender": null,
+                    "recipient": "2002:a05:7300:478f:b0:75:5be4:1dc0",
+                    "time": "2022-09-06T23:17:20Z",
+                },
+                {
+                    "advertised_sender": {
+                        "domain": {
+                            "abuse_email_address": null,
+                            "category": "other",
+                            "name": "foo.bar.com",
+                            "registration_date": null,
+                        },
+                        "host": "foo.bar.com",
+                        "ip_address": null,
+                        "registrar": null,
+                    },
+                    "observed_sender": {
+                        "domain": {
+                            "abuse_email_address": null,
+                            "category": "other",
+                            "name": "foo.bar.com",
+                            "registration_date": null,
+                        },
+                        "host": "foo.bar.com",
+                        "ip_address": "10.10.10.10",
+                        "registrar": null,
+                    },
+                    "recipient": "mx.google.com",
+                    "time": "2022-09-06T23:17:20Z",
+                },
+                {
+                    "advertised_sender": {
+                        "domain": {
+                            "abuse_email_address": null,
+                            "category": "other",
+                            "name": "not-real-one.com",
+                            "registration_date": null,
+                        },
+                        "host": "not-real-one.com",
+                        "ip_address": null,
+                        "registrar": null,
+                    },
+                    "observed_sender": {
+                        "domain": {
+                            "abuse_email_address": null,
+                            "category": "other",
+                            "name": "not-real-one.com",
+                            "registration_date": null,
+                        },
+                        "host": "not-real-one.com",
+                        "ip_address": null,
+                        "registrar": null,
+                    },
+                    "recipient": "gp13mtaq123",
+                    "time": "2019-05-30T17:00:22Z"
+                }
+            ],
             "email_addresses": {
                 "from": [
                     {

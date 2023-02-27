@@ -7,6 +7,7 @@ pub trait AnalysableMessage {
     fn get_reply_to(&self) -> Vec<String>;
     fn get_return_path(&self) -> Vec<String>;
     fn get_subject(&self) -> Option<String>;
+    fn get_received_headers(&self) -> Vec<String>;
 }
 
 #[cfg(test)]
@@ -253,6 +254,81 @@ Content-Type: text/html; charset=\"utf-8\"\r
             parsed_mail.get_links()
         )
     }
+
+    #[test]
+    fn returns_received_header_values() {
+        let input = "\
+Delivered-To: victim@gmail.com\r
+Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp;\r
+        Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\r
+X-Google-Smtp-Source: AA6agR7rW0ljZbXj2cQn9NgC8m6wViE4veg3Wroa/sb4ZEQMZAmVYdUGb9EAPvGvoF9UkmUip/o+\r
+X-Received: by 2002:a05:6402:35cf:b0:448:84a9:12cf with SMTP id z15-20020a05640235cf00b0044884a912cfmr745701edc.51.1662506240653;\r
+        Tue, 06 Sep 2022 16:17:20 -0700 (PDT)\r
+ARC-Authentication-Results: i=1; mx.google.com;\r
+       spf=pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as permitted sender) smtp.mailfrom=info@xxx.fr\r
+Return-Path: <info@xxx.fr>\r
+Received: from foo.bar.com (foo.bar.com. [10.10.10.10])\r
+        by mx.google.com with ESMTP id jg8-2002\r
+        for <victim@gmail.com>;\r
+        Tue, 06 Sep 2022 16:17:20 -0700 (PDT)\r
+Received-SPF: pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as permitted sender) client-ip=10.10.10.10;\r
+Authentication-Results: mx.google.com;\r
+       spf=pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as permitted sender) smtp.mailfrom=info@xxx.fr\r
+Received: from not-real-one.com (not-real-one.com )\r
+        (envelope-from <g-123-456-789-012@blah.not-real-two.com (g-123-456-789-012@blah.not-real-two.com)>)\r
+        by gp13mtaq123 (mtaq-receiver/2.20190311.1) with ESMTP id yA3jJ-_S5g8Z\r
+        for <not.real.three@comcast.net>; Thu, 30 May 2019 19:00:22 +0200\r
+Date: Tue, 6 Sep 2022 19:17:19 -0400\r
+From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@gmail.com>\r
+To: victim@gmail.com\r
+Message-ID: <Ctht0YgNZJDaAVPvcU36z2Iw9f7Bs7Jge.ecdasmtpin_added_missing@mx.google.com>\r
+Subject: We’re sorry that we didn’t touch base with you earlier. f309\r
+MIME-Version: 1.0\r
+Content-Type: text/html\r\n\r
+<div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\r
+<a href=\"https://foo.bar/baz\">Click Me</a>
+</div>\r";
+
+        let parsed_mail = Message::parse(input.as_bytes()).unwrap();
+
+        let expected: Vec<String> = vec![
+            header_value(vec![
+                "by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp;\r\n",
+                "Tue, 6 Sep 2022 16:17:20 -0700 (PDT)"
+            ]),
+            header_value(vec![
+                "from foo.bar.com (foo.bar.com. [10.10.10.10])\r\n",
+                "by mx.google.com with ESMTP id jg8-2002\r\n",
+                "for <victim@gmail.com>;\r\n",
+                "Tue, 06 Sep 2022 16:17:20 -0700 (PDT)"
+            ]),
+            header_value(vec![
+                "from not-real-one.com (not-real-one.com )\r\n",
+                "(envelope-from <g-123-456-789-012@blah.not-real-two.com (g-123-456-789-012@blah.not-real-two.com)>)\r\n",
+                "by gp13mtaq123 (mtaq-receiver/2.20190311.1) with ESMTP id yA3jJ-_S5g8Z\r\n",
+                "for <not.real.three@comcast.net>; Thu, 30 May 2019 19:00:22 +0200",
+            ])
+        ];
+
+        assert_eq!(
+            expected,
+            parsed_mail.get_received_headers()
+        )
+    }
+
+    fn header_value(lines: Vec<&str>) -> String {
+        let mut output: Vec<String> = vec![];
+
+        for (pos, s) in lines.into_iter().enumerate() {
+            if pos >  0 {
+                output.push("        ".into());
+            }
+
+            output.push(s.into())
+        }
+
+        output.concat()
+    }
 }
 
 impl AnalysableMessage for Message<'_> {
@@ -341,5 +417,30 @@ impl AnalysableMessage for Message<'_> {
 
                 memo
             })
+    }
+
+    fn get_received_headers(&self) -> Vec<String> {
+        use std::borrow::Cow;
+
+        self
+            .headers()
+            .iter()
+            .filter(|header| {
+                matches!(
+                    header.name, mail_parser::HeaderName::Rfc(mail_parser::RfcHeader::Received)
+                )
+            })
+            .map(|header| {
+                match &header.value {
+                    mail_parser::HeaderValue::Text(val) => {
+                        match val {
+                            Cow::Borrowed(header) => String::from(*header),
+                            Cow::Owned(header) => header.clone()
+                        }
+                    },
+                    _ => String::from("not_supported")
+                }
+            })
+            .collect()
     }
 }
