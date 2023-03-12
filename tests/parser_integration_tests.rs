@@ -1,5 +1,8 @@
 use assert_cmd::Command;
+use assert_json_diff::assert_json_eq;
 use predicates::prelude::*;
+use serde_json::json;
+
 
 #[test]
 fn test_display_human_parse_results() {
@@ -29,7 +32,24 @@ fn test_display_json_parse_results() {
         .write_stdin(input())
         .assert()
         .success()
-        .stdout(json_output(input()));
+        .stdout(json_output_as_string(input()));
+
+    
+    // TODO Figure out what I am doing wrong with `assert_json_eq!`
+    // let assert = cmd
+    //     .write_stdin(input())
+    //     .assert()
+    //     .success();
+    // let json_data = &assert
+    //     .get_output()
+    //     .stdout;
+    //
+    // let jd: serde_json::Value = json!(std::str::from_utf8(json_data).unwrap());
+    //
+    // assert_json_eq!(
+    //     json_output_as_value(input()),
+    //     jd
+    // );
 }
 
 fn input() -> String {
@@ -67,9 +87,11 @@ Content-Type: text/html\r\n\r
 ".into()
 }
 
-fn json_output(raw_mail: String) -> String {
-    use serde_json::json;
+fn json_output_as_string(raw_mail: String) -> String {
+    json_output_as_value(raw_mail).to_string()
+}
 
+fn json_output_as_value(raw_mail: String) -> serde_json::Value {
     json!({
         "parsed_mail": {
             "delivery_nodes": [
@@ -88,6 +110,7 @@ fn json_output(raw_mail: String) -> String {
                             "registration_date": null,
                         },
                         "host": "foo.bar.com",
+                        "infrastructure_provider": null,
                         "ip_address": null,
                         "registrar": null,
                     },
@@ -99,6 +122,7 @@ fn json_output(raw_mail: String) -> String {
                             "registration_date": null,
                         },
                         "host": "foo.bar.com",
+                        "infrastructure_provider": null,
                         "ip_address": "10.10.10.10",
                         "registrar": null,
                     },
@@ -114,6 +138,7 @@ fn json_output(raw_mail: String) -> String {
                             "registration_date": null,
                         },
                         "host": "not-real-one.com",
+                        "infrastructure_provider": null,
                         "ip_address": null,
                         "registrar": null,
                     },
@@ -125,6 +150,7 @@ fn json_output(raw_mail: String) -> String {
                             "registration_date": null,
                         },
                         "host": "not-real-one.com",
+                        "infrastructure_provider": null,
                         "ip_address": null,
                         "registrar": null,
                     },
@@ -178,7 +204,7 @@ fn json_output(raw_mail: String) -> String {
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
         },
         "raw_mail": raw_mail
-    }).to_string()
+    })
 }
 
 

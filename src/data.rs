@@ -554,6 +554,7 @@ mod host_node_tests {
                 registration_date: None,
             }),
             host: Some(host.into()),
+            infrastructure_provider: None,
             ip_address: None,
             registrar: None,
         };
@@ -574,6 +575,7 @@ mod host_node_tests {
                 registration_date: None,
             }),
             host: Some(host.into()),
+            infrastructure_provider: None,
             ip_address: Some("10.10.10.10".into()),
             registrar: None,
         };
@@ -588,6 +590,7 @@ mod host_node_tests {
         let expected = HostNode {
             domain: None,
             host: None,
+            infrastructure_provider: None,
             ip_address: Some("10.10.10.10".into()),
             registrar: None,
         };
@@ -614,6 +617,7 @@ pub enum HostNodeError {
 pub struct HostNode {
     pub domain: Option<Domain>,
     pub host: Option<String>,
+    pub infrastructure_provider: Option<InfrastructureProvider>,
     pub ip_address: Option<String>,
     pub registrar: Option<Registrar>,
 }
@@ -633,6 +637,7 @@ impl HostNode {
             Self {
                 domain,
                 host: host.map(|h| h.into()),
+                infrastructure_provider: None,
                 ip_address: ip_address.map(|ip_a| ip_a.into()),
                 registrar: None,
             }
@@ -936,6 +941,12 @@ impl fmt::Display for DomainCategory {
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct Registrar {
+    pub abuse_email_address: Option<String>,
+    pub name: Option<String>,
+}
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+pub struct InfrastructureProvider {
     pub abuse_email_address: Option<String>,
     pub name: Option<String>,
 }
