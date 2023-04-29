@@ -1,16 +1,19 @@
 use assert_cmd::Command;
+use assert_json_diff::assert_json_eq;
 use predicates::prelude::*;
 
 use phisher_phinder_rust::mountebank::{
     clear_all_impostors,
     setup_bootstrap_server,
     setup_dns_server,
+    setup_ip_v4_server,
     DnsServerConfig,
+    IpServerConfig,
 };
 use chrono::prelude::*;
 
 #[test]
-fn test_fetching_rdap_details() { setup_mountebank();
+fn test_fetching_rdap_details() {
     setup_mountebank();
 
     let mut cmd = Command::cargo_bin("pp-rdap").unwrap();
@@ -40,12 +43,15 @@ fn test_fetching_rdap_details_json() {
 
     let mut cmd = Command::cargo_bin("pp-rdap").unwrap();
 
-    cmd
+    let assert = cmd
         .write_stdin(json_input())
         .env("RDAP_BOOTSTRAP_HOST", "http://localhost:4545")
         .assert()
-        .success()
-        .stdout(json_output());
+        .success();
+
+    let std::process::Output {stdout, ..} = assert.get_output();
+
+    assert_json_eq!(json_output(), String::from_utf8(stdout.to_vec()).unwrap());
 }
 
 fn json_input() -> String {
@@ -53,7 +59,34 @@ fn json_input() -> String {
 
     json!({
         "parsed_mail": {
-            "delivery_nodes": [],
+            "delivery_nodes": [
+                {
+                    "advertised_sender": {
+                        "domain": {
+                            "abuse_email_address": null,
+                            "category": "other",
+                            "name": "dodgyaf.com",
+                            "registration_date": null,
+                        },
+                        "host": "foo.bar.com",
+                        "ip_address": null,
+                        "registrar": null,
+                    },
+                    "observed_sender": {
+                        "domain": {
+                            "abuse_email_address": null,
+                            "category": "other",
+                            "name": "probablylegit.com",
+                            "registration_date": null,
+                        },
+                        "host": "probablylegit.com",
+                        "ip_address": "10.10.10.10",
+                        "registrar": null,
+                    },
+                    "recipient": "mx.google.com",
+                    "time": "2022-09-06T23:17:20Z",
+                },
+            ],
             "fulfillment_nodes": [
                 {
                     "visible": {
@@ -185,7 +218,42 @@ fn json_output() -> String {
                     },
                 }]
             },
-            "delivery_nodes": [],
+            "delivery_nodes": [
+                {
+                    "advertised_sender": {
+                        "domain": {
+                            "abuse_email_address": null,
+                            "category": "other",
+                            "name": "dodgyaf.com",
+                            "registration_date": null,
+                        },
+                        "host": "foo.bar.com",
+                        "infrastructure_provider": null,
+                        "ip_address": null,
+                        "registrar": null,
+                    },
+                    "observed_sender": {
+                        "domain": {
+                            "abuse_email_address": null,
+                            "category": "other",
+                            "name": "probablylegit.com",
+                            "registration_date": "2022-11-18T10:11:19Z",
+                        },
+                        "host": "probablylegit.com",
+                        "ip_address": "10.10.10.10",
+                        "infrastructure_provider": {
+                            "name": "Acme Hosting",
+                            "abuse_email_address": "abuse@acmehost.zzz",
+                        },
+                        "registrar": {
+                            "name": "Reg Eight",
+                            "abuse_email_address": "abuse@regeight.zzz",
+                        },
+                    },
+                    "recipient": "mx.google.com",
+                    "time": "2022-09-06T23:17:20Z",
+                },
+            ],
             "fulfillment_nodes": [
                 {
                     "visible": {
@@ -276,6 +344,31 @@ fn setup_mountebank() {
                 registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap()),
                 response_code: 200,
             },
+            DnsServerConfig {
+                domain_name: "dodgyaf.com",
+                handle: None,
+                registrar: Some("Reg Seven"),
+                abuse_email: Some("abuse@regseven.zzz"),
+                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 18).unwrap()),
+                response_code: 200,
+            },
+            DnsServerConfig {
+                domain_name: "probablylegit.com",
+                handle: None,
+                registrar: Some("Reg Eight"),
+                abuse_email: Some("abuse@regeight.zzz"),
+                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 19).unwrap()),
+                response_code: 200,
+            },
         ]
     );
+
+    setup_ip_v4_server(vec![
+        IpServerConfig::response_200(
+            "10.10.10.10",
+            None,
+            ("10.0.0.0", "10.255.255.255"),
+            Some(&[("Acme Hosting", "registrant", "abuse@acmehost.zzz")])
+        )
+    ]);
 }
