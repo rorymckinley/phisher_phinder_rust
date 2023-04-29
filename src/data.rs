@@ -57,13 +57,14 @@ mod delivery_node_tests {
         let expected = DeliveryNode {
             advertised_sender: host_node_option("a.bar.com", None),
             observed_sender: host_node_option("b.bar.com", Some("10.10.10.12")),
+            position: 10,
             recipient: recipient_option(),
             time: date_option()
         };
 
         assert_eq!(
             expected,
-            DeliveryNode::from_header_value(&value)
+            DeliveryNode::from_header_value(&value, 10)
         )
     }
 
@@ -96,15 +97,17 @@ mod delivery_node_tests {
 pub struct DeliveryNode {
     pub advertised_sender: Option<HostNode>,
     pub observed_sender: Option<HostNode>,
+    pub position: usize,
     pub recipient: Option<String>,
     pub time: Option<DateTime<Utc>>,
 }
 
 impl DeliveryNode {
-    pub fn from_header_value(header_value: &str) -> Self {
+    pub fn from_header_value(header_value: &str, position: usize) -> Self {
         Self {
             advertised_sender: extract_advertised_sender(header_value),
             observed_sender: extract_observed_sender(header_value),
+            position,
             recipient: extract_recipient(header_value),
             time: extract_time_from_header(header_value)
         }

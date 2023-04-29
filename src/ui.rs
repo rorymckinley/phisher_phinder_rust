@@ -749,9 +749,10 @@ mod display_delivery_nodes_tests {
                 Some("a.bar.com"),
                 Some("b.bar.com"),
                 Some("10.10.10.10"),
+                0,
                 Some("a.foo.com"),
             ),
-            delivery_node(None, Some("b.baz.com"), None, None),
+            delivery_node(None, Some("b.baz.com"), None, 1, None),
         ]);
 
         assert_eq!(
@@ -765,6 +766,35 @@ mod display_delivery_nodes_tests {
             +-----------+------------+-----------+-----------+------------------------+-------------------------+-------------+-------------+------------------------+\n\
             | N/A       | N/A        | b.baz.com | N/A       | N/A                    | N/A                     | N/A         | N/A         | N/A                    |\n\
             +-----------+------------+-----------+-----------+------------------------+-------------------------+-------------+-------------+------------------------+\n\
+            "),
+            display_delivery_nodes(&data).unwrap()
+        )
+    }
+
+    #[test]
+    fn orders_delivery_nodes_by_position() {
+        let data = build_output_data(vec![
+            delivery_node(None, Some("c.baz.com"), None, 2, None),
+            delivery_node(None, Some("a.baz.com"), None, 0, None),
+            delivery_node(None, Some("d.baz.com"), None, 3, None),
+            delivery_node(None, Some("b.baz.com"), None, 1, None),
+        ]);
+
+        assert_eq!(
+            String::from("\
+            +-----------+------------+-----------+-----------+------------------------+-------------------------+-----+-------------+------------------------+\n\
+            | Recipient | Advertised | Observed                                                                                                              |\n\
+            +-----------+------------+-----------+-----------+------------------------+-------------------------+-----+-------------+------------------------+\n\
+            |           | Host       | Host      | Registrar | Host Registration Date | Registrar Abuse Address | IP  | IP Provider | Provider Abuse Address |\n\
+            +-----------+------------+-----------+-----------+------------------------+-------------------------+-----+-------------+------------------------+\n\
+            | N/A       | N/A        | a.baz.com | N/A       | N/A                    | N/A                     | N/A | N/A         | N/A                    |\n\
+            +-----------+------------+-----------+-----------+------------------------+-------------------------+-----+-------------+------------------------+\n\
+            | N/A       | N/A        | b.baz.com | N/A       | N/A                    | N/A                     | N/A | N/A         | N/A                    |\n\
+            +-----------+------------+-----------+-----------+------------------------+-------------------------+-----+-------------+------------------------+\n\
+            | N/A       | N/A        | c.baz.com | N/A       | N/A                    | N/A                     | N/A | N/A         | N/A                    |\n\
+            +-----------+------------+-----------+-----------+------------------------+-------------------------+-----+-------------+------------------------+\n\
+            | N/A       | N/A        | d.baz.com | N/A       | N/A                    | N/A                     | N/A | N/A         | N/A                    |\n\
+            +-----------+------------+-----------+-----------+------------------------+-------------------------+-----+-------------+------------------------+\n\
             "),
             display_delivery_nodes(&data).unwrap()
         )
@@ -842,11 +872,13 @@ mod display_delivery_nodes_tests {
         advertised_host: Option<&str>,
         observed_host: Option<&str>,
         observed_ip: Option<&str>,
+        position: usize,
         recipient: Option<&str>
     ) -> DeliveryNode {
         DeliveryNode {
             advertised_sender: host_node(advertised_host, None),
             observed_sender: host_node(observed_host, observed_ip),
+            position,
             recipient: recipient.map(String::from),
             time: None
         }
@@ -860,6 +892,7 @@ mod display_delivery_nodes_tests {
         DeliveryNode {
             advertised_sender,
             observed_sender,
+            position: 0,
             recipient: recipient.map(String::from),
             time: None,
         }
@@ -945,39 +978,43 @@ pub fn display_delivery_nodes(data: &OutputData) -> AppResult<String> {
         ]),
     );
 
-    for node in data.parsed_mail.delivery_nodes.iter() {
-        let reg_name_cell = if let Some(observed_sender) = &node.observed_sender {
-            registrar_name_cell(observed_sender.registrar.as_ref())
-        } else {
-            Cell::new("N/A")
-        };
+    let mut nodes_as_rows: Vec<(usize, Vec<Cell>)> = data
+        .parsed_mail
+        .delivery_nodes
+        .iter()
+        .map(|node| {
+            let reg_name_cell = if let Some(observed_sender) = &node.observed_sender {
+                registrar_name_cell(observed_sender.registrar.as_ref())
+            } else {
+                Cell::new("N/A")
+            };
 
-        let reg_date_cell = if let Some(observed_sender) = &node.observed_sender {
-            registration_date_cell(observed_sender.domain.as_ref())
-        } else {
-            Cell::new("N/A")
-        };
+            let reg_date_cell = if let Some(observed_sender) = &node.observed_sender {
+                registration_date_cell(observed_sender.domain.as_ref())
+            } else {
+                Cell::new("N/A")
+            };
 
-        let reg_abuse_cell = if let Some(observed_sender) = &node.observed_sender {
-            registrar_abuse_email_cell(observed_sender.registrar.as_ref())
-        } else {
-            Cell::new("N/A")
-        };
+            let reg_abuse_cell = if let Some(observed_sender) = &node.observed_sender {
+                registrar_abuse_email_cell(observed_sender.registrar.as_ref())
+            } else {
+                Cell::new("N/A")
+            };
 
-        let ip_provider_cell = if let Some(observed_sender) = &node.observed_sender {
-            ip_provider_name_cell(observed_sender.infrastructure_provider.as_ref())
-        } else {
-            Cell::new("N/A")
-        };
+            let ip_provider_cell = if let Some(observed_sender) = &node.observed_sender {
+                ip_provider_name_cell(observed_sender.infrastructure_provider.as_ref())
+            } else {
+                Cell::new("N/A")
+            };
 
-        let ip_abuse_cell = if let Some(observed_sender) = &node.observed_sender {
-            ip_provider_abuse_email_cell(observed_sender.infrastructure_provider.as_ref())
-        } else {
-            Cell::new("N/A")
-        };
+            let ip_abuse_cell = if let Some(observed_sender) = &node.observed_sender {
+                ip_provider_abuse_email_cell(observed_sender.infrastructure_provider.as_ref())
+            } else {
+                Cell::new("N/A")
+            };
 
-        table.add_row(
-            Row::new(
+            (
+                node.position,
                 vec![
                     Cell::new(&display_recipient(node.recipient.as_ref())),
                     Cell::new(&display_host(node.advertised_sender.as_ref())),
@@ -990,7 +1027,14 @@ pub fn display_delivery_nodes(data: &OutputData) -> AppResult<String> {
                     ip_abuse_cell,
                 ]
             )
-        );
+
+        })
+        .collect();
+
+    nodes_as_rows.sort_by(|a, b| a.0.cmp(&b.0));
+
+    for (_, row) in nodes_as_rows {
+        table.add_row(Row::new(row));
     }
 
     table_to_string(&table)

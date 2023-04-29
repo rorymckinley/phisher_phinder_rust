@@ -227,13 +227,15 @@ mod delivery_nodes_tests {
         let expected_result = vec![
             DeliveryNode {
                 advertised_sender: Some(HostNode::new(Some("a.bar.com"), None).unwrap()),
-                observed_sender: Some(HostNode::new(Some("b.bar.com"), Some("10.10.10.12")).unwrap()),
+                observed_sender: observed_sender("b.bar.com", "10.10.10.12"),
+                position: 0,
                 recipient: Some("a.baz.com".into()),
                 time: Some(Utc.with_ymd_and_hms(2022, 9, 6, 23, 17, 22).unwrap())
             },
             DeliveryNode {
                 advertised_sender: Some(HostNode::new(Some("c.bar.com"), None).unwrap()),
-                observed_sender: Some(HostNode::new(Some("d.bar.com"), Some("10.10.10.11")).unwrap()),
+                observed_sender: observed_sender("d.bar.com", "10.10.10.11"),
+                position: 1,
                 recipient: Some("b.baz.com".into()),
                 time: Some(Utc.with_ymd_and_hms(2022, 9, 6, 23, 17, 21).unwrap()),
             },
@@ -253,6 +255,10 @@ mod delivery_nodes_tests {
             vec![],
             received_headers
         )
+    }
+
+    fn observed_sender(host: &str, ip_address: &str) -> Option<HostNode> {
+        Some(HostNode::new(Some(host), Some(ip_address)).unwrap())
     }
 
     fn header(from_parts: (&str, &str, &str), by_host: &str, date: &str) -> String {
@@ -374,7 +380,8 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
             .parsed_mail
             .get_received_headers()
             .iter()
-            .map(|header_value| DeliveryNode::from_header_value(header_value))
+            .enumerate()
+            .map(|(position, header_value)| DeliveryNode::from_header_value(header_value, position))
             .collect()
     }
 

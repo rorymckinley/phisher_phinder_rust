@@ -98,6 +98,7 @@ fn json_output_as_value(raw_mail: String) -> serde_json::Value {
                 {
                     "advertised_sender": null,
                     "observed_sender": null,
+                    "position": 0,
                     "recipient": "2002:a05:7300:478f:b0:75:5be4:1dc0",
                     "time": "2022-09-06T23:17:20Z",
                 },
@@ -126,6 +127,7 @@ fn json_output_as_value(raw_mail: String) -> serde_json::Value {
                         "ip_address": "10.10.10.10",
                         "registrar": null,
                     },
+                    "position": 1,
                     "recipient": "mx.google.com",
                     "time": "2022-09-06T23:17:20Z",
                 },
@@ -154,6 +156,7 @@ fn json_output_as_value(raw_mail: String) -> serde_json::Value {
                         "ip_address": null,
                         "registrar": null,
                     },
+                    "position": 2,
                     "recipient": "gp13mtaq123",
                     "time": "2019-05-30T17:00:22Z"
                 }

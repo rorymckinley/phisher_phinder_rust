@@ -192,6 +192,7 @@ mod populate_tests {
                     "10.10.10.10",
                     "Acme Hosting",
                     "abuse@acmehost.zzz",
+                    0,
                     30,
                 ),
                 output_delivery_node(
@@ -202,6 +203,7 @@ mod populate_tests {
                     "192.168.10.10",
                     "Hackme Hosting",
                     "abuse@hackmehost.zzz",
+                    1,
                     31,
                 )
             ]),
@@ -213,8 +215,16 @@ mod populate_tests {
         OutputData {
             parsed_mail: ParsedMail {
                 delivery_nodes: vec![
-                    input_delivery_node("host.dodgyaf.com", "10.10.10.10", 30),
-                    input_delivery_node("host.probablyalsoascammer.net", "192.168.10.10", 31)
+                    input_delivery_node(
+                        observed_sender("host.dodgyaf.com", "10.10.10.10"),
+                        30,
+                        0
+                    ),
+                    input_delivery_node(
+                        observed_sender("host.probablyalsoascammer.net", "192.168.10.10"),
+                        31,
+                        1
+                    )
                 ],
                 fulfillment_nodes: vec![
                     FulfillmentNode::new("https://iamascamsite.com"),
@@ -255,15 +265,24 @@ mod populate_tests {
         }
     }
 
-    fn input_delivery_node(host_name: &str, ip_address: &str, seconds: u32) -> DeliveryNode {
+    fn input_delivery_node(
+        observed_sender: Option<HostNode>,
+        seconds: u32,
+        position: usize
+    ) -> DeliveryNode {
         let time = Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, seconds).unwrap());
 
         DeliveryNode {
             advertised_sender: None,
-            observed_sender: Some(HostNode::new(Some(host_name), Some(ip_address)).unwrap()),
+            observed_sender,
+            position,
             recipient: None,
             time,
         }
+    }
+
+    fn observed_sender(host_name: &str, ip_address: &str) -> Option<HostNode> {
+        Some(HostNode::new(Some(host_name), Some(ip_address)).unwrap())
     }
 
     fn output_delivery_node(
@@ -274,6 +293,7 @@ mod populate_tests {
         ip_address: &str,
         infrastructure_provider_name: &str,
         infrastructure_provider_email_address: &str,
+        position: usize,
         seconds: u32,
     ) -> DeliveryNode {
         let time = Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, seconds).unwrap());
@@ -293,6 +313,7 @@ mod populate_tests {
         DeliveryNode {
             advertised_sender: None,
             observed_sender,
+            position,
             recipient: None,
             time,
         }
@@ -737,8 +758,16 @@ mod lookup_delivery_nodes_from_rdap_tests {
 
     fn input() -> Vec<DeliveryNode> {
         vec![
-            input_delivery_node("host.dodgyaf.com", "10.10.10.10", 30),
-            input_delivery_node("host.probablyalsoascammer.net", "192.168.10.10", 31)
+            input_delivery_node(
+                observed_sender("host.dodgyaf.com", "10.10.10.10"),
+                30,
+                0
+            ),
+            input_delivery_node(
+                observed_sender("host.probablyalsoascammer.net", "192.168.10.10"),
+                31,
+                1
+            )
         ]
     }
 
@@ -752,6 +781,7 @@ mod lookup_delivery_nodes_from_rdap_tests {
                 "10.10.10.10",
                 "Acme Hosting",
                 "abuse@acmehost.zzz",
+                0,
                 30,
             ),
             output_delivery_node(
@@ -762,20 +792,30 @@ mod lookup_delivery_nodes_from_rdap_tests {
                 "192.168.10.10",
                 "Hackme Hosting",
                 "abuse@hackmehost.zzz",
+                1,
                 31,
             )
         ]
     }
 
-    fn input_delivery_node(host_name: &str, ip_address: &str, seconds: u32) -> DeliveryNode {
+    fn input_delivery_node(
+        observed_sender: Option<HostNode>,
+        seconds: u32,
+        position: usize
+    ) -> DeliveryNode {
         let time = Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, seconds).unwrap());
 
         DeliveryNode {
             advertised_sender: None,
-            observed_sender: Some(HostNode::new(Some(host_name), Some(ip_address)).unwrap()),
+            observed_sender,
+            position,
             recipient: None,
             time,
         }
+    }
+
+    fn observed_sender(host_name: &str, ip_address: &str) -> Option<HostNode> {
+        Some(HostNode::new(Some(host_name), Some(ip_address)).unwrap())
     }
 
     fn output_delivery_node(
@@ -786,6 +826,7 @@ mod lookup_delivery_nodes_from_rdap_tests {
         ip_address: &str,
         infrastructure_provider_name: &str,
         infrastructure_provider_email_address: &str,
+        position: usize,
         seconds: u32,
     ) -> DeliveryNode {
         let time = Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, seconds).unwrap());
@@ -804,6 +845,7 @@ mod lookup_delivery_nodes_from_rdap_tests {
         DeliveryNode {
             advertised_sender: None,
             observed_sender,
+            position,
             recipient: None,
             time,
         }
@@ -1050,6 +1092,7 @@ mod lookup_delivery_node_tests {
                 ip_address: Some("10.10.10.10".into()),
                 registrar: None,
             }),
+            position: 0,
             recipient: None,
             time: None,
         }
