@@ -19,7 +19,9 @@ fn test_display_human_parse_results() {
             ).and(
                 predicates::str::contains("https://foo.bar/baz")
             ).and(
-            predicates::str::contains("gp13mtaq123")
+                predicates::str::contains("gp13mtaq123")
+            ).and(
+                predicates::str::contains("JPh8bpEm")
             )
         );
 }
@@ -34,7 +36,7 @@ fn test_display_json_parse_results() {
         .success()
         .stdout(json_output_as_string(input()));
 
-    
+
     // TODO Figure out what I am doing wrong with `assert_json_eq!`
     // let assert = cmd
     //     .write_stdin(input())
@@ -69,7 +71,8 @@ Received: from foo.bar.com (foo.bar.com. [10.10.10.10])\r
         Tue, 06 Sep 2022 16:17:20 -0700 (PDT)\r
 Received-SPF: pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as permitted sender) client-ip=10.10.10.10;\r
 Authentication-Results: mx.google.com;\r
-       spf=pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as permitted sender) smtp.mailfrom=info@xxx.fr\r
+        dkim=pass header.i=@compromised.zzz header.s=ymy header.b=JPh8bpEm;\r
+        spf=pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as permitted sender) smtp.mailfrom=info@xxx.fr\r
 Received: from not-real-one.com (not-real-one.com )\r
   (envelope-from <g-123-456-789-012@blah.not-real-two.com (g-123-456-789-012@blah.not-real-two.com)>)\r
   by gp13mtaq123 (mtaq-receiver/2.20190311.1) with ESMTP id yA3jJ-_S5g8Z\r
@@ -94,6 +97,20 @@ fn json_output_as_string(raw_mail: String) -> String {
 fn json_output_as_value(raw_mail: String) -> serde_json::Value {
     json!({
         "parsed_mail": {
+            "authentication_results": {
+                "dkim": {
+                    "result": "Pass",
+                    "selector": "ymy",
+                    "signature_snippet": "JPh8bpEm",
+                    "user_identifier_snippet": "@compromised.zzz",
+                },
+                "service_identifier": "mx.google.com",
+                "spf": {
+                    "ip_address": "10.10.10.10",
+                    "result": "Pass",
+                    "smtp_mailfrom": "info@xxx.fr"
+                }
+            },
             "delivery_nodes": [
                 {
                     "advertised_sender": null,

@@ -1,3 +1,4 @@
+use crate::authentication_results::AuthenticationResults;
 use crate::data::{
     Domain,
     EmailAddressData,
@@ -16,6 +17,7 @@ use regex::Regex;
 #[cfg(test)]
 mod display_sender_addresses_extended_tests {
     use super::*;
+    use crate::authentication_results::{AuthenticationResults, Dkim, DkimResult, Spf, SpfResult};
     use crate::data::{
         Domain,
         DomainCategory,
@@ -30,6 +32,7 @@ mod display_sender_addresses_extended_tests {
     fn displays_extended_data_for_sender_addresses() {
         let data = OutputData {
             parsed_mail: ParsedMail {
+                authentication_results: authentication_results(),
                 delivery_nodes: vec![],
                 fulfillment_nodes: vec![],
                 subject: Some("Send me money now! Please?".into()),
@@ -175,6 +178,7 @@ mod display_sender_addresses_extended_tests {
     fn display_extended_data_no_domain_data() {
         let data = OutputData {
             parsed_mail: ParsedMail {
+                authentication_results: authentication_results(),
                 delivery_nodes: vec![],
                 fulfillment_nodes: vec![],
                 subject: Some("Send me money now! Please?".into()),
@@ -249,6 +253,25 @@ mod display_sender_addresses_extended_tests {
     fn datetime(y: i32, m: u32, d: u32, h: u32, min: u32, s: u32) -> chrono::DateTime<Utc> {
         chrono::Utc.with_ymd_and_hms(y, m, d, h, min, s).single().unwrap()
     }
+
+    fn authentication_results() -> Option<AuthenticationResults> {
+        Some(
+            AuthenticationResults {
+                dkim: Some(Dkim {
+                    result: Some(DkimResult::Fail),
+                    selector: Some("".into()),
+                    signature_snippet: Some("".into()),
+                    user_identifier_snippet: Some("".into()),
+                }),
+                service_identifier: Some("does.not.matter".into()),
+                spf: Some(Spf {
+                    ip_address: Some("".into()),
+                    result: Some(SpfResult::SoftFail),
+                    smtp_mailfrom: Some("".into())
+                })
+            }
+        )
+    }
 }
 
 pub fn display_sender_addresses_extended(data: &OutputData) -> AppResult<String> {
@@ -314,7 +337,13 @@ fn sender_address_row(
 #[cfg(test)]
 mod display_fulfillment_nodes_tests {
     use super::*;
-    use crate::data::{DomainCategory, FulfillmentNode, ParsedMail, EmailAddresses};
+    use crate::authentication_results::{AuthenticationResults, Dkim, DkimResult, Spf, SpfResult};
+    use crate::data::{
+        DomainCategory,
+        FulfillmentNode,
+        ParsedMail,
+        EmailAddresses
+    };
     use chrono::prelude::*;
 
     #[test]
@@ -326,6 +355,7 @@ mod display_fulfillment_nodes_tests {
 
         let data = OutputData {
             parsed_mail: ParsedMail {
+                authentication_results: authentication_results(),
                 delivery_nodes: vec![],
                 fulfillment_nodes: vec![node_bar, node_baz, node_biz],
                 subject: None,
@@ -403,6 +433,24 @@ mod display_fulfillment_nodes_tests {
         )
     }
 
+    fn authentication_results() -> Option<AuthenticationResults> {
+        Some(
+            AuthenticationResults {
+                dkim: Some(Dkim {
+                    result: Some(DkimResult::Fail),
+                    selector: Some("".into()),
+                    signature_snippet: Some("".into()),
+                    user_identifier_snippet: Some("".into()),
+                }),
+                service_identifier: Some("does.not.matter".into()),
+                spf: Some(Spf {
+                    ip_address: Some("".into()),
+                    result: Some(SpfResult::SoftFail),
+                    smtp_mailfrom: Some("".into())
+                })
+            }
+        )
+    }
 }
 
 pub fn display_fulfillment_nodes(data: &OutputData) -> AppResult<String> {
@@ -732,6 +780,7 @@ fn url_cell(url: &str) -> Cell {
 #[cfg(test)]
 mod display_delivery_nodes_tests {
     use chrono::prelude::*;
+    use crate::authentication_results::{AuthenticationResults, Dkim, DkimResult, Spf, SpfResult};
     use crate::data::{
         DeliveryNode,
         DomainCategory,
@@ -854,6 +903,7 @@ mod display_delivery_nodes_tests {
     fn build_output_data(delivery_nodes: Vec<DeliveryNode>) -> OutputData {
         OutputData {
             parsed_mail: ParsedMail {
+                authentication_results: authentication_results(),
                 delivery_nodes,
                 fulfillment_nodes: vec![],
                 subject: None,
@@ -951,6 +1001,25 @@ mod display_delivery_nodes_tests {
     fn host_node(host: Option<&str>, ip: Option<&str>) -> Option<HostNode> {
         HostNode::new(host, ip).ok()
     }
+
+    fn authentication_results() -> Option<AuthenticationResults> {
+        Some(
+            AuthenticationResults {
+                dkim: Some(Dkim {
+                    result: Some(DkimResult::Fail),
+                    selector: Some("".into()),
+                    signature_snippet: Some("".into()),
+                    user_identifier_snippet: Some("".into()),
+                }),
+                service_identifier: Some("does.not.matter".into()),
+                spf: Some(Spf {
+                    ip_address: Some("".into()),
+                    result: Some(SpfResult::SoftFail),
+                    smtp_mailfrom: Some("".into())
+                })
+            }
+        )
+    }
 }
 
 pub fn display_delivery_nodes(data: &OutputData) -> AppResult<String> {
@@ -1036,6 +1105,148 @@ pub fn display_delivery_nodes(data: &OutputData) -> AppResult<String> {
     for (_, row) in nodes_as_rows {
         table.add_row(Row::new(row));
     }
+
+    table_to_string(&table)
+}
+
+#[cfg(test)]
+mod display_authentication_results_tests {
+    use crate::authentication_results::{AuthenticationResults, Dkim, DkimResult, Spf, SpfResult};
+    use crate::data::{EmailAddresses, ParsedMail};
+    use super::*;
+
+    #[test]
+    fn displays_authentication_results_with_no_authentication_results() {
+        let data = build_output_data(None);
+
+        assert_eq!(
+            String::from("\
+            +--------------------+------------+-----------+-----------------+\n\
+            | Service Identifier | N/A                                      |\n\
+            +--------------------+------------+-----------+-----------------+\n\
+            | DKIM                                                          |\n\
+            +--------------------+------------+-----------+-----------------+\n\
+            | Result             | Selector   | Signature | User Identifier |\n\
+            +--------------------+------------+-----------+-----------------+\n\
+            | N/A                | N/A        | N/A       | N/A             |\n\
+            +--------------------+------------+-----------+-----------------+\n\
+            | SPF                                                           |\n\
+            +--------------------+------------+-----------+-----------------+\n\
+            | Result             | IP Address | Mail From                   |\n\
+            +--------------------+------------+-----------+-----------------+\n\
+            | N/A                | N/A        | N/A                         |\n\
+            +--------------------+------------+-----------+-----------------+\n\
+            "),
+            display_authentication_results(&data).unwrap()
+        );
+    }
+
+    #[test]
+    fn displays_authentications_results_with_full_authentication_results() {
+        let data = build_output_data(authentication_results());
+
+        assert_eq!(
+            String::from("\
+            +--------------------+---------------+----------------+-----------------+\n\
+            | Service Identifier | mx.google.com                                    |\n\
+            +--------------------+---------------+----------------+-----------------+\n\
+            | DKIM                                                                  |\n\
+            +--------------------+---------------+----------------+-----------------+\n\
+            | Result             | Selector      | Signature      | User Identifier |\n\
+            +--------------------+---------------+----------------+-----------------+\n\
+            | Pass               | dkim_selector | dkim_signature | dkim_user       |\n\
+            +--------------------+---------------+----------------+-----------------+\n\
+            | SPF                                                                   |\n\
+            +--------------------+---------------+----------------+-----------------+\n\
+            | Result             | IP Address    | Mail From                        |\n\
+            +--------------------+---------------+----------------+-----------------+\n\
+            | SoftFail           | 10.10.10.10   | mailfrom                         |\n\
+            +--------------------+---------------+----------------+-----------------+\n\
+            "),
+            display_authentication_results(&data).unwrap()
+        );
+    }
+
+    fn build_output_data(
+        authentication_results: Option<AuthenticationResults>
+    ) -> OutputData {
+        OutputData {
+            parsed_mail: ParsedMail {
+                authentication_results,
+                delivery_nodes: vec![],
+                fulfillment_nodes: vec![],
+                subject: None,
+                email_addresses: EmailAddresses {
+                    from: vec![],
+                    reply_to: vec![],
+                    return_path: vec![],
+                    links: vec![],
+                }
+            },
+            raw_mail: "".into()
+        }
+    }
+
+    fn authentication_results() -> Option<AuthenticationResults> {
+        Some(
+            AuthenticationResults {
+                dkim: Some(Dkim {
+                    result: Some(DkimResult::Pass),
+                    selector: Some("dkim_selector".into()),
+                    signature_snippet: Some("dkim_signature".into()),
+                    user_identifier_snippet: Some("dkim_user".into())
+                }),
+                service_identifier: Some("mx.google.com".into()),
+                spf: Some(Spf {
+                    ip_address: Some("10.10.10.10".into()),
+                    result: Some(SpfResult::SoftFail),
+                    smtp_mailfrom: Some("mailfrom".into())
+                }) 
+            }
+        )
+    }
+}
+
+pub fn display_authentication_results(data: &OutputData) -> AppResult<String>{
+    let mut table = Table::new();
+    let auth_results = data.parsed_mail.authentication_results.as_ref();
+
+    table.add_row(
+        Row::new(vec![
+            Cell::new("Service Identifier"),
+            authentication_results_service_identifier(auth_results).with_hspan(3)
+        ])
+    );
+
+    table.add_row(Row::new(vec![Cell::new("DKIM").with_hspan(4)]));
+    table.add_row(
+        Row::new(vec![
+            Cell::new("Result"),
+            Cell::new("Selector"),
+            Cell::new("Signature"),
+            Cell::new("User Identifier")
+        ])
+    );
+
+    table.add_row(
+        Row::new(vec![
+            authentication_results_dkim_result(auth_results),
+            authentication_results_dkim_selector(auth_results),
+            authentication_results_dkim_signature(auth_results),
+            authentication_results_dkim_user(auth_results),
+        ])
+    );
+    // table.add_row(Row::new(vec![Cell::new("N/A"), Cell::new("N/A"), Cell::new("N/A"), Cell::new("N/A")]));
+    table.add_row(Row::new(vec![Cell::new("SPF").with_hspan(4)]));
+    table.add_row(Row::new(vec![Cell::new("Result"), Cell::new("IP Address"), Cell::new("Mail From").with_hspan(2)]));
+
+    table.add_row(
+        Row::new(vec![
+            authentication_results_spf_result(auth_results),
+            authentication_results_spf_ip_address(auth_results),
+            authentication_results_spf_mailfrom(auth_results).with_hspan(2),
+        ])
+    );
 
     table_to_string(&table)
 }
@@ -1128,3 +1339,444 @@ fn display_recipient(recipient_opt: Option<&String>) -> String {
         String::from("N/A")
     }
 }
+
+#[cfg(test)]
+mod  authentication_results_service_identifier_tests {
+    use super::*;
+
+    #[test]
+    fn returns_na_if_no_authentication_results() {
+        assert_eq!(Cell::new("N/A"), authentication_results_service_identifier(None));
+    }
+
+    #[test]
+    fn returns_na_if_no_service_identifier() {
+        let results = AuthenticationResults {
+            dkim: None, service_identifier: None, spf: None
+        };
+
+        assert_eq!(
+            Cell::new("N/A"),
+            authentication_results_service_identifier(Some(&results))
+        );
+    }
+
+    #[test]
+    fn returns_cell_containing_service_identifier() {
+        let results = AuthenticationResults {
+            dkim: None, service_identifier: Some(String::from("mx.google.com")), spf: None
+        };
+
+        assert_eq!(
+            Cell::new("mx.google.com"),
+            authentication_results_service_identifier(Some(&results))
+        );
+    }
+}
+
+fn authentication_results_service_identifier(
+    results_option: Option<&AuthenticationResults>
+) -> Cell {
+    match results_option {
+        Some(AuthenticationResults {service_identifier, ..}) => {
+            optional_cell(service_identifier.as_deref())
+        },
+        None => Cell::new("N/A")
+    }
+}
+
+#[cfg(test)]
+mod authentication_results_dkim_result_tests {
+    use crate::authentication_results::{Dkim, DkimResult};
+    use super::*;
+
+    #[test]
+    fn returns_na_if_no_authentication_results() {
+        assert_eq!(Cell::new("N/A"), authentication_results_dkim_result(None));
+    }
+
+    #[test]
+    fn returns_na_if_no_dkim() {
+        let results = AuthenticationResults {
+            dkim: None, service_identifier: None, spf: None
+        };
+
+        assert_eq!(
+            Cell::new("N/A"), 
+            authentication_results_dkim_result(Some(&results))
+        );
+    }
+
+    #[test]
+    fn returns_result() {
+        let dkim = Dkim {
+            result: Some(DkimResult::TempError),
+            selector: None,
+            signature_snippet: None,
+            user_identifier_snippet: None,
+        };
+        
+        let results = AuthenticationResults {
+            dkim: Some(dkim),
+            service_identifier: None,
+            spf: None
+        };
+
+        assert_eq!(
+            Cell::new("TempError"), 
+            authentication_results_dkim_result(Some(&results))
+        );
+    }
+}
+
+fn authentication_results_dkim_result(
+    results_option: Option<&AuthenticationResults>
+) -> Cell {
+    match results_option {
+        Some(results) => {
+            match results.dkim.as_ref() {
+                Some(dkim) => {
+                    optional_cell(dkim.result.as_ref().map(|r| r.to_string()).as_deref())
+                },
+                None => optional_cell(None)
+            }
+        },
+        None => optional_cell(None)
+    }
+}
+
+#[cfg(test)]
+mod authentication_results_dkim_selector_tests {
+    use crate::authentication_results::Dkim;
+    use super::*;
+
+    #[test]
+    fn returns_na_if_no_results() {
+        assert_eq!(Cell::new("N/A"), authentication_results_dkim_selector(None));
+    }
+
+    #[test]
+    fn returns_na_if_no_dkim() {
+        let results = AuthenticationResults {
+            dkim: None, service_identifier: None, spf: None
+        };
+
+        assert_eq!(Cell::new("N/A"), authentication_results_dkim_selector(Some(&results)));
+    }
+
+    #[test]
+    fn returns_selector() {
+        let dkim = Dkim {
+            result: None,
+            selector: Some("foo".into()),
+            signature_snippet: None,
+            user_identifier_snippet: None,
+        };
+        
+        let results = AuthenticationResults {
+            dkim: Some(dkim),
+            service_identifier: None,
+            spf: None
+        };
+
+        assert_eq!(Cell::new("foo"), authentication_results_dkim_selector(Some(&results)));
+    }
+}
+
+fn authentication_results_dkim_selector(
+    results_option: Option<&AuthenticationResults>
+) -> Cell {
+    match results_option {
+        Some(results) => {
+            match results.dkim.as_ref() {
+                Some(dkim) => {
+                    optional_cell(dkim.selector.as_deref())
+                },
+                None => optional_cell(None)
+            }
+        },
+        None => optional_cell(None)
+    }
+}
+
+#[cfg(test)]
+mod authentication_results_dkim_signature_tests {
+    use crate::authentication_results::Dkim;
+    use super::*;
+
+    #[test]
+    fn returns_na_if_no_results() {
+        assert_eq!(Cell::new("N/A"), authentication_results_dkim_signature(None));
+    }
+
+    #[test]
+    fn returns_na_if_no_dkim() {
+        let results = AuthenticationResults {
+            dkim: None, service_identifier: None, spf: None
+        };
+
+        assert_eq!(Cell::new("N/A"), authentication_results_dkim_signature(Some(&results)));
+    }
+
+    #[test]
+    fn returns_selector() {
+        let dkim = Dkim {
+            result: None,
+            selector: None,
+            signature_snippet: Some("foo".into()),
+            user_identifier_snippet: None,
+        };
+        
+        let results = AuthenticationResults {
+            dkim: Some(dkim),
+            service_identifier: None,
+            spf: None
+        };
+
+        assert_eq!(Cell::new("foo"), authentication_results_dkim_signature(Some(&results)));
+    }
+}
+
+fn authentication_results_dkim_signature(results_option: Option<&AuthenticationResults>) -> Cell {
+    match results_option {
+        Some(results) => {
+            match results.dkim.as_ref() {
+                Some(dkim) => {
+                    optional_cell(dkim.signature_snippet.as_deref())
+                },
+                None => optional_cell(None)
+            }
+        },
+        None => optional_cell(None)
+    }
+}
+
+#[cfg(test)]
+mod authentication_results_dkim_user_tests {
+    use crate::authentication_results::Dkim;
+    use super::*;
+
+    #[test]
+    fn returns_na_if_no_results() {
+        assert_eq!(Cell::new("N/A"), authentication_results_dkim_user(None));
+    }
+
+    #[test]
+    fn returns_na_if_no_dkim() {
+        let results = AuthenticationResults {
+            dkim: None, service_identifier: None, spf: None
+        };
+
+        assert_eq!(Cell::new("N/A"), authentication_results_dkim_user(Some(&results)));
+    }
+
+    #[test]
+    fn returns_selector() {
+        let dkim = Dkim {
+            result: None,
+            selector: None,
+            signature_snippet: None,
+            user_identifier_snippet: Some("foo".into()),
+        };
+        
+        let results = AuthenticationResults {
+            dkim: Some(dkim),
+            service_identifier: None,
+            spf: None
+        };
+
+        assert_eq!(Cell::new("foo"), authentication_results_dkim_user(Some(&results)));
+    }
+}
+
+fn authentication_results_dkim_user(results_option: Option<&AuthenticationResults>) -> Cell {
+    match results_option {
+        Some(results) => {
+            match results.dkim.as_ref() {
+                Some(dkim) => {
+                    optional_cell(dkim.user_identifier_snippet.as_deref())
+                },
+                None => optional_cell(None)
+            }
+        },
+        None => optional_cell(None)
+    }
+}
+
+#[cfg(test)]
+mod authentication_results_spf_result_tests {
+    use crate::authentication_results::{Spf, SpfResult};
+    use super::*;
+
+    #[test]
+    fn returns_na_if_no_authentication_results() {
+        assert_eq!(Cell::new("N/A"), authentication_results_spf_result(None));
+    }
+
+    #[test]
+    fn returns_na_if_no_spf() {
+        let results = AuthenticationResults {
+            dkim: None, service_identifier: None, spf: None
+        };
+
+        assert_eq!( Cell::new("N/A"), authentication_results_spf_result(Some(&results)));
+    }
+
+    #[test]
+    fn returns_result() {
+        let spf = Spf {
+            ip_address: None,
+            result: Some(SpfResult::HardFail),
+            smtp_mailfrom: None,
+        };
+        
+        let results = AuthenticationResults {
+            dkim: None,
+            service_identifier: None,
+            spf: Some(spf)
+        };
+
+        assert_eq!(
+            Cell::new("HardFail"), 
+            authentication_results_spf_result(Some(&results))
+        );
+    }
+}
+
+fn authentication_results_spf_result(results_option: Option<&AuthenticationResults>) -> Cell {
+    match results_option {
+        Some(results) => {
+            match results.spf.as_ref() {
+                Some(spf) => {
+                    optional_cell(spf.result.as_ref().map(|r| r.to_string()).as_deref())
+                },
+                None => optional_cell(None)
+            }
+        }
+        None => optional_cell(None)
+    }
+}
+
+#[cfg(test)]
+mod authentication_results_spf_ip_address_tests {
+    use crate::authentication_results::Spf;
+    use super::*;
+
+    #[test]
+    fn returns_na_if_no_results() {
+        assert_eq!(Cell::new("N/A"), authentication_results_spf_ip_address(None));
+    }
+
+    #[test]
+    fn returns_na_if_no_spf() {
+        let results = AuthenticationResults {
+            dkim: None, service_identifier: None, spf: None
+        };
+
+        assert_eq!(Cell::new("N/A"), authentication_results_spf_ip_address(Some(&results)));
+    }
+
+    #[test]
+    fn returns_ip_address() {
+        let spf = Spf {
+            ip_address: Some("10.10.10.10".into()),
+            result: None,
+            smtp_mailfrom: None,
+        };
+        
+        let results = AuthenticationResults {
+            dkim: None,
+            service_identifier: None,
+            spf: Some(spf)
+        };
+
+        assert_eq!(Cell::new("10.10.10.10"), authentication_results_spf_ip_address(Some(&results)));
+    }
+}
+
+fn authentication_results_spf_ip_address(results_option: Option<&AuthenticationResults>) -> Cell {
+    match results_option {
+        Some(results) => {
+            match results.spf.as_ref() {
+                Some(spf) => {
+                    optional_cell(spf.ip_address.as_deref())
+                },
+                None => optional_cell(None)
+            }
+        }
+        None => optional_cell(None),
+    }
+}
+
+#[cfg(test)]
+mod authentication_results_spf_mailfrom_tests {
+    use crate::authentication_results::Spf;
+    use super::*;
+
+    #[test]
+    fn returns_na_if_no_authentication_results() {
+        assert_eq!(Cell::new("N/A"), authentication_results_spf_mailfrom(None));
+    }
+
+    #[test]
+    fn returns_na_if_no_spf() {
+        let results = AuthenticationResults {
+            dkim: None, service_identifier: None, spf: None
+        };
+
+        assert_eq!( Cell::new("N/A"), authentication_results_spf_mailfrom(Some(&results)));
+    }
+
+    #[test]
+    fn returns_mailfrom() {
+        let spf = Spf {
+            ip_address: None,
+            result: None,
+            smtp_mailfrom: Some("foo".into()),
+        };
+        
+        let results = AuthenticationResults {
+            dkim: None,
+            service_identifier: None,
+            spf: Some(spf)
+        };
+
+        assert_eq!(Cell::new("foo"), authentication_results_spf_mailfrom(Some(&results)));
+    }
+
+}
+
+fn authentication_results_spf_mailfrom(results_option: Option<&AuthenticationResults>) -> Cell {
+    match results_option {
+        Some(results) => {
+            match results.spf.as_ref() {
+                Some(spf) => optional_cell(spf.smtp_mailfrom.as_deref()),
+                None => optional_cell(None),
+            }
+        }
+        None => optional_cell(None),
+    }
+}
+
+#[cfg(test)]
+mod optional_cell_tests {
+    use super::*;
+
+    #[test]
+    fn returns_na_if_none() {
+        assert_eq!(Cell::new("N/A"), optional_cell(None));
+    }
+
+    #[test]
+    fn returns_value_if_some() {
+        assert_eq!(Cell::new("foo"), optional_cell(Some("foo")));
+    }
+}
+
+fn optional_cell(value_option: Option<&str>) -> Cell {
+    match value_option {
+        Some(value) => Cell::new(value),
+        None => Cell::new("N/A")
+    }
+}
+

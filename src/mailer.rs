@@ -8,8 +8,13 @@ use std::fmt;
 #[cfg(test)]
 mod build_mail_definitions_tests {
     use super::*;
+    use crate::authentication_results::{AuthenticationResults, Dkim, DkimResult, Spf, SpfResult};
     use crate::data::{
-        Domain, EmailAddressData, FulfillmentNode, Node, ParsedMail
+        Domain,
+        EmailAddressData,
+        FulfillmentNode,
+        Node,
+        ParsedMail
     };
 
     #[test]
@@ -21,8 +26,9 @@ mod build_mail_definitions_tests {
 
     fn input_data() -> OutputData {
         let parsed_mail = ParsedMail::new(
-            email_addresses(),
+            authentication_results(),
             vec![],
+            email_addresses(),
             fulfillment_nodes(),
             Some("".into())
         );
@@ -64,6 +70,25 @@ mod build_mail_definitions_tests {
                 name: None
             })
         }
+    }
+
+    fn authentication_results() -> Option<AuthenticationResults> {
+        Some(
+            AuthenticationResults {
+                dkim: Some(Dkim {
+                    result: Some(DkimResult::Fail),
+                    selector: Some("".into()),
+                    signature_snippet: Some("".into()),
+                    user_identifier_snippet: Some("".into()),
+                }),
+                service_identifier: Some("does.not.matter".into()),
+                spf: Some(Spf {
+                    ip_address: Some("".into()),
+                    result: Some(SpfResult::SoftFail),
+                    smtp_mailfrom: Some("".into())
+                })
+            }
+        )
     }
 
     fn expected() -> Vec<MailDefinition> {
@@ -863,7 +888,7 @@ impl Mailer {
     }
 
     fn build_mail(&self, abuse_email_address: &str, entity: &Entity, raw_email: &str) -> Message {
-        // TODO find some way to exercise these `unwrap()` calls and put better 
+        // TODO find some way to exercise these `unwrap()` calls and put better
         // handling in
         Message::builder()
             .from(self.from_address.parse().unwrap())

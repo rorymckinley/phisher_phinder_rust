@@ -22,7 +22,8 @@ use std::sync::Arc;
 #[cfg(test)]
 mod populate_tests {
     use super::*;
-    use crate:: data::{
+    use crate::authentication_results::{AuthenticationResults, Dkim, DkimResult, Spf, SpfResult};
+    use crate::data::{
         Domain,
         EmailAddressData,
         InfrastructureProvider,
@@ -214,6 +215,7 @@ mod populate_tests {
     fn input_data() -> OutputData {
         OutputData {
             parsed_mail: ParsedMail {
+                authentication_results: authentication_results(),
                 delivery_nodes: vec![
                     input_delivery_node(
                         observed_sender("host.dodgyaf.com", "10.10.10.10"),
@@ -283,6 +285,25 @@ mod populate_tests {
 
     fn observed_sender(host_name: &str, ip_address: &str) -> Option<HostNode> {
         Some(HostNode::new(Some(host_name), Some(ip_address)).unwrap())
+    }
+
+    fn authentication_results() -> Option<AuthenticationResults> {
+        Some(
+            AuthenticationResults {
+                dkim: Some(Dkim {
+                    result: Some(DkimResult::Fail),
+                    selector: Some("".into()),
+                    signature_snippet: Some("".into()),
+                    user_identifier_snippet: Some("".into()),
+                }),
+                service_identifier: Some("does.not.matter".into()),
+                spf: Some(Spf {
+                    ip_address: Some("".into()),
+                    result: Some(SpfResult::SoftFail),
+                    smtp_mailfrom: Some("".into())
+                })
+            }
+        )
     }
 
     fn output_delivery_node(
@@ -1603,7 +1624,7 @@ mod lookup_host_node_tests {
 async fn lookup_host_node(bootstrap: Arc<Bootstrap>, node: Option<HostNode>) -> Option<HostNode> {
     if let Some(host_node) = node {
         let get_domain_data = get_rdap_data(bootstrap.clone(), host_node.domain.as_ref().map(|dom| dom.name.clone()));
-        let get_ip_data = get_rdap_ip_data(bootstrap.clone(), host_node.ip_address.as_ref().map(|val| val.clone()));
+        let get_ip_data = get_rdap_ip_data(bootstrap.clone(), host_node.ip_address.as_ref().cloned());
 
         let (domain_response, ip_response) = tokio::join!(get_domain_data, get_ip_data);
 
@@ -3568,11 +3589,10 @@ fn all_entities_from(entity: &parser::Entity) -> Vec<&parser::Entity> {
     if let Some(entities) = &entity.entities {
         let mut child_entities = entities
             .iter()
-            .map(|entity| entity)
             .collect();
 
         output.append(&mut child_entities);
-    } 
+    }
 
     output
 }
@@ -3692,7 +3712,7 @@ mod find_most_recent_email_address_tests {
 }
 
 fn find_most_recent_email_address(entities: &[&parser::Entity]) -> Option<String> {
-    // TODO in find_most_recent_full_name we pass in Vec rather than a slice - may be 
+    // TODO in find_most_recent_full_name we pass in Vec rather than a slice - may be
     // nice to have the same signature n both places
     let mut working_entities = entities.to_vec();
 
@@ -4045,7 +4065,7 @@ fn is_abuse_entity(entity: &parser::Entity) -> bool {
 #[cfg(test)]
 mod has_email_address_tests {
     use super::*;
-    
+
     #[test]
     fn it_returns_false_if_no_vcard_array() {
         assert!(!has_email_address(&entity_without_vcard_array()));

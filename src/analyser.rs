@@ -1,5 +1,11 @@
 use crate::analysable_message::AnalysableMessage;
-use crate::data::{DeliveryNode, EmailAddressData, EmailAddresses, FulfillmentNode};
+use crate::authentication_results::AuthenticationResults;
+use crate::data::{
+    DeliveryNode,
+    EmailAddressData,
+    EmailAddresses,
+    FulfillmentNode,
+};
 use regex::Regex;
 
 pub struct Analyser<'a, T> {
@@ -106,6 +112,7 @@ mod email_addresses_tests {
             "My First Phishing Email".into(),
             links,
             vec![],
+            None
         )
     }
 }
@@ -197,7 +204,8 @@ mod fulfillment_nodes_tests {
             "return@test.com".into(),
             "My First Phishing Email".into(),
             links,
-            vec![]
+            vec![],
+            None
         )
     }
 }
@@ -253,7 +261,8 @@ mod delivery_nodes_tests {
             "return@test.com".into(),
             "My First Phishing Email".into(),
             vec![],
-            received_headers
+            received_headers,
+            None,
         )
     }
 
@@ -273,13 +282,87 @@ mod delivery_nodes_tests {
 }
 
 #[cfg(test)]
+mod authentication_results_tests {
+    use crate::authentication_results::{Dkim, DkimResult, Spf, SpfResult};
+    use super::*;
+
+    #[test]
+    fn returns_none_if_no_authentication_results() {
+        let parsed = parsed_mail(None);
+
+        let analyser = Analyser::new(&parsed);
+
+        assert_eq!(None, analyser.authentication_results());
+    }
+
+    #[test]
+    fn returns_authentication_results() {
+        let auth_header = authentication_header(dkim_portion(), spf_portion());
+        let parsed = parsed_mail(Some(&auth_header));
+
+        let analyser = Analyser::new(&parsed);
+
+        let expected_result = AuthenticationResults {
+            dkim: Some(Dkim {
+                result: Some(DkimResult::Pass),
+                selector: Some("ymy".into()),
+                signature_snippet: Some("JPh8bpEm".into()),
+                user_identifier_snippet: Some("@compromised.zzz".into()),
+            }),
+            service_identifier: Some("mx.google.com".into()),
+            spf: Some(Spf {
+                ip_address: Some("10.10.10.10".into()),
+                result: Some(SpfResult::Pass),
+                smtp_mailfrom: Some("info@xxx.fr".into()),
+            })
+        };
+
+        assert_eq!(Some(expected_result), analyser.authentication_results());
+    }
+
+    fn authentication_header(dkim_portion: String, spf_portion: String) -> String {
+        let provider = "mx.google.com";
+
+        format!("{provider};\r  {dkim_portion};\r  {spf_portion}\r")
+    }
+
+    fn dkim_portion() -> String {
+        "dkim=pass header.i=@compromised.zzz header.s=ymy header.b=JPh8bpEm".into()
+    }
+
+    fn spf_portion() -> String {
+        let from = "info@xxx.fr";
+        let ip = "10.10.10.10";
+        let parens = format!("(google.com: domain of {from} designates {ip} as permitted sender)");
+
+        format!("spf=pass {parens} smtp.mailfrom={from}")
+    }
+
+    fn parsed_mail(authentication_header: Option<&str>) -> TestParsedMail {
+        TestParsedMail::new(
+            "from@test.com".into(),
+            "reply@test.com".into(),
+            "return@test.com".into(),
+            "My First Phishing Email".into(),
+            vec![],
+            vec![],
+            authentication_header.map(|val| val.into())
+        )
+    }
+// Authentication-Results: mx.google.com;\r
+//        dkim=pass header.i=@compromised.zzz header.s=ymy header.b=JPh8bpEm;
+//        spf=pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as permitted sender) smtp.mailfrom=info@xxx.fr\r
+}
+
+#[cfg(test)]
 struct TestParsedMail<'a> {
     from: String,
     reply_to: String,
     return_path: String,
     subject: String,
     links: Vec<&'a str>,
-    received_headers: Vec<&'a str>
+    received_headers: Vec<&'a str>,
+    authentication_results: Option<String>,
 }
 
 #[cfg(test)]
@@ -290,7 +373,8 @@ impl<'a> TestParsedMail<'a> {
         return_path: String,
         subject: String,
         links: Vec<&'a str>,
-        received_headers: Vec<&'a str>
+        received_headers: Vec<&'a str>,
+        authentication_results: Option<String>,
     ) -> Self {
         Self {
             from,
@@ -298,13 +382,15 @@ impl<'a> TestParsedMail<'a> {
             return_path,
             subject,
             links,
-            received_headers
+            received_headers,
+            authentication_results
         }
     }
 }
 
 #[cfg(test)]
 impl<'a> AnalysableMessage for TestParsedMail<'a> {
+    // TODO Test coverage for the below elements being missing?
     fn get_from(&self) -> Vec<String> {
         vec![self.from.clone()]
     }
@@ -331,6 +417,10 @@ impl<'a> AnalysableMessage for TestParsedMail<'a> {
             .iter()
             .map (|header_value| String::from(*header_value))
             .collect()
+    }
+
+    fn get_authentication_results_header(&self) -> Option<String> {
+        self.authentication_results.clone()
     }
 }
 
@@ -398,6 +488,13 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
         nodes.dedup();
 
         nodes
+    }
+
+    pub fn authentication_results(&self) -> Option<AuthenticationResults> {
+        self
+            .parsed_mail
+            .get_authentication_results_header()
+            .map(AuthenticationResults::parse_header)
     }
 
     fn convert_addresses(&self, addresses: Vec<String>) -> Vec<EmailAddressData> {

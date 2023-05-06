@@ -1,5 +1,6 @@
 pub mod analysable_message;
 pub mod analyser;
+pub mod authentication_results;
 pub mod cli;
 pub mod data;
 pub mod enumerator;

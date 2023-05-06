@@ -3,6 +3,7 @@ use crate::data::{FulfillmentNode, OutputData, ParsedMail};
 #[cfg(test)]
 mod enumerate_tests {
     use super::*;
+    use crate::authentication_results::{AuthenticationResults, Dkim, DkimResult, Spf, SpfResult};
     use crate::data::{EmailAddresses, FulfillmentNode, Node, OutputData};
     use crate::mountebank::*;
 
@@ -22,8 +23,9 @@ mod enumerate_tests {
     fn input() -> OutputData {
         OutputData::new(
             ParsedMail::new(
-                email_addresses(),
+                authentication_results(),
                 vec![],
+                email_addresses(),
                 vec![
                     FulfillmentNode::new("http://localhost:4545"),
                     FulfillmentNode::new("http://localhost:4546"),
@@ -47,7 +49,13 @@ mod enumerate_tests {
         ];
 
         OutputData::new(
-            ParsedMail::new(email_addresses(), vec![], f_nodes, None),
+            ParsedMail::new(
+                authentication_results(),
+                vec![],
+                email_addresses(),
+                f_nodes,
+                None
+            ),
             "raw mail text"
         )
     }
@@ -59,6 +67,25 @@ mod enumerate_tests {
             reply_to: vec![],
             return_path: vec![],
         }
+    }
+
+    fn authentication_results() -> Option<AuthenticationResults> {
+        Some(
+            AuthenticationResults {
+                dkim: Some(Dkim {
+                    result: Some(DkimResult::Fail),
+                    selector: Some("".into()),
+                    signature_snippet: Some("".into()),
+                    user_identifier_snippet: Some("".into()),
+                }),
+                service_identifier: Some("does.not.matter".into()),
+                spf: Some(Spf {
+                    ip_address: Some("".into()),
+                    result: Some(SpfResult::SoftFail),
+                    smtp_mailfrom: Some("".into())
+                })
+            }
+        )
     }
 
     fn sorted(mut data: OutputData) -> OutputData {

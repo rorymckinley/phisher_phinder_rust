@@ -25,8 +25,9 @@ fn main() {
 
     let output = OutputData::new(
         ParsedMail::new(
-            analyser.sender_email_addresses(),
+            analyser.authentication_results(),
             analyser.delivery_nodes(),
+            analyser.sender_email_addresses(),
             analyser.fulfillment_nodes(),
             analyser.subject(),
         ),
@@ -36,11 +37,17 @@ fn main() {
     if cli.human {
         println!("{}", parsed_mail.subject().unwrap());
         println!();
+        println!("Sender Addresses");
         println!("{}", ui::display_sender_addresses_extended(&output).unwrap());
         println!();
+        println!("Fulfillment Nodes");
         println!("{}", ui::display_fulfillment_nodes(&output).unwrap());
         println!();
+        println!("Delivery Nodes");
         println!("{}", ui::display_delivery_nodes(&output).unwrap());
+        println!();
+        println!("Authentication Results");
+        println!("{}", ui::display_authentication_results(&output).unwrap())
 
     } else {
         print!("{}", serde_json::to_string(&output).unwrap());
