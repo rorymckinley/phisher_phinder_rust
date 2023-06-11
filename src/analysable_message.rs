@@ -8,6 +8,7 @@ pub trait AnalysableMessage {
     fn get_return_path(&self) -> Vec<String>;
     fn get_subject(&self) -> Option<String>;
     fn get_received_headers(&self) -> Vec<String>;
+    fn get_authentication_results_header(&self) -> Option<String>;
 }
 
 #[cfg(test)]
@@ -331,6 +332,53 @@ Content-Type: text/html\r\n\r
     }
 }
 
+#[cfg(test)]
+mod get_authentication_results_header_tests {
+    use super::*;
+
+    #[test]
+    fn returns_none_if_no_authentication_results_header() {
+        let input = "\
+Delivered-To: victim@gmail.com\r
+Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\r
+        Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\r
+Return-Path: <info@xxx.fr>\r
+From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@fake.net>\r
+To: victim@gmail.com\r\n\r
+<div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\r
+</div>\r
+        ";
+
+        let parsed_mail = Message::parse(input.as_bytes()).unwrap();
+
+        assert!(parsed_mail.get_authentication_results_header().is_none())
+    }
+
+    #[test]
+    fn returns_latest_authentication_results_header_if_one_or_more() {
+        let input = "\
+Delivered-To: victim@gmail.com\r
+Authentication-Results: ar1\r
+Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\r
+        Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\r
+Authentication-Results: ar2\r
+Return-Path: <info@xxx.fr>\r
+Authentication-Results: ar3\r
+From: \"Case evaluations\" <PIBIeSRqUtiEw1NCg4@fake.net>\r
+To: victim@gmail.com\r\n\r
+<div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\r
+</div>\r
+        ";
+
+        let parsed_mail = Message::parse(input.as_bytes()).unwrap();
+
+        assert_eq!(
+            Some(String::from("ar1")),
+            parsed_mail.get_authentication_results_header()
+        );
+    }
+}
+
 impl AnalysableMessage for Message<'_> {
     fn get_from(&self) -> Vec<String> {
         // TODO Cover other options
@@ -432,6 +480,7 @@ impl AnalysableMessage for Message<'_> {
             })
             .map(|header| {
                 match &header.value {
+                    //TODO Should cater for other values, just not sure how to test
                     mail_parser::HeaderValue::Text(val) => {
                         match val {
                             Cow::Borrowed(header) => String::from(*header),
@@ -442,5 +491,27 @@ impl AnalysableMessage for Message<'_> {
                 }
             })
             .collect()
+    }
+
+    fn get_authentication_results_header(&self) -> Option<String> {
+        self
+            .headers()
+            .iter()
+            .filter(|header| {
+                matches!(
+                    header.name(), "Authentication-Results"
+                )
+            })
+            .collect::<Vec<&mail_parser::Header>>()
+            .first()
+            .map(|header| {
+                match header.value() {
+                    //TODO Should cater for other values, just not sure how to test
+                    mail_parser::HeaderValue::Text(val) => {
+                        val.clone().into_owned()
+                    }
+                    _ => String::from("not_supported")
+                }
+            })
     }
 }

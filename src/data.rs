@@ -5,6 +5,8 @@ use std::fmt;
 use url::Url;
 use thiserror::Error;
 
+use crate::authentication_results::AuthenticationResults;
+
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct OutputData {
     pub parsed_mail: ParsedMail,
@@ -25,6 +27,7 @@ impl OutputData {
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct ParsedMail {
+    pub authentication_results: Option<AuthenticationResults>,
     pub delivery_nodes: Vec<DeliveryNode>,
     pub email_addresses: EmailAddresses,
     pub fulfillment_nodes: Vec<FulfillmentNode>,
@@ -33,12 +36,13 @@ pub struct ParsedMail {
 
 impl ParsedMail {
     pub fn new(
-        email_addresses: EmailAddresses,
+        authentication_results: Option<AuthenticationResults>,
         delivery_nodes: Vec<DeliveryNode>,
+        email_addresses: EmailAddresses,
         fulfillment_nodes: Vec<FulfillmentNode>,
         subject: Option<String>
     ) -> Self {
-        Self { delivery_nodes, email_addresses, fulfillment_nodes, subject }
+        Self { authentication_results, delivery_nodes, email_addresses, fulfillment_nodes, subject }
     }
 }
 

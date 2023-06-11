@@ -41,6 +41,20 @@ fn json_input() -> String {
 
     json!({
         "parsed_mail": {
+            "authentication_results": {
+                "dkim": {
+                    "result": "Pass",
+                    "selector": "ymy",
+                    "signature_snippet": "JPh8bpEm",
+                    "user_identifier_snippet": "@compromised.zzz",
+                },
+                "service_identifier": "mx.google.com",
+                "spf": {
+                    "ip_address": "10.10.10.10",
+                    "result": "Pass",
+                    "smtp_mailfrom": "info@xxx.fr"
+                }
+            },
             "delivery_nodes": [],
             "fulfillment_nodes": [
                 {
@@ -101,6 +115,20 @@ fn json_output() -> String {
 
     json!({
         "parsed_mail": {
+            "authentication_results": {
+                "dkim": {
+                    "result": "Pass",
+                    "selector": "ymy",
+                    "signature_snippet": "JPh8bpEm",
+                    "user_identifier_snippet": "@compromised.zzz",
+                },
+                "service_identifier": "mx.google.com",
+                "spf": {
+                    "ip_address": "10.10.10.10",
+                    "result": "Pass",
+                    "smtp_mailfrom": "info@xxx.fr"
+                }
+            },
             "delivery_nodes": [],
             "fulfillment_nodes": [
                 {
