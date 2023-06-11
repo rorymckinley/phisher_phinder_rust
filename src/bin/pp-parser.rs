@@ -9,6 +9,9 @@ use phisher_phinder_rust::ui;
 use clap::Parser;
 
 fn main() {
+    let trusted_recipient = std::env::var("PP_TRUSTED_RECIPIENT")
+        .expect("Please supply `PP_TRUSTED_RECIPIENT` ENV var");
+
     let cli = Cli::parse();
 
     let mut mail = String::new();
@@ -26,7 +29,7 @@ fn main() {
     let output = OutputData::new(
         ParsedMail::new(
             analyser.authentication_results(),
-            analyser.delivery_nodes(),
+            analyser.delivery_nodes(&trusted_recipient),
             analyser.sender_email_addresses(),
             analyser.fulfillment_nodes(),
             analyser.subject(),

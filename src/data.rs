@@ -52,6 +52,7 @@ mod delivery_node_tests {
 
     #[test]
     fn builds_a_delivery_node_from_header_value() {
+        let mut trusted_node = unobserved_trusted_node("b.baz.com");
         let value = header_value(
             ("a.bar.com", "b.bar.com.", "10.10.10.12"),
             "a.baz.com",
@@ -63,13 +64,42 @@ mod delivery_node_tests {
             observed_sender: host_node_option("b.bar.com", Some("10.10.10.12")),
             position: 10,
             recipient: recipient_option(),
-            time: date_option()
+            time: date_option(),
+            trusted: false,
         };
 
         assert_eq!(
             expected,
-            DeliveryNode::from_header_value(&value, 10)
+            DeliveryNode::from_header_value(&value, 10, &mut trusted_node)
         )
+    }
+
+    #[test]
+    fn indicates_trusted_if_matches_trusted_node() {
+        let mut trusted_node = unobserved_trusted_node("a.baz.com");
+        let value = header_value(
+            ("a.bar.com", "b.bar.com.", "10.10.10.12"),
+            "a.baz.com",
+            "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)"
+        );
+
+        let node = DeliveryNode::from_header_value(&value, 10, &mut trusted_node);
+
+        assert!(node.trusted);
+    }
+
+    #[test]
+    fn updates_trusted_node_if_matches_and_node_is_unassigned() {
+        let mut trusted_node = unobserved_trusted_node("a.baz.com");
+        let value = header_value(
+            ("a.bar.com", "b.bar.com.", "10.10.10.12"),
+            "a.baz.com",
+            "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)"
+        );
+
+        DeliveryNode::from_header_value(&value, 10, &mut trusted_node);
+
+        assert!(trusted_node.observed);
     }
 
     fn header_value(from_parts: (&str, &str, &str), by_host: &str, date: &str) -> String {
@@ -95,6 +125,14 @@ mod delivery_node_tests {
     fn date_option() -> Option<DateTime<Utc>> {
         Some(Utc.with_ymd_and_hms(2022, 9, 6, 23, 17, 22).unwrap())
     }
+
+    fn unobserved_trusted_node(recipient: &str) -> TrustedRecipientDeliveryNode {
+        TrustedRecipientDeliveryNode { recipient: String::from(recipient), observed: false }
+    }
+
+    fn observed_trusted_node(recipient: &str) -> TrustedRecipientDeliveryNode {
+        TrustedRecipientDeliveryNode { recipient: String::from(recipient), observed: true }
+    }
 }
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
@@ -104,16 +142,26 @@ pub struct DeliveryNode {
     pub position: usize,
     pub recipient: Option<String>,
     pub time: Option<DateTime<Utc>>,
+    pub trusted: bool,
 }
 
 impl DeliveryNode {
-    pub fn from_header_value(header_value: &str, position: usize) -> Self {
+    pub fn from_header_value(
+        header_value: &str,
+        position: usize,
+        trusted_node: &mut TrustedRecipientDeliveryNode
+    ) -> Self {
+        let recipient = extract_recipient(header_value);
+
+        let trusted =  trusted_node.check_if_trusted(recipient.as_deref());
+
         Self {
             advertised_sender: extract_advertised_sender(header_value),
             observed_sender: extract_observed_sender(header_value),
             position,
-            recipient: extract_recipient(header_value),
-            time: extract_time_from_header(header_value)
+            recipient,
+            time: extract_time_from_header(header_value),
+            trusted,
         }
     }
 }
@@ -956,4 +1004,99 @@ pub struct Registrar {
 pub struct InfrastructureProvider {
     pub abuse_email_address: Option<String>,
     pub name: Option<String>,
+}
+
+
+#[derive(Debug, PartialEq)]
+pub struct TrustedRecipientDeliveryNode {
+    pub recipient: String,
+    pub observed: bool,
+}
+
+#[cfg(test)]
+mod trusted_recipient_delivery_node_new_tests {
+    use super::*;
+
+    #[test]
+    fn can_instantiate_itself_from_a_name() {
+        let expected = TrustedRecipientDeliveryNode {
+            recipient: String::from("foo"),
+            observed: false
+        };
+
+        assert_eq!(expected, TrustedRecipientDeliveryNode::new("foo"));
+    }
+}
+
+#[cfg(test)]
+mod trusted_recipient_delivery_node_check_if_trusted_tests {
+    use super::*;
+
+    #[test]
+    fn first_observation_returns_true_if_node_recipient_matches_recipient() {
+        let mut node = trusted_node(false);
+
+        assert!(node.check_if_trusted(Some("trusted_recipient")));
+    }
+
+    #[test]
+    fn first_observation_indicates_node_has_been_observed() {
+        let mut node = trusted_node(false);
+
+        node.check_if_trusted(Some("trusted_recipient"));
+
+        assert!(node.observed);
+    }
+
+    #[test]
+    fn first_observation_returns_false_if_node_recipient_does_not_match_candidate() {
+        let mut node = trusted_node(false);
+
+        assert!(!node.check_if_trusted(Some("not_trusted_recipient")));
+    }
+
+    #[test]
+    fn first_observation_returns_false_if_no_candidate() {
+        let mut node = trusted_node(false);
+
+        assert!(!node.check_if_trusted(None));
+    }
+
+    #[test]
+    fn already_observed_always_returns_false() {
+        let mut node = trusted_node(true);
+
+        assert!(!node.check_if_trusted(Some("trusted_recipient")));
+    }
+
+    fn trusted_node(observed: bool) -> TrustedRecipientDeliveryNode {
+        TrustedRecipientDeliveryNode { recipient: "trusted_recipient".into(), observed }
+    }
+}
+
+impl TrustedRecipientDeliveryNode {
+    pub fn new(name: &str) -> Self {
+        Self {
+            recipient: String::from(name),
+            observed: false,
+        }
+    }
+
+    pub fn check_if_trusted(&mut self, candidate_option: Option<&str>) -> bool {
+        if self.observed {
+            return false;
+        }
+
+        match candidate_option {
+            Some(candidate) => {
+                if self.recipient == candidate {
+                    self.observed = true;
+                    true
+                } else {
+                    false
+                }
+            },
+            None => false
+        }
+    }
 }

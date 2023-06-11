@@ -280,6 +280,7 @@ mod populate_tests {
             position,
             recipient: None,
             time,
+            trusted: false,
         }
     }
 
@@ -337,6 +338,7 @@ mod populate_tests {
             position,
             recipient: None,
             time,
+            trusted: false,
         }
     }
 
@@ -832,6 +834,7 @@ mod lookup_delivery_nodes_from_rdap_tests {
             position,
             recipient: None,
             time,
+            trusted: false,
         }
     }
 
@@ -869,6 +872,7 @@ mod lookup_delivery_nodes_from_rdap_tests {
             position,
             recipient: None,
             time,
+            trusted: false,
         }
     }
 
@@ -1116,6 +1120,7 @@ mod lookup_delivery_node_tests {
             position: 0,
             recipient: None,
             time: None,
+            trusted: false,
         }
     }
 
