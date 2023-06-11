@@ -14,6 +14,11 @@ mod parse_header_tests {
         assert_eq!(expected_result(), AuthenticationResults::parse_header(input));
     }
 
+    #[test]
+    fn generates_authentication_results_from_empty_string() {
+        assert_eq!(expected_result_empty(), AuthenticationResults::parse_header(String::from("")));
+    }
+
     fn authentication_header(
         dkim_portion: String,
         spf_portion: String,
@@ -63,6 +68,10 @@ mod parse_header_tests {
             })
         }
     }
+
+    fn expected_result_empty() -> AuthenticationResults {
+        AuthenticationResults { dkim: None, service_identifier: None, spf: None }
+    }
 }
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
@@ -74,13 +83,12 @@ pub struct AuthenticationResults {
 
 impl AuthenticationResults {
     pub fn parse_header(header: String) -> Self {
-        // println!("PH {}", header);
         let snippets = TextSnippets::new(&header);
 
         Self {
-            dkim: Some(Dkim::new(snippets.dkim.unwrap())),
+            dkim: snippets.dkim.as_ref().map(|val| Dkim::new(val)),
             service_identifier: snippets.service_identifier.map(String::from),
-            spf: Some(Spf::new(snippets.spf.unwrap())),
+            spf: snippets.spf.as_ref().map(|val| Spf::new(val)),
         }
     }
 }
@@ -154,6 +162,18 @@ mod text_snippets_tests {
         assert_eq!(expected, TextSnippets::new(&input));
     }
 
+    #[test]
+    fn creates_itself_from_empty_header() {
+        let expected = TextSnippets {
+            dkim: None,
+            dmarc: None,
+            service_identifier: None,
+            spf: None,
+        };
+
+        assert_eq!(expected, TextSnippets::new(""));
+    }
+
     fn full_header_value() -> String {
         let provider = "mx.google.com";
         let dkim = dkim_portion();
@@ -222,12 +242,10 @@ impl<'a> TextSnippets<'a> {
     pub fn new(header: &'a str) -> Self {
         let snippets = Self::extract_snippets(header);
 
-        let service_identifier = snippets.first().copied();
-
         Self {
             dkim: Self::extract_type_snippet(&snippets, Self::type_pattern("dkim")),
             dmarc: Self::extract_type_snippet(&snippets, Self::type_pattern("dmarc")),
-            service_identifier,
+            service_identifier: Self::extract_service_identifier(&snippets),
             spf: Self::extract_type_snippet(&snippets, Self::type_pattern("spf")),
         }
     }
@@ -236,6 +254,17 @@ impl<'a> TextSnippets<'a> {
         header
             .split(';')
             .collect()
+    }
+
+    fn extract_service_identifier(snippets: &[&'a str]) -> Option<&'a str> {
+        //TODO Figure out how to return an empty vec so we can force this unwrap out
+        let candidate = snippets.first().copied().unwrap();
+
+        if !candidate.is_empty() {
+            Some(candidate)
+        } else {
+            None
+        }
     }
 
     fn extract_type_snippet(snippets: &[&'a str], auth_pattern: Regex) -> Option<&'a str> {
