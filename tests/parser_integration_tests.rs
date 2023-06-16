@@ -22,6 +22,8 @@ fn test_display_human_parse_results() {
                 predicates::str::contains("gp13mtaq123")
             ).and(
                 predicates::str::contains("JPh8bpEm")
+            ).and(
+                predicates::str::contains("Trusted")
             )
         );
 }
