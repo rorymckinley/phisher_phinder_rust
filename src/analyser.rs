@@ -5,6 +5,7 @@ use crate::data::{
     EmailAddressData,
     EmailAddresses,
     FulfillmentNode,
+    TrustedRecipientDeliveryNode,
 };
 use regex::Regex;
 
@@ -238,7 +239,8 @@ mod delivery_nodes_tests {
                 observed_sender: observed_sender("b.bar.com", "10.10.10.12"),
                 position: 0,
                 recipient: Some("a.baz.com".into()),
-                time: Some(Utc.with_ymd_and_hms(2022, 9, 6, 23, 17, 22).unwrap())
+                time: Some(Utc.with_ymd_and_hms(2022, 9, 6, 23, 17, 22).unwrap()),
+                trusted: true,
             },
             DeliveryNode {
                 advertised_sender: Some(HostNode::new(Some("c.bar.com"), None).unwrap()),
@@ -246,12 +248,52 @@ mod delivery_nodes_tests {
                 position: 1,
                 recipient: Some("b.baz.com".into()),
                 time: Some(Utc.with_ymd_and_hms(2022, 9, 6, 23, 17, 21).unwrap()),
+                trusted: false,
             },
         ];
 
         assert_eq!(
-            expected_result, analyser.delivery_nodes()
+            expected_result, analyser.delivery_nodes("a.baz.com")
         )
+    }
+
+    #[test]
+    fn marks_only_latest_node_from_trusted_recipient_as_trusted() {
+        let h_1 = header(
+            ("a.bar.com", "b.bar.com.", "10.10.10.12"),
+            "a.baz.com",
+            "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)"
+        );
+        let h_2 = header(
+            ("c.bar.com", "d.bar.com.", "10.10.10.11"),
+            "b.baz.com",
+            "Tue, 06 Sep 2022 16:17:21 -0700 (PDT)"
+        );
+        let h_3 = header(
+            ("e.bar.com", "f.bar.com.", "10.10.10.10"),
+            "b.baz.com",
+            "Tue, 06 Sep 2022 16:17:21 -0700 (PDT)"
+        );
+        let h_4 = header(
+            ("g.bar.com", "h.bar.com.", "10.10.10.9"),
+            "c.baz.com",
+            "Tue, 06 Sep 2022 16:17:21 -0700 (PDT)"
+        );
+
+        let parsed = parsed_mail(vec![&h_1, &h_2, &h_3, &h_4]);
+        let analyser = Analyser::new(&parsed);
+
+        let expected_trusted_per_position = vec![
+            (0, false),
+            (1, true),
+            (2, false),
+            (3, false),
+        ];
+
+        assert_eq!(
+            expected_trusted_per_position,
+            extract_trusted_by_position(analyser.delivery_nodes("b.baz.com"))
+        );
     }
 
     fn parsed_mail(received_headers: Vec<&str>) -> TestParsedMail {
@@ -278,6 +320,13 @@ mod delivery_nodes_tests {
         let f_o_r = "<victim@gmail.com>";
 
         format!("from {from}\r\n        by {by}\r\n        for {f_o_r};\r\n        {date}")
+    }
+
+    fn extract_trusted_by_position(nodes: Vec<DeliveryNode>) -> Vec<(usize, bool)> {
+        nodes
+            .into_iter()
+            .map(|DeliveryNode {position, trusted, ..}| (position, trusted))
+            .collect()
     }
 }
 
@@ -465,13 +514,17 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
         }
     }
 
-    pub fn delivery_nodes(&self) -> Vec<DeliveryNode> {
+    pub fn delivery_nodes(&self, trusted_recipient_name: &str) -> Vec<DeliveryNode> {
+        let mut trusted_node = TrustedRecipientDeliveryNode::new(trusted_recipient_name);
+
         self
             .parsed_mail
             .get_received_headers()
             .iter()
             .enumerate()
-            .map(|(position, header_value)| DeliveryNode::from_header_value(header_value, position))
+            .map(|(position, header_value)| {
+                DeliveryNode::from_header_value(header_value, position, &mut trusted_node)
+            })
             .collect()
     }
 

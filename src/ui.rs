@@ -930,7 +930,9 @@ mod display_delivery_nodes_tests {
             observed_sender: host_node(observed_host, observed_ip),
             position,
             recipient: recipient.map(String::from),
-            time: None
+            time: None,
+            trusted: false,
+
         }
     }
 
@@ -945,6 +947,7 @@ mod display_delivery_nodes_tests {
             position: 0,
             recipient: recipient.map(String::from),
             time: None,
+            trusted: false,
         }
     }
 
@@ -1201,7 +1204,7 @@ mod display_authentication_results_tests {
                     ip_address: Some("10.10.10.10".into()),
                     result: Some(SpfResult::SoftFail),
                     smtp_mailfrom: Some("mailfrom".into())
-                }) 
+                })
             }
         )
     }
@@ -1402,7 +1405,7 @@ mod authentication_results_dkim_result_tests {
         };
 
         assert_eq!(
-            Cell::new("N/A"), 
+            Cell::new("N/A"),
             authentication_results_dkim_result(Some(&results))
         );
     }
@@ -1415,7 +1418,7 @@ mod authentication_results_dkim_result_tests {
             signature_snippet: None,
             user_identifier_snippet: None,
         };
-        
+
         let results = AuthenticationResults {
             dkim: Some(dkim),
             service_identifier: None,
@@ -1423,7 +1426,7 @@ mod authentication_results_dkim_result_tests {
         };
 
         assert_eq!(
-            Cell::new("TempError"), 
+            Cell::new("TempError"),
             authentication_results_dkim_result(Some(&results))
         );
     }
@@ -1472,7 +1475,7 @@ mod authentication_results_dkim_selector_tests {
             signature_snippet: None,
             user_identifier_snippet: None,
         };
-        
+
         let results = AuthenticationResults {
             dkim: Some(dkim),
             service_identifier: None,
@@ -1526,7 +1529,7 @@ mod authentication_results_dkim_signature_tests {
             signature_snippet: Some("foo".into()),
             user_identifier_snippet: None,
         };
-        
+
         let results = AuthenticationResults {
             dkim: Some(dkim),
             service_identifier: None,
@@ -1578,7 +1581,7 @@ mod authentication_results_dkim_user_tests {
             signature_snippet: None,
             user_identifier_snippet: Some("foo".into()),
         };
-        
+
         let results = AuthenticationResults {
             dkim: Some(dkim),
             service_identifier: None,
@@ -1629,7 +1632,7 @@ mod authentication_results_spf_result_tests {
             result: Some(SpfResult::HardFail),
             smtp_mailfrom: None,
         };
-        
+
         let results = AuthenticationResults {
             dkim: None,
             service_identifier: None,
@@ -1637,7 +1640,7 @@ mod authentication_results_spf_result_tests {
         };
 
         assert_eq!(
-            Cell::new("HardFail"), 
+            Cell::new("HardFail"),
             authentication_results_spf_result(Some(&results))
         );
     }
@@ -1683,7 +1686,7 @@ mod authentication_results_spf_ip_address_tests {
             result: None,
             smtp_mailfrom: None,
         };
-        
+
         let results = AuthenticationResults {
             dkim: None,
             service_identifier: None,
@@ -1734,7 +1737,7 @@ mod authentication_results_spf_mailfrom_tests {
             result: None,
             smtp_mailfrom: Some("foo".into()),
         };
-        
+
         let results = AuthenticationResults {
             dkim: None,
             service_identifier: None,

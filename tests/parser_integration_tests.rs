@@ -118,6 +118,7 @@ fn json_output_as_value(raw_mail: String) -> serde_json::Value {
                     "position": 0,
                     "recipient": "2002:a05:7300:478f:b0:75:5be4:1dc0",
                     "time": "2022-09-06T23:17:20Z",
+                    "trusted": false,
                 },
                 {
                     "advertised_sender": {
@@ -147,6 +148,7 @@ fn json_output_as_value(raw_mail: String) -> serde_json::Value {
                     "position": 1,
                     "recipient": "mx.google.com",
                     "time": "2022-09-06T23:17:20Z",
+                    "trusted": true
                 },
                 {
                     "advertised_sender": {
@@ -175,7 +177,8 @@ fn json_output_as_value(raw_mail: String) -> serde_json::Value {
                     },
                     "position": 2,
                     "recipient": "gp13mtaq123",
-                    "time": "2019-05-30T17:00:22Z"
+                    "time": "2019-05-30T17:00:22Z",
+                    "trusted": false
                 }
             ],
             "email_addresses": {

@@ -100,6 +100,7 @@ fn json_input() -> String {
                     "position": 0,
                     "recipient": "mx.google.com",
                     "time": "2022-09-06T23:17:20Z",
+                    "trusted": false
                 },
             ],
             "fulfillment_nodes": [
@@ -282,6 +283,7 @@ fn json_output() -> String {
                     "position": 0,
                     "recipient": "mx.google.com",
                     "time": "2022-09-06T23:17:20Z",
+                    "trusted": false,
                 },
             ],
             "fulfillment_nodes": [
