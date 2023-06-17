@@ -859,7 +859,21 @@ mod domain_from_url_tests {
     }
 
     #[test]
-    fn retuns_none_if_domain_cannot_be_parsed() {
+    fn creates_domain_instance_for_url_shortener() {
+        let url = "https://tinyurl.com/42jxt5p6";
+
+        let expected = Domain {
+            abuse_email_address: Some("abuse@tinyurl.com".into()),
+            category: DomainCategory::UrlShortener,
+            name: "tinyurl.com".into(),
+            registration_date: None,
+        };
+
+        assert_eq!(Some(expected), Domain::from_url(url));
+    }
+
+    #[test]
+    fn returns_none_if_domain_cannot_be_parsed() {
         let url = "foo.baz";
 
         assert_eq!(None, Domain::from_url(url));
@@ -922,7 +936,20 @@ impl Domain {
 
     pub fn from_url(url_str: &str) -> Option<Self> {
         if let Ok(url) = Url::parse(url_str) {
-            url.host_str().map(Self::initialise_other_domain)
+            match url.host_str() {
+                Some(name) => {
+                    let url_shorteners = [
+                        "bit.ly",
+                        "tinyurl.com",
+                    ];
+                    if url_shorteners.contains(&name) {
+                        Some(Self::initialise_url_shortener_domain(name))
+                    } else {
+                        Some(Self::initialise_other_domain(name))
+                    }
+                },
+                None => None
+            }
         } else {
             None
         }
@@ -936,6 +963,15 @@ impl Domain {
         }
     }
 
+    fn initialise_email_provider_domain(domain: &str) -> Self {
+        Self {
+            abuse_email_address: Some(Self::open_email_provider_abuse_address(domain)),
+            category: DomainCategory::OpenEmailProvider,
+            name: domain.into(),
+            registration_date: None,
+        }
+    }
+
     fn initialise_other_domain(domain: &str) -> Self {
         Self {
             abuse_email_address: None,
@@ -945,10 +981,10 @@ impl Domain {
         }
     }
 
-    fn initialise_email_provider_domain(domain: &str) -> Self {
+    fn initialise_url_shortener_domain(domain: &str) -> Self {
         Self {
-            abuse_email_address: Some(Self::open_email_provider_abuse_address(domain)),
-            category: DomainCategory::OpenEmailProvider,
+            abuse_email_address: Some(Self::url_shortener_abuse_address(domain)),
+            category: DomainCategory::UrlShortener,
             name: domain.into(),
             registration_date: None,
         }
@@ -967,6 +1003,21 @@ impl Domain {
 
         addresses[domain].clone()
     }
+
+    fn url_shortener_abuse_address(domain: &str) -> String {
+        let mut addresses: HashMap<String, String>  = HashMap::new();
+
+        addresses.insert(String::from("bit.ly"), String::from("abuse@bitly.com"));
+        addresses.insert(String::from("ow.ly"), String::from("abuse@hootsuite.com"));
+        addresses.insert(String::from("rb.gy"), String::from("support@rebrandly.com"));
+        addresses.insert(String::from("shorte.st"), String::from("tcoabuse@twitter.com"));
+        addresses.insert(String::from("t.ly"), String::from("support@t.ly"));
+        addresses.insert(String::from("t.co"), String::from("tcoabuse@twitter.com"));
+        addresses.insert(String::from("tiny.cc"), String::from("abuse@tiny.cc"));
+        addresses.insert(String::from("tinyurl.com"), String::from("abuse@tinyurl.com"));
+
+        addresses[domain].clone()
+    }
 }
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
@@ -974,6 +1025,7 @@ impl Domain {
 pub enum DomainCategory {
     OpenEmailProvider,
     Other,
+    UrlShortener,
 }
 
 impl fmt::Display for DomainCategory {
