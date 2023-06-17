@@ -1,6 +1,7 @@
 use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
 use regex::Regex;
+use std::collections::HashMap;
 use std::fmt;
 use url::Url;
 use thiserror::Error;
@@ -764,7 +765,7 @@ pub struct EmailAddressData {
 }
 
 #[cfg(test)]
-mod email_address_date_from_email_address {
+mod email_address_data_from_email_address {
     use super::*;
 
     #[test]
@@ -785,30 +786,10 @@ mod email_address_date_from_email_address {
 
         assert_eq!(expected, EmailAddressData::from_email_address(address))
     }
-
-    #[test]
-    fn sets_domain_if_domain_open_email_provider() {
-        let address = "dirtyevilscammer@gmail.com";
-        let expected = EmailAddressData {
-            address: address.into(),
-            domain: Some(
-                Domain {
-                    abuse_email_address: None,
-                    category: DomainCategory::OpenEmailProvider,
-                    name: "gmail.com".into(),
-                    registration_date: None,
-                }
-            ),
-            registrar: None,
-        };
-
-        assert_eq!(expected, EmailAddressData::from_email_address(address))
-    }
 }
 
 impl EmailAddressData {
     pub fn from_email_address(address: &str) -> Self {
-
         Self {
             address: address.into(),
             domain: Domain::from_email_address(address),
@@ -844,7 +825,7 @@ mod domain_from_email_address_tests {
     #[test]
     fn email_provider_domain() {
         let expected = Domain {
-            abuse_email_address: None,
+            abuse_email_address: Some("abuse@outlook.com".into()),
             category: DomainCategory::OpenEmailProvider,
             name: "outlook.com".into(),
             registration_date: None,
@@ -929,20 +910,11 @@ impl Domain {
                 "163.com"
             ];
 
-            let category = if open_email_providers.contains(&domain) {
-                DomainCategory::OpenEmailProvider
+            if open_email_providers.contains(&domain) {
+                Some(Self::initialise_email_provider_domain(domain))
             } else {
-                DomainCategory::Other
-            };
-
-            Some(
-                Self {
-                    abuse_email_address: None,
-                    category,
-                    name: domain.into(),
-                    registration_date: None,
-                }
-            )
+                Some(Self::initialise_other_domain(domain))
+            }
         } else {
             None
         }
@@ -950,16 +922,7 @@ impl Domain {
 
     pub fn from_url(url_str: &str) -> Option<Self> {
         if let Ok(url) = Url::parse(url_str) {
-            url
-                .host_str()
-                .map(|name| {
-                Self {
-                    abuse_email_address: None,
-                    category: DomainCategory::Other,
-                    name: name.into(),
-                    registration_date: None,
-                }
-            })
+            url.host_str().map(Self::initialise_other_domain)
         } else {
             None
         }
@@ -969,15 +932,40 @@ impl Domain {
         if host.is_empty() {
             None
         } else {
-            Some(
-                Self {
-                    abuse_email_address: None,
-                    category: DomainCategory::Other,
-                    name: host.into(),
-                    registration_date: None,
-                }
-            )
+            Some(Self::initialise_other_domain(host))
         }
+    }
+
+    fn initialise_other_domain(domain: &str) -> Self {
+        Self {
+            abuse_email_address: None,
+            category: DomainCategory::Other,
+            name: domain.into(),
+            registration_date: None,
+        }
+    }
+
+    fn initialise_email_provider_domain(domain: &str) -> Self {
+        Self {
+            abuse_email_address: Some(Self::open_email_provider_abuse_address(domain)),
+            category: DomainCategory::OpenEmailProvider,
+            name: domain.into(),
+            registration_date: None,
+        }
+    }
+    
+    fn open_email_provider_abuse_address(domain: &str) -> String {
+        let mut addresses: HashMap<String, String>  = HashMap::new();
+
+        addresses.insert(String::from("163.com"), String::from("abuse@163.com"));
+        addresses.insert(String::from("aol.com"), String::from("abuse@aol.com"));
+        addresses.insert(String::from("gmail.com"), String::from("abuse@gmail.com"));
+        addresses.insert(String::from("googlemail.com"), String::from("abuse@gmail.com"));
+        addresses.insert(String::from("hotmail.com"), String::from("abuse@hotmail.com"));
+        addresses.insert(String::from("outlook.com"), String::from("abuse@outlook.com"));
+        addresses.insert(String::from("yahoo.com"), String::from("abuse@yahoo.com"));
+
+        addresses[domain].clone()
     }
 }
 

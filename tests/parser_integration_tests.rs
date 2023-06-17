@@ -188,7 +188,7 @@ fn json_output_as_value(raw_mail: String) -> serde_json::Value {
                     {
                         "address": "PIBIeSRqUtiEw1NCg4@gmail.com",
                         "domain": {
-                            "abuse_email_address": null,
+                            "abuse_email_address": "abuse@gmail.com",
                             "category": "open_email_provider",
                             "name": "gmail.com",
                             "registration_date": null,
