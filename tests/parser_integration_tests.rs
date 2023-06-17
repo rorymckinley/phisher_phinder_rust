@@ -22,6 +22,8 @@ fn test_display_human_parse_results() {
                 predicates::str::contains("gp13mtaq123")
             ).and(
                 predicates::str::contains("JPh8bpEm")
+            ).and(
+                predicates::str::contains("Trusted")
             )
         );
 }
@@ -186,7 +188,7 @@ fn json_output_as_value(raw_mail: String) -> serde_json::Value {
                     {
                         "address": "PIBIeSRqUtiEw1NCg4@gmail.com",
                         "domain": {
-                            "abuse_email_address": null,
+                            "abuse_email_address": "abuse@gmail.com",
                             "category": "open_email_provider",
                             "name": "gmail.com",
                             "registration_date": null,
