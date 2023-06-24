@@ -107,6 +107,7 @@ fn json_input() -> String {
             }
         },
         "raw_mail": "",
+        "reportable_entities": null
     }).to_string()
 }
 
@@ -189,6 +190,7 @@ fn json_output() -> String {
                 }]
             }
         },
-        "raw_mail": ""
+        "raw_mail": "",
+        "reportable_entities": null
     }).to_string()
 }

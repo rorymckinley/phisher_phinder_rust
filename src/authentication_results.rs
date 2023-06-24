@@ -1,3 +1,4 @@
+use crate::data::EmailAddressData;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -74,6 +75,109 @@ mod parse_header_tests {
     }
 }
 
+#[cfg(test)]
+mod authentication_results_valid_tests {
+    use super::*;
+
+    #[test]
+    fn returns_false_if_no_authentication_results() {
+        let address = spf_matching_address();
+        let results = empty_authentication_results();
+
+        assert!(!results.valid(&address));
+    }
+
+    #[test]
+    fn returns_true_if_matching_spf_pass() {
+        let address = spf_matching_address();
+        let results = authentication_results_valid_spf_entry();
+
+        assert!(results.valid(&address))
+    }
+
+    #[test]
+    fn returns_true_if_matching_dkim_pass() {
+        let address = dkim_matching_address();
+        let results = authentication_results_valid_dkim_entry();
+
+        assert!(results.valid(&address))
+    }
+
+    #[test]
+    fn returns_false_if_matching_neither_dkim_nor_spf() {
+        let address = dkim_matching_address();
+        let results = authentication_results_no_valid_entries();
+
+        assert!(!results.valid(&address))
+    }
+
+    fn spf_matching_address() -> EmailAddressData {
+        EmailAddressData {
+            address: "from@test.com".into(),
+            domain: None,
+            registrar: None
+        }
+    }
+
+    fn dkim_matching_address() -> EmailAddressData {
+        EmailAddressData {
+            address: "from@test.xxx".into(),
+            domain: None,
+            registrar: None
+        }
+    }
+
+    fn empty_authentication_results() -> AuthenticationResults {
+        AuthenticationResults {
+            dkim: None,
+            service_identifier: None,
+            spf: None
+        }
+    }
+
+    fn authentication_results_valid_spf_entry() -> AuthenticationResults {
+        AuthenticationResults {
+            dkim: None,
+            service_identifier: None,
+            spf: Some(Spf {
+                ip_address: None,
+                result: Some(SpfResult::Pass),
+                smtp_mailfrom: Some("from@test.com".into())
+            })
+        }
+    }
+
+    fn authentication_results_valid_dkim_entry() -> AuthenticationResults {
+        AuthenticationResults {
+            dkim: Some(Dkim {
+                result: Some(DkimResult::Pass),
+                selector: None,
+                signature_snippet: None,
+                user_identifier_snippet: Some("@test.xxx".into())
+            }),
+            service_identifier: None,
+            spf: None,
+        }
+    }
+
+    fn authentication_results_no_valid_entries() -> AuthenticationResults {
+        AuthenticationResults {
+            dkim: Some(Dkim {
+                result: Some(DkimResult::Pass),
+                selector: None,
+                signature_snippet: None,
+                user_identifier_snippet: Some("@not.xxx".into())
+            }),
+            service_identifier: None,
+            spf: Some(Spf {
+                ip_address: None,
+                result: Some(SpfResult::Pass),
+                smtp_mailfrom: Some("recipient@not.com".into())
+            })
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct AuthenticationResults {
     pub dkim: Option<Dkim>,
@@ -89,6 +193,26 @@ impl AuthenticationResults {
             dkim: snippets.dkim.as_ref().map(|val| Dkim::new(val)),
             service_identifier: snippets.service_identifier.map(String::from),
             spf: snippets.spf.as_ref().map(|val| Spf::new(val)),
+        }
+    }
+
+    pub fn valid(&self, email_address_data: &EmailAddressData) -> bool {
+        self.valid_spf(email_address_data) || self.valid_dkim(email_address_data)
+    }
+
+    fn valid_spf(&self, email_address_data: &EmailAddressData) -> bool {
+        match self.spf.as_ref() {
+            Some(spf) => {
+                spf.valid(&email_address_data.address)
+            },
+            None => false
+        }
+    }
+
+    fn valid_dkim(&self, email_address_data: &EmailAddressData) -> bool {
+        match self.dkim.as_ref() {
+            Some(dkim) => dkim.valid(&email_address_data.address),
+            None => false
         }
     }
 }
@@ -344,6 +468,99 @@ mod dkim_extract_value_tests {
     }
 }
 
+#[cfg(test)]
+mod dkim_valid_tests {
+    use super::*;
+
+    #[test]
+    fn returns_false_if_no_result() {
+        let dkim = no_result_dkim();
+
+        assert!(!dkim.valid("from@test.com"))
+    }
+
+    #[test]
+    fn returns_true_if_pass_and_identifier_snippet_matches() {
+        let dkim = pass_and_match_dkim();
+
+        assert!(dkim.valid("from@test.com"))
+    }
+
+    #[test]
+    fn returns_false_if_pass_and_no_identifier() {
+        let dkim = pass_and_no_identifier_dkim();
+
+        assert!(!dkim.valid("from@test.com"));
+    }
+
+    #[test]
+    fn returns_false_if_not_pass_and_identifier_snippet_matches() {
+        let dkim = not_pass_but_match_dkim();
+
+        assert!(!dkim.valid("from@test.com"));
+    }
+
+    #[test]
+    fn returns_false_if_pass_but_no_matching_identifier_snippet() {
+        let dkim = pass_but_not_matching_dkim();
+
+        assert!(!dkim.valid("from@test.com"))
+    }
+
+    fn email_address_data() -> EmailAddressData {
+        EmailAddressData {
+            address: "from@test.com".into(),
+            domain: None,
+            registrar: None
+        }
+    }
+
+    fn no_result_dkim() ->  Dkim {
+        Dkim {
+            result: None,
+            selector: None,
+            signature_snippet: None,
+            user_identifier_snippet: Some("@test.com".into())
+        }
+    }
+
+    fn pass_and_match_dkim() -> Dkim {
+        Dkim {
+            result: Some(DkimResult::Pass),
+            selector: None,
+            signature_snippet: None,
+            user_identifier_snippet: Some("@test.com".into())
+        }
+    }
+
+    fn pass_and_no_identifier_dkim() -> Dkim {
+        Dkim {
+            result: Some(DkimResult::Pass),
+            selector: None,
+            signature_snippet: None,
+            user_identifier_snippet: None
+        }
+    }
+
+    fn not_pass_but_match_dkim() -> Dkim {
+        Dkim {
+            result: Some(DkimResult::None),
+            selector: None,
+            signature_snippet: None,
+            user_identifier_snippet: Some("@test.com".into())
+        }
+    }
+
+    fn pass_but_not_matching_dkim() -> Dkim {
+        Dkim {
+            result: Some(DkimResult::Pass),
+            selector: None,
+            signature_snippet: None,
+            user_identifier_snippet: Some("@not-test.com".into())
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct Dkim {
     pub result: Option<DkimResult>,
@@ -376,6 +593,21 @@ impl Dkim {
         match pattern.captures(snippet) {
             Some(captures) => DkimResult::from_str(&captures[1]).ok(),
             None => None,
+        }
+    }
+
+    fn valid(&self, email_address: &str) -> bool {
+        matches!(self.result, Some(DkimResult::Pass)) &&
+            self.email_matches_identifier(email_address)
+    }
+
+    fn email_matches_identifier(&self, email_address: &str) -> bool {
+        match self.user_identifier_snippet.as_ref() {
+            Some(snippet) => {
+                let re = Regex::new(&format!(r"{}\z", &snippet)).unwrap();
+                re.is_match(email_address)
+            },
+            None => false
         }
     }
 }
@@ -584,6 +816,86 @@ mod spf_extract_ip_address_tests {
     }
 }
 
+#[cfg(test)]
+mod spf_valid_tests {
+    use super::*;
+
+    #[test]
+    fn returns_false_if_no_result() {
+        let spf = spf_no_result();
+
+        assert!(!spf.valid("recipient@test.com"));
+    }
+
+    #[test]
+    fn returns_false_if_no_smtp_mailfrom() {
+        let spf = spf_no_smtp_mailfrom();
+
+        assert!(!spf.valid("recipient@test.com"));
+    }
+    
+    #[test]
+    fn returns_true_if_pass_with_matching_mailfrom() {
+        let spf = spf_pass_matching_mailfrom();
+
+        assert!(spf.valid("recipient@test.com"));
+    }
+
+    #[test]
+    fn returns_false_if_not_pass_with_matching_mailfrom() {
+        let spf = spf_no_pass_matching_mailfrom();
+
+        assert!(!spf.valid("recipient@test.com"))
+    }
+
+    #[test]
+    fn returns_false_if_pass_with_nonmatching_mailfrom() {
+        let spf = spf_pass_no_matching_mailfrom();
+
+        assert!(!spf.valid("recipient@test.com"))
+    }
+
+    fn spf_no_result() -> Spf {
+        Spf {
+            ip_address: None,
+            result: None,
+            smtp_mailfrom: Some("recipient@test.com".into())
+        }
+    }
+
+    fn spf_no_smtp_mailfrom() -> Spf {
+        Spf {
+            ip_address: None,
+            result: Some(SpfResult::Pass),
+            smtp_mailfrom: None
+        }
+    }
+
+    fn spf_pass_matching_mailfrom() -> Spf {
+        Spf {
+            ip_address: None,
+            result: Some(SpfResult::Pass),
+            smtp_mailfrom: Some("recipient@test.com".into())
+        }
+    }
+
+    fn spf_no_pass_matching_mailfrom() -> Spf {
+        Spf {
+            ip_address: None,
+            result: Some(SpfResult::Policy),
+            smtp_mailfrom: Some("recipient@test.com".into())
+        }
+    }
+
+    fn spf_pass_no_matching_mailfrom() -> Spf {
+        Spf {
+            ip_address: None,
+            result: Some(SpfResult::Pass),
+            smtp_mailfrom: Some("not-recipient@test.com".into())
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct Spf {
     pub ip_address: Option<String>,
@@ -619,6 +931,17 @@ impl Spf {
         let pattern = Regex::new(r"designates\s(\S+)\s").unwrap();
 
         pattern.captures(header).map(|captures| String::from(&captures[1]))
+    }
+
+    fn valid(&self, email_address: &str) -> bool {
+        matches!(self.result, Some(SpfResult::Pass)) && self.valid_mailfrom(email_address)
+    }
+
+    fn valid_mailfrom(&self, email_address: &str) -> bool {
+        match self.smtp_mailfrom.as_ref() {
+            Some(address) => address == email_address,
+            None => false
+        }
     }
 }
 

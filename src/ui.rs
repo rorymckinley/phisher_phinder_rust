@@ -149,7 +149,8 @@ mod display_sender_addresses_extended_tests {
                     ],
                 }
             },
-            raw_mail: "".into()
+            raw_mail: "".into(),
+            reportable_entities: None,
         };
 
         assert_eq!(
@@ -231,7 +232,8 @@ mod display_sender_addresses_extended_tests {
                     links: vec![],
                 }
             },
-            raw_mail: "".into()
+            raw_mail: "".into(),
+            reportable_entities: None,
         };
 
         assert_eq!(
@@ -366,7 +368,8 @@ mod display_fulfillment_nodes_tests {
                     links: vec![],
                 }
             },
-            raw_mail: "".into()
+            raw_mail: "".into(),
+            reportable_entities: None,
         };
 
         assert_eq!(
@@ -914,7 +917,8 @@ mod display_delivery_nodes_tests {
                     links: vec![],
                 }
             },
-            raw_mail: "".into()
+            raw_mail: "".into(),
+            reportable_entities: None,
         }
     }
 
@@ -1213,7 +1217,8 @@ mod display_authentication_results_tests {
                     links: vec![],
                 }
             },
-            raw_mail: "".into()
+            raw_mail: "".into(),
+            reportable_entities: None,
         }
     }
 

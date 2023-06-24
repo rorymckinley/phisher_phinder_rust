@@ -74,6 +74,7 @@ fn json_input() -> String {
                 "return_path": []
             }
         },
-        "raw_mail": ""
+        "raw_mail": "",
+        "reportable_entities": null
     }).to_string()
 }
