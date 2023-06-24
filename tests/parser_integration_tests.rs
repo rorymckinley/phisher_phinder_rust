@@ -228,7 +228,8 @@ fn json_output_as_value(raw_mail: String) -> serde_json::Value {
             ],
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
         },
-        "raw_mail": raw_mail
+        "raw_mail": raw_mail,
+        "reportable_entities": null,
     })
 }
 

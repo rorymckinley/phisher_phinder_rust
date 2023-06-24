@@ -12,6 +12,7 @@ use crate::authentication_results::AuthenticationResults;
 pub struct OutputData {
     pub parsed_mail: ParsedMail,
     pub raw_mail: String,
+    pub reportable_entities: Option<ReportableEntities>,
 }
 
 impl OutputData {
@@ -21,7 +22,8 @@ impl OutputData {
     ) -> Self {
         Self {
             parsed_mail,
-            raw_mail: raw_mail.into()
+            raw_mail: raw_mail.into(),
+            reportable_entities: None,
         }
     }
 }
@@ -136,7 +138,7 @@ mod delivery_node_tests {
     }
 }
 
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct DeliveryNode {
     pub advertised_sender: Option<HostNode>,
     pub observed_sender: Option<HostNode>,
@@ -565,7 +567,7 @@ mod fulfillment_node_tests {
     }
 }
 
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct FulfillmentNode {
     pub hidden: Option<Node>,
     pub visible: Node
@@ -669,7 +671,7 @@ pub enum HostNodeError {
     InstantiationError
 }
 
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct HostNode {
     pub domain: Option<Domain>,
     pub host: Option<String>,
@@ -724,7 +726,7 @@ mod node_tests {
     }
 }
 
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Node {
     pub domain: Option<Domain>,
     pub registrar: Option<Registrar>,
@@ -743,7 +745,7 @@ enum LinkCategory {
     Other
 }
 
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct EmailAddresses {
     pub from: Vec<EmailAddressData>,
     pub links: Vec<EmailAddressData>,
@@ -757,7 +759,7 @@ impl EmailAddresses {
     }
 }
 
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct EmailAddressData {
     pub address: String,
     pub domain: Option<Domain>,
@@ -798,7 +800,7 @@ impl EmailAddressData {
     }
 }
 
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Domain {
     pub abuse_email_address: Option<String>,
     pub category: DomainCategory,
@@ -989,7 +991,7 @@ impl Domain {
             registration_date: None,
         }
     }
-    
+
     fn open_email_provider_abuse_address(domain: &str) -> String {
         let mut addresses: HashMap<String, String>  = HashMap::new();
 
@@ -1020,7 +1022,7 @@ impl Domain {
     }
 }
 
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DomainCategory {
     OpenEmailProvider,
@@ -1034,13 +1036,13 @@ impl fmt::Display for DomainCategory {
     }
 }
 
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Registrar {
     pub abuse_email_address: Option<String>,
     pub name: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct InfrastructureProvider {
     pub abuse_email_address: Option<String>,
     pub name: Option<String>,
@@ -1139,4 +1141,11 @@ impl TrustedRecipientDeliveryNode {
             None => false
         }
     }
+}
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+pub struct ReportableEntities {
+    pub delivery_nodes: Vec<DeliveryNode>,
+    pub email_addresses: EmailAddresses,
+    pub fulfillment_nodes: Vec<FulfillmentNode>,
 }

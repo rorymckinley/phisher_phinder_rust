@@ -11,5 +11,6 @@ pub mod mailer;
 #[cfg(feature = "test-mocks")]
 pub mod mountebank;
 pub mod populator;
+pub mod reporter;
 pub mod result;
 pub mod ui;

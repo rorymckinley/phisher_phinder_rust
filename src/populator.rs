@@ -263,7 +263,8 @@ mod populate_tests {
                     ],
                 },
             },
-            raw_mail: "raw mail text goes here".into()
+            raw_mail: "raw mail text goes here".into(),
+            reportable_entities: None,
         }
     }
 
