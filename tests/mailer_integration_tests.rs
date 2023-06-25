@@ -75,6 +75,27 @@ fn json_input() -> String {
             }
         },
         "raw_mail": "",
-        "reportable_entities": null
+        "reportable_entities": {
+            "delivery_nodes": [],
+            "email_addresses": {
+                "from": [{
+                    "address": "PIBIeSRqUtiEw1NCg4@fake.net",
+                    "domain": {
+                        "abuse_email_address": null,
+                        "category": "other",
+                        "name": "fake.net",
+                        "registration_date": null,
+                    },
+                    "registrar": {
+                        "abuse_email_address": "abuse@regone.zzz",
+                        "name": "Reg One",
+                    },
+                }],
+                "links": [],
+                "reply_to": [],
+                "return_path": []
+            },
+            "fulfillment_nodes": [],
+        }
     }).to_string()
 }

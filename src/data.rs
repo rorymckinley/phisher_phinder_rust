@@ -132,10 +132,6 @@ mod delivery_node_tests {
     fn unobserved_trusted_node(recipient: &str) -> TrustedRecipientDeliveryNode {
         TrustedRecipientDeliveryNode { recipient: String::from(recipient), observed: false }
     }
-
-    fn observed_trusted_node(recipient: &str) -> TrustedRecipientDeliveryNode {
-        TrustedRecipientDeliveryNode { recipient: String::from(recipient), observed: true }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]

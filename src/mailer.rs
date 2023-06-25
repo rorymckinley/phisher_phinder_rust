@@ -1,4 +1,14 @@
-use crate::data::{EmailAddressData, EmailAddresses, FulfillmentNode, Node, OutputData, Registrar};
+use crate::data::{
+    DeliveryNode,
+    EmailAddressData,
+    EmailAddresses,
+    FulfillmentNode,
+    HostNode,
+    InfrastructureProvider,
+    Node,
+    Registrar,
+    ReportableEntities
+};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, AsyncSmtpTransport, AsyncTransport, Tokio1Executor};
 use lettre::message::{Attachment, header::ContentType, MultiPart, SinglePart};
@@ -8,32 +18,38 @@ use std::fmt;
 #[cfg(test)]
 mod build_mail_definitions_tests {
     use super::*;
-    use crate::authentication_results::{AuthenticationResults, Dkim, DkimResult, Spf, SpfResult};
     use crate::data::{
+        DeliveryNode,
         Domain,
+        DomainCategory,
         EmailAddressData,
         FulfillmentNode,
+        HostNode,
+        InfrastructureProvider,
         Node,
-        ParsedMail
+        ReportableEntities,
     };
 
     #[test]
     fn creates_definitions_for_email_addresses() {
-        let actual = build_mail_definitions(&input_data());
+        let actual = build_mail_definitions(Some(&input_data()));
 
         assert_eq!(expected(), actual);
     }
 
-    fn input_data() -> OutputData {
-        let parsed_mail = ParsedMail::new(
-            authentication_results(),
-            vec![],
-            email_addresses(),
-            fulfillment_nodes(),
-            Some("".into())
-        );
+    #[test]
+    fn returns_empty_collection_if_no_reportable_entities() {
+        let expected: Vec<MailDefinition> = vec![];
 
-        OutputData::new(parsed_mail, "")
+        assert_eq!(expected, build_mail_definitions(None));
+    }
+
+    fn input_data() -> ReportableEntities {
+        ReportableEntities {
+            delivery_nodes: delivery_nodes(),
+            email_addresses: email_addresses(),
+            fulfillment_nodes: fulfillment_nodes(),
+        }
     }
 
     fn email_addresses() -> EmailAddresses {
@@ -61,6 +77,36 @@ mod build_mail_definitions_tests {
         ]
     }
 
+    fn delivery_nodes() -> Vec<DeliveryNode> {
+        vec![
+            DeliveryNode {
+                advertised_sender: None,
+                observed_sender: Some(HostNode {
+                    domain: Some(Domain {
+                        abuse_email_address: None,
+                        category: DomainCategory::Other,
+                        name: "delivery-node.zzz".into(),
+                        registration_date: None,
+                    }),
+                    host: None,
+                    infrastructure_provider: Some(InfrastructureProvider {
+                        abuse_email_address: Some("abuse@providerone.zzz".into()),
+                        name: None
+                    }),
+                    ip_address: Some("10.10.10.10".into()),
+                    registrar: Some(Registrar {
+                        abuse_email_address: Some("abuse@regthree.zzz".into()),
+                        name: None
+                    })
+                }),
+                position: 0,
+                recipient: None,
+                time: None,
+                trusted: true,
+            }
+        ]
+    }
+
     fn email_address_data(address: &str, abuse_email_address: &str) -> EmailAddressData {
         EmailAddressData {
             address: address.into(),
@@ -72,38 +118,27 @@ mod build_mail_definitions_tests {
         }
     }
 
-    fn authentication_results() -> Option<AuthenticationResults> {
-        Some(
-            AuthenticationResults {
-                dkim: Some(Dkim {
-                    result: Some(DkimResult::Fail),
-                    selector: Some("".into()),
-                    signature_snippet: Some("".into()),
-                    user_identifier_snippet: Some("".into()),
-                }),
-                service_identifier: Some("does.not.matter".into()),
-                spf: Some(Spf {
-                    ip_address: Some("".into()),
-                    result: Some(SpfResult::SoftFail),
-                    smtp_mailfrom: Some("".into())
-                })
-            }
-        )
-    }
-
     fn expected() -> Vec<MailDefinition> {
         vec![
             MailDefinition::new("foo@test.com", Some("abuse@regone.zzz")),
-            MailDefinition::new("https://dodgy.phishing.link", Some("abuse@regtwo.zzz"))
+            MailDefinition::new("https://dodgy.phishing.link", Some("abuse@regtwo.zzz")),
+            MailDefinition::new("delivery-node.zzz", Some("abuse@regthree.zzz")),
+            MailDefinition::new("10.10.10.10", Some("abuse@providerone.zzz")),
         ]
     }
 }
 
-pub fn build_mail_definitions(data: &OutputData) -> Vec<MailDefinition> {
-    vec![
-        build_mail_definitions_from_email_addresses(&data.parsed_mail.email_addresses),
-        build_mail_definitions_from_fulfillment_nodes(&data.parsed_mail.fulfillment_nodes)
-    ].into_iter().flatten().collect()
+pub fn build_mail_definitions(entities_option: Option<&ReportableEntities>) -> Vec<MailDefinition> {
+    match entities_option {
+        Some(entities) => {
+            vec![
+                build_mail_definitions_from_email_addresses(&entities.email_addresses),
+                build_mail_definitions_from_fulfillment_nodes(&entities.fulfillment_nodes),
+                build_mail_definitions_from_delivery_nodes(&entities.delivery_nodes),
+            ].into_iter().flatten().collect()
+        },
+        None => vec![]
+    }
 }
 
 #[cfg(test)]
@@ -495,6 +530,264 @@ fn build_mail_definition_from_node(node: &Node) -> MailDefinition {
         MailDefinition::new(&node.url, Some(abuse_email_address))
     } else {
         MailDefinition::new(&node.url, None)
+    }
+}
+
+#[cfg(test)]
+mod build_mail_definitions_from_delivery_nodes_tests {
+    use crate::data:: {
+        Domain,
+        DomainCategory,
+        HostNode,
+        InfrastructureProvider,
+    };
+    use super::*;
+
+    #[test]
+    fn returns_empty_collection_if_no_delivery_nodes() {
+        assert!(build_mail_definitions_from_delivery_nodes(&[]).is_empty());
+    }
+
+    #[test]
+    fn returns_collection_of_delivery_node_mail_definitions() {
+        let delivery_nodes = vec![delivery_node_1(), delivery_node_2()];
+
+        let expected = vec![
+            MailDefinition::new("delivery-node.zzz", Some("abuse@regthree.zzz")),
+            MailDefinition::new("10.10.10.10", Some("abuse@providerone.zzz"))
+        ];
+
+        assert_eq!(
+            expected, build_mail_definitions_from_delivery_nodes(&delivery_nodes)
+        );
+    }
+
+    fn delivery_node_1() -> DeliveryNode {
+        DeliveryNode {
+            advertised_sender: None,
+            observed_sender: Some(HostNode {
+                domain: Some(Domain {
+                    abuse_email_address: None,
+                    category: DomainCategory::Other,
+                    name: "delivery-node.zzz".into(),
+                    registration_date: None,
+                }),
+                host: None,
+                infrastructure_provider: None,
+                ip_address: None,
+                registrar: Some(Registrar {
+                    abuse_email_address: Some("abuse@regthree.zzz".into()),
+                    name: None
+                })
+            }),
+            position: 0,
+            recipient: None,
+            time: None,
+            trusted: true,
+        }
+    }
+
+    fn delivery_node_2() -> DeliveryNode {
+        DeliveryNode {
+            advertised_sender: None,
+            observed_sender: Some(HostNode {
+                domain: None,
+                host: None,
+                infrastructure_provider: Some(InfrastructureProvider {
+                    abuse_email_address: Some("abuse@providerone.zzz".into()),
+                    name: None
+                }),
+                ip_address: Some("10.10.10.10".into()),
+                registrar: None,
+            }),
+            position: 0,
+            recipient: None,
+            time: None,
+            trusted: true,
+        }
+    }
+}
+fn build_mail_definitions_from_delivery_nodes(
+    delivery_nodes: &[DeliveryNode]
+) -> Vec<MailDefinition> {
+    delivery_nodes
+        .iter()
+        .flat_map(build_mail_definitions_from_delivery_node)
+        .collect()
+}
+
+#[cfg(test)]
+mod build_mail_definitions_from_delivery_node_tests {
+    use crate::data::{Domain, DomainCategory, HostNode, InfrastructureProvider};
+    use super::*;
+
+    #[test]
+    fn returns_empty_collection_if_no_observed_sender() {
+        let node = no_observed_sender_delivery_node();
+
+        assert!(build_mail_definitions_from_delivery_node(&node).is_empty());
+    }
+
+    #[test]
+    fn returns_empty_collection_if_no_domain_and_no_ip() {
+        let node = no_domain_no_ip_delivery_node();
+
+        assert!(build_mail_definitions_from_delivery_node(&node).is_empty());
+    }
+
+    #[test]
+    fn returns_mail_definitions_sans_addresses_if_no_host_or_registrar() {
+        let node = no_registrar_or_infrastructure_provider_delivery_node();
+
+        let expected = vec![
+            MailDefinition::new("delivery-node.zzz", None),
+            MailDefinition::new("10.10.10.10", None),
+        ];
+
+        assert_eq!(expected, build_mail_definitions_from_delivery_node(&node));
+    }
+
+    #[test]
+    fn returns_mail_definition_for_host_and_domain() {
+        let node = domain_and_ip_delivery_node();
+
+        let expected = vec![
+            MailDefinition::new("delivery-node.zzz", Some("abuse@regthree.zzz")),
+            MailDefinition::new("10.10.10.10", Some("abuse@providerone.zzz"))
+        ];
+
+        assert_eq!(expected, build_mail_definitions_from_delivery_node(&node));
+    }
+
+    fn no_observed_sender_delivery_node() -> DeliveryNode {
+        DeliveryNode {
+            advertised_sender: None,
+            observed_sender: None,
+            position: 0,
+            recipient: None,
+            time: None,
+            trusted: true,
+        }
+    }
+
+    fn no_domain_no_ip_delivery_node() -> DeliveryNode {
+        DeliveryNode {
+            advertised_sender: None,
+            observed_sender: Some(HostNode {
+                domain: None,
+                host: None,
+                infrastructure_provider: Some(InfrastructureProvider {
+                    abuse_email_address: Some("abuse@providerone.zzz".into()),
+                    name: None
+                }),
+                ip_address: None,
+                registrar: Some(Registrar {
+                    abuse_email_address: Some("abuse@regthree.zzz".into()),
+                    name: None
+                })
+            }),
+            position: 0,
+            recipient: None,
+            time: None,
+            trusted: true,
+        }
+    }
+
+    fn domain_and_ip_delivery_node() -> DeliveryNode {
+        DeliveryNode {
+            advertised_sender: None,
+            observed_sender: Some(HostNode {
+                domain: Some(Domain {
+                    abuse_email_address: None,
+                    category: DomainCategory::Other,
+                    name: "delivery-node.zzz".into(),
+                    registration_date: None,
+                }),
+                host: None,
+                infrastructure_provider: Some(InfrastructureProvider {
+                    abuse_email_address: Some("abuse@providerone.zzz".into()),
+                    name: None
+                }),
+                ip_address: Some("10.10.10.10".into()),
+                registrar: Some(Registrar {
+                    abuse_email_address: Some("abuse@regthree.zzz".into()),
+                    name: None
+                })
+            }),
+            position: 0,
+            recipient: None,
+            time: None,
+            trusted: true,
+        }
+    }
+
+    fn no_registrar_or_infrastructure_provider_delivery_node() -> DeliveryNode {
+        DeliveryNode {
+            advertised_sender: None,
+            observed_sender: Some(HostNode {
+                domain: Some(Domain {
+                    abuse_email_address: None,
+                    category: DomainCategory::Other,
+                    name: "delivery-node.zzz".into(),
+                    registration_date: None,
+                }),
+                host: None,
+                infrastructure_provider: None,
+                ip_address: Some("10.10.10.10".into()),
+                registrar: None,
+            }),
+            position: 0,
+            recipient: None,
+            time: None,
+            trusted: true,
+        }
+    }
+}
+
+fn build_mail_definitions_from_delivery_node(node: &DeliveryNode) -> Vec<MailDefinition> {
+    vec![
+        build_mail_definition_from_delivery_node_domain(node.observed_sender.as_ref()),
+        build_mail_definition_from_delivery_node_ip(node.observed_sender.as_ref()),
+    ].into_iter().flatten().collect()
+}
+
+fn build_mail_definition_from_delivery_node_domain(node_option: Option<&HostNode>) -> Option<MailDefinition> {
+    match node_option {
+        Some(node) => {
+            match node.domain.as_ref() {
+                Some(domain) => {
+                    if let Some(
+                        Registrar {abuse_email_address: Some(abuse_address), ..}
+                    ) = node.registrar.as_ref() {
+                        Some(MailDefinition::new(&domain.name, Some(abuse_address)))
+                    } else {
+                        Some(MailDefinition::new(&domain.name, None))
+                    }
+                },
+                None => None
+            }
+        },
+        None => None
+    }
+}
+
+fn build_mail_definition_from_delivery_node_ip(node_option: Option<&HostNode>) -> Option<MailDefinition> {
+    match node_option {
+        Some(node) => {
+            match node.ip_address.as_ref() {
+                Some(ip) => {
+                    if let Some(
+                        InfrastructureProvider {abuse_email_address: Some(abuse_address), ..}
+                    ) = node.infrastructure_provider.as_ref() {
+                        Some(MailDefinition::new(ip, Some(abuse_address)))
+                    } else {
+                        Some(MailDefinition::new(ip, None))
+                    }
+                },
+                None => None
+            }
+        },
+        None => None
     }
 }
 

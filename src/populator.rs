@@ -1651,14 +1651,12 @@ async fn lookup_host_node(bootstrap: Arc<Bootstrap>, node: Option<HostNode>) -> 
         };
 
         let infrastructure_provider = if let Some(ip_data) = ip_response {
-            if let Some(ip_data_entities) = ip_data.entities {
-                Some(InfrastructureProvider {
+            ip_data.entities.map(|ip_data_entities| {
+                InfrastructureProvider {
                     abuse_email_address: extract_abuse_email(&ip_data_entities),
                     name: extract_provider_name(&ip_data_entities)
-                })
-            } else {
-                None
-            }
+                }
+            })
         } else {
             None
         };
@@ -2118,9 +2116,7 @@ async fn get_rdap_ip_data(
     bootstrap: Arc<Bootstrap>,
     ip_as_string_option: Option<String>
 ) -> Option<parser::IpNetwork> {
-    if ip_as_string_option.is_none() {
-        return None
-    }
+    ip_as_string_option.as_ref()?;
 
     let ip_as_string = ip_as_string_option.unwrap();
     let parsed_ip_option = match std::net::Ipv4Addr::from_str(&ip_as_string) {
@@ -2492,11 +2488,7 @@ mod extract_eligible_registrant_entities_tests {
             None
         };
 
-        let events = if let Some(date) = last_changed {
-            Some(build_events(date))
-        } else {
-            None
-        };
+        let events = last_changed.map(build_events);
 
         parser::Entity {
             roles: roles.map(|r| r.to_vec()),
@@ -2548,7 +2540,7 @@ mod extract_eligible_registrant_entities_tests {
 
 fn extract_eligible_registrant_entities(entities: &[parser::Entity]) -> Vec<&parser::Entity> {
     entities
-        .into_iter()
+        .iter()
         .filter(|entity| {
             is_registrant(entity) && has_full_name(entity)
         })
@@ -2644,11 +2636,7 @@ mod is_registrant_tests {
             None
         };
 
-        let events = if let Some(date) = last_changed {
-            Some(build_events(date))
-        } else {
-            None
-        };
+        let events = last_changed.map(build_events);
 
         parser::Entity {
             roles: roles.map(|r| r.to_vec()),
@@ -2798,11 +2786,7 @@ mod has_full_name_tests {
             None
         };
 
-        let events = if let Some(date) = last_changed {
-            Some(build_events(date))
-        } else {
-            None
-        };
+        let events = last_changed.map(build_events);
 
         parser::Entity {
             roles: roles.map(|r| r.to_vec()),
@@ -2917,11 +2901,7 @@ mod find_most_recent_full_name_tests {
             None
         };
 
-        let events = if let Some(date) = last_changed {
-            Some(build_events(date))
-        } else {
-            None
-        };
+        let events = last_changed.map(build_events);
 
         parser::Entity {
             roles: roles.map(|r| r.to_vec()),
@@ -2965,7 +2945,7 @@ mod find_most_recent_full_name_tests {
 }
 
 fn find_most_recent_full_name(mut entities: Vec<&parser::Entity>) -> Option<String> {
-    entities.sort_by(|a, b| last_changed_date(a).cmp(&last_changed_date(b)));
+    entities.sort_by_key(|a| last_changed_date(a));
 
     if let Some(last_entity) = entities.last() {
         extract_full_name(last_entity)
@@ -3722,7 +3702,7 @@ fn find_most_recent_email_address(entities: &[&parser::Entity]) -> Option<String
     // nice to have the same signature n both places
     let mut working_entities = entities.to_vec();
 
-    working_entities.sort_by(|a, b| last_changed_date(a).cmp(&last_changed_date(b)));
+    working_entities.sort_by_key(|a| last_changed_date(a));
 
     if let Some(last_entity) = working_entities.last() {
         get_email_address(last_entity)
@@ -3960,16 +3940,6 @@ mod get_email_address_tests {
             lang: None,
             object_class_name: "entity".into()
         }
-    }
-
-    fn build_vcard_array(email_addresses: &[&str]) -> Option<parser::JCard> {
-        let vcard_items = vec![
-            build_jcard_item("foo", &["bar"]),
-            build_jcard_item("email", email_addresses),
-            build_jcard_item("baz", &["biz"]),
-        ];
-
-        Some(parser::JCard(parser::JCardType::Vcard, vcard_items))
     }
 
     fn build_jcard_item(property_name: &str, values: &[&str]) -> parser::JCardItem {

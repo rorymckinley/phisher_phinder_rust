@@ -507,14 +507,6 @@ mod dkim_valid_tests {
         assert!(!dkim.valid("from@test.com"))
     }
 
-    fn email_address_data() -> EmailAddressData {
-        EmailAddressData {
-            address: "from@test.com".into(),
-            domain: None,
-            registrar: None
-        }
-    }
-
     fn no_result_dkim() ->  Dkim {
         Dkim {
             result: None,

@@ -19,7 +19,7 @@ async fn main() {
 
     let input: OutputData = serde_json::from_str(&raw_input).unwrap();
 
-    let mail_definitions = build_mail_definitions(&input);
+    let mail_definitions = build_mail_definitions(input.reportable_entities.as_ref());
 
     let mail_server = Server::new(
         &get_env("PP_SMTP_HOST_URI"),
