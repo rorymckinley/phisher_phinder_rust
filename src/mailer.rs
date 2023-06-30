@@ -1,5 +1,7 @@
 use crate::data::{
     DeliveryNode,
+    Domain,
+    DomainCategory,
     EmailAddressData,
     EmailAddresses,
     FulfillmentNode,
@@ -306,13 +308,47 @@ fn convert_addresses_to_mail_definitions(email_addresses: &[EmailAddressData]) -
 #[cfg(test)]
 mod convert_address_data_to_definition_tests {
     use super::*;
-    use crate::data::Domain;
+    use crate::data::{Domain, DomainCategory};
 
     #[test]
     fn creates_mail_definition() {
         assert_eq!(
             expected(),
             convert_address_data_to_definition(&input())
+        )
+    }
+
+    #[test]
+    fn creates_mail_definition_email_provider_category() {
+        assert_eq!(
+            expected_email_provider_category(),
+            convert_address_data_to_definition(&input_email_provider_category())
+        )
+    }
+
+    #[test]
+    fn creates_mail_definitionb_both_email_provider_and_registrar() {
+        assert_eq!(
+            expected_email_provider_category(),
+            convert_address_data_to_definition(&input_provider_and_registrar())
+        );
+    }
+
+    #[test]
+    fn creates_mail_definition_email_provider_category_no_abuse_email_address() {
+        assert_eq!(
+            expected(),
+            convert_address_data_to_definition(&input_email_provider_category_no_abuse_addr())
+        )
+    }
+
+    #[test]
+    fn creates_mail_definition_email_provider_category_no_abuse_email_address_no_registrar() {
+        assert_eq!(
+            expected_no_abuse_email_address(),
+            convert_address_data_to_definition(
+                &input_email_provider_category_no_abuse_addr_no_registrar()
+            )
         )
     }
 
@@ -338,6 +374,49 @@ mod convert_address_data_to_definition_tests {
 
     fn input_no_abuse_email_address() -> EmailAddressData {
         email_address_data("from_1@test.com", None)
+    }
+
+    fn input_email_provider_category() -> EmailAddressData {
+        email_address_data(
+            "evildirtyscammer@googlemail.com",
+            None
+        )
+    }
+
+    fn input_provider_and_registrar() -> EmailAddressData {
+        email_address_data(
+            "evildirtyscammer@googlemail.com",
+            Some("shouldnotseethis@regone.zzz")
+        )
+    }
+
+    fn input_email_provider_category_no_abuse_addr() -> EmailAddressData {
+        EmailAddressData {
+            address: "from_1@test.com".into(),
+            domain: Some(Domain {
+                abuse_email_address: None,
+                category: DomainCategory::OpenEmailProvider,
+                name: "test.com".into(),
+                registration_date: None
+            }),
+            registrar: Some(Registrar {
+                abuse_email_address: Some("abuse@regone.zzz".into()),
+                name: None
+            })
+        }
+    }
+
+    fn input_email_provider_category_no_abuse_addr_no_registrar() -> EmailAddressData {
+        EmailAddressData {
+            address: "from_1@test.com".into(),
+            domain: Some(Domain {
+                abuse_email_address: None,
+                category: DomainCategory::OpenEmailProvider,
+                name: "test.com".into(),
+                registration_date: None
+            }),
+            registrar: None,
+        }
     }
 
     fn input_no_registrar() -> EmailAddressData {
@@ -366,13 +445,157 @@ mod convert_address_data_to_definition_tests {
     fn expected_no_abuse_email_address() -> MailDefinition {
         MailDefinition::new("from_1@test.com", None)
     }
+
+    fn expected_email_provider_category() -> MailDefinition {
+        MailDefinition::new("evildirtyscammer@googlemail.com", Some("abuse@gmail.com"))
+    }
 }
 
 fn convert_address_data_to_definition(data: &EmailAddressData) -> MailDefinition {
-    if let Some(Registrar { abuse_email_address, .. }) = &data.registrar {
-        MailDefinition::new(&data.address, abuse_email_address.as_deref())
-    } else {
-        MailDefinition::new(&data.address, None)
+    let abuse_address: Option<&str> = vec![
+        extract_abuse_address_from_registrar(data.registrar.as_ref()),
+        extract_abuse_address_from_domain(data.domain.as_ref()),
+    ].into_iter().flatten().collect::<Vec<&str>>().pop();
+
+    MailDefinition::new(&data.address, abuse_address)
+}
+
+#[cfg(test)]
+mod extract_abuse_address_from_domain_tests {
+    use super::*;
+
+    #[test]
+    fn returns_none_if_domain_is_none() {
+        assert!(extract_abuse_address_from_domain(None).is_none())
+    }
+
+    #[test]
+    fn returns_abuse_address_if_domain_is_open_email_provider() {
+        assert_eq!(
+            Some("abuse@test.zzz"),
+            extract_abuse_address_from_domain(Some(&email_provider_domain()))
+        )
+
+    }
+
+    #[test]
+    fn returns_abuse_address_if_domain_is_url_shortener() {
+        assert_eq!(
+            Some("abuse@test.zzz"),
+            extract_abuse_address_from_domain(Some(&url_shortener_domain()))
+        )
+    }
+
+    #[test]
+    fn returns_none_if_domain_is_categorised_as_other() {
+        assert_eq!(
+            None,
+            extract_abuse_address_from_domain(Some(&other_domain()))
+        )
+    }
+
+    #[test]
+    fn returns_none_if_email_provider_sans_abuse_email_address() {
+        assert_eq!(
+            None,
+            extract_abuse_address_from_domain(Some(&email_provider_domain_no_address()))
+        )
+    }
+
+    fn email_provider_domain() -> Domain {
+        Domain {
+            abuse_email_address: Some("abuse@test.zzz".into()),
+            category: DomainCategory::OpenEmailProvider,
+            name: "does-not-matter".into(),
+            registration_date: None
+        }
+    }
+
+    fn url_shortener_domain() -> Domain {
+        Domain {
+            abuse_email_address: Some("abuse@test.zzz".into()),
+            category: DomainCategory::UrlShortener,
+            name: "does-not-matter".into(),
+            registration_date: None
+        }
+    }
+
+    fn other_domain() -> Domain {
+        Domain {
+            abuse_email_address: Some("abuse@test.zzz".into()),
+            category: DomainCategory::Other,
+            name: "does-not-matter".into(),
+            registration_date: None
+        }
+    }
+
+    fn email_provider_domain_no_address() -> Domain {
+        Domain {
+            abuse_email_address: None,
+            category: DomainCategory::OpenEmailProvider,
+            name: "does-not-matter".into(),
+            registration_date: None
+        }
+    }
+}
+
+fn extract_abuse_address_from_domain(domain_option: Option<&Domain>) -> Option<&str> {
+    match domain_option {
+        Some(domain) => {
+            match domain.category {
+                DomainCategory::OpenEmailProvider | DomainCategory::UrlShortener => {
+                    domain.abuse_email_address.as_deref()
+                },
+                _ => None
+            }
+        },
+        None => None
+    }
+}
+
+#[cfg(test)]
+mod extract_abuse_address_from_registrar_tests {
+    use super::*;
+
+    #[test]
+    fn returns_none_if_registrar_is_none() {
+        assert!(extract_abuse_address_from_registrar(None).is_none())
+    }
+
+    #[test]
+    fn returns_abuse_address_if_registrar() {
+        assert_eq!(
+            Some("abuse@regone.zzz"),
+            extract_abuse_address_from_registrar(Some(&registrar_with_address()))
+        )
+    }
+
+    #[test]
+    fn returns_none_if_no_abuse_address() {
+        assert_eq!(
+            None,
+            extract_abuse_address_from_registrar(Some(&registrar_without_address()))
+        )
+    }
+
+    fn registrar_with_address() -> Registrar {
+        Registrar {
+            abuse_email_address: Some("abuse@regone.zzz".into()),
+            name: None
+        }
+    }
+
+    fn registrar_without_address() -> Registrar {
+        Registrar { abuse_email_address: None, name: None }
+    }
+}
+
+fn extract_abuse_address_from_registrar(registrar_option: Option<&Registrar>) -> Option<&str> {
+    match registrar_option {
+        Some(registrar) => {
+            registrar.abuse_email_address.as_deref()
+        },
+        None => None
     }
 }
 
@@ -471,6 +694,22 @@ mod build_mail_definition_from_node_tests {
     }
 
     #[test]
+    fn build_mail_definition_for_url_shortener_category() {
+        assert_eq!(
+            expected_url_shortener(),
+            build_mail_definition_from_node(&input_url_shortener())
+        )
+    }
+
+    #[test]
+    fn build_mail_definition_for_registrar_and_url_shortener_category() {
+        assert_eq!(
+            expected_url_shortener(),
+            build_mail_definition_from_node(&input_registrar_and_url_shortener())
+        )
+    }
+
+    #[test]
     fn build_mail_definition_no_abuse_email() {
         assert_eq!(
             expected_no_abuse_email(),
@@ -497,6 +736,25 @@ mod build_mail_definition_from_node_tests {
         }
     }
 
+    fn input_url_shortener() -> Node {
+        Node {
+            domain: Domain::from_url("https://bit.ly/xyz"),
+            registrar: None,
+            url: "https://bit.ly/xyz".into()
+        }
+    }
+
+    fn input_registrar_and_url_shortener() -> Node {
+        Node {
+            domain: Domain::from_url("https://bit.ly/xyz"),
+            registrar: Some(Registrar {
+                abuse_email_address: Some("abuse@regone.zzz".into()),
+                name: None,
+            }),
+            url: "https://bit.ly/xyz".into()
+        }
+    }
+
     fn input_no_email() -> Node {
         Node {
             domain: None,
@@ -520,17 +778,22 @@ mod build_mail_definition_from_node_tests {
         MailDefinition::new("https://dodgy.phishing.link", Some("abuse@regone.zzz"))
     }
 
+    fn expected_url_shortener() -> MailDefinition {
+        MailDefinition::new("https://bit.ly/xyz", Some("abuse@bitly.com"))
+    }
+
     fn expected_no_abuse_email() -> MailDefinition {
         MailDefinition::new("https://dodgy.phishing.link", None)
     }
 }
 
 fn build_mail_definition_from_node(node: &Node) -> MailDefinition {
-    if let Some(Registrar {abuse_email_address: Some(abuse_email_address), ..}) = &node.registrar {
-        MailDefinition::new(&node.url, Some(abuse_email_address))
-    } else {
-        MailDefinition::new(&node.url, None)
-    }
+    let abuse_address = vec![
+        extract_abuse_address_from_registrar(node.registrar.as_ref()),
+        extract_abuse_address_from_domain(node.domain.as_ref()),
+    ].into_iter().flatten().collect::<Vec<&str>>().pop();
+
+    MailDefinition::new(&node.url, abuse_address)
 }
 
 #[cfg(test)]

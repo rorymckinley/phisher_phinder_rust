@@ -912,17 +912,9 @@ mod from_host_tests {
 impl Domain {
     pub fn from_email_address(address: &str) -> Option<Self> {
         if let Some((_local_part, domain)) = address.split_once('@') {
-            let open_email_providers = &[
-                "aol.com",
-                "gmail.com",
-                "googlemail.com",
-                "hotmail.com",
-                "outlook.com",
-                "yahoo.com",
-                "163.com"
-            ];
+            let providers = EmailProviders::new();
 
-            if open_email_providers.contains(&domain) {
+            if providers.is_member(domain) {
                 Some(Self::initialise_email_provider_domain(domain))
             } else {
                 Some(Self::initialise_other_domain(domain))
@@ -936,11 +928,9 @@ impl Domain {
         if let Ok(url) = Url::parse(url_str) {
             match url.host_str() {
                 Some(name) => {
-                    let url_shorteners = [
-                        "bit.ly",
-                        "tinyurl.com",
-                    ];
-                    if url_shorteners.contains(&name) {
+                    let providers = ShortenedUrlProviders::new();
+
+                    if providers.is_member(name) {
                         Some(Self::initialise_url_shortener_domain(name))
                     } else {
                         Some(Self::initialise_other_domain(name))
@@ -962,8 +952,10 @@ impl Domain {
     }
 
     fn initialise_email_provider_domain(domain: &str) -> Self {
+        let providers = EmailProviders::new();
+
         Self {
-            abuse_email_address: Some(Self::open_email_provider_abuse_address(domain)),
+            abuse_email_address: providers.abuse_address(domain).map(|addr| addr.into()),
             category: DomainCategory::OpenEmailProvider,
             name: domain.into(),
             registration_date: None,
@@ -980,41 +972,14 @@ impl Domain {
     }
 
     fn initialise_url_shortener_domain(domain: &str) -> Self {
+        let providers = ShortenedUrlProviders::new();
+
         Self {
-            abuse_email_address: Some(Self::url_shortener_abuse_address(domain)),
+            abuse_email_address: providers.abuse_address(domain).map(|addr| addr.into()),
             category: DomainCategory::UrlShortener,
             name: domain.into(),
             registration_date: None,
         }
-    }
-
-    fn open_email_provider_abuse_address(domain: &str) -> String {
-        let mut addresses: HashMap<String, String>  = HashMap::new();
-
-        addresses.insert(String::from("163.com"), String::from("abuse@163.com"));
-        addresses.insert(String::from("aol.com"), String::from("abuse@aol.com"));
-        addresses.insert(String::from("gmail.com"), String::from("abuse@gmail.com"));
-        addresses.insert(String::from("googlemail.com"), String::from("abuse@gmail.com"));
-        addresses.insert(String::from("hotmail.com"), String::from("abuse@hotmail.com"));
-        addresses.insert(String::from("outlook.com"), String::from("abuse@outlook.com"));
-        addresses.insert(String::from("yahoo.com"), String::from("abuse@yahoo.com"));
-
-        addresses[domain].clone()
-    }
-
-    fn url_shortener_abuse_address(domain: &str) -> String {
-        let mut addresses: HashMap<String, String>  = HashMap::new();
-
-        addresses.insert(String::from("bit.ly"), String::from("abuse@bitly.com"));
-        addresses.insert(String::from("ow.ly"), String::from("abuse@hootsuite.com"));
-        addresses.insert(String::from("rb.gy"), String::from("support@rebrandly.com"));
-        addresses.insert(String::from("shorte.st"), String::from("tcoabuse@twitter.com"));
-        addresses.insert(String::from("t.ly"), String::from("support@t.ly"));
-        addresses.insert(String::from("t.co"), String::from("tcoabuse@twitter.com"));
-        addresses.insert(String::from("tiny.cc"), String::from("abuse@tiny.cc"));
-        addresses.insert(String::from("tinyurl.com"), String::from("abuse@tinyurl.com"));
-
-        addresses[domain].clone()
     }
 }
 
@@ -1024,6 +989,118 @@ pub enum DomainCategory {
     OpenEmailProvider,
     Other,
     UrlShortener,
+}
+
+#[cfg(test)]
+mod shortened_url_providers {
+    use super::*;
+
+    #[test]
+    fn indicates_if_domain_is_member() {
+        let sup = ShortenedUrlProviders::new();
+
+        assert!(!sup.is_member("foo.bar"));
+        assert!(sup.is_member("rb.gy"));
+    }
+
+    #[test]
+    fn returns_the_abuse_address_if_domain_is_member() {
+        let sup = ShortenedUrlProviders::new();
+
+        assert_eq!(Some("support@rebrandly.com"), sup.abuse_address("rb.gy"));
+    }
+
+    #[test]
+    fn returns_none_if_domiain_is_not_member() {
+        let sup = ShortenedUrlProviders::new();
+
+        assert_eq!(None, sup.abuse_address("foo.bar"));
+    }
+}
+
+struct ShortenedUrlProviders {
+    providers: HashMap<String, String>
+}
+
+impl ShortenedUrlProviders {
+    fn new() -> Self {
+        Self {
+            providers: HashMap::from([
+                           ("bit.ly".into(), "abuse@bitly.com".into()),
+                           ("ow.ly".into(), "abuse@hootsuite.com".into()),
+                           ("rb.gy".into(), "support@rebrandly.com".into()),
+                           ("shorte.st".into(), "tcoabuse@twitter.com".into()),
+                           ("t.ly".into(), "support@t.ly".into()),
+                           ("t.co".into(), "tcoabuse@twitter.com".into()),
+                           ("tiny.cc".into(), "abuse@tiny.cc".into()),
+                           ("tinyurl.com".into(), "abuse@tinyurl.com".into()),
+            ])
+        }
+    }
+
+    pub fn is_member(&self, domain_name: &str) -> bool {
+        self.providers.get_key_value(domain_name).is_some()
+    }
+
+    pub fn abuse_address(&self, domain_name: &str) -> Option<&str> {
+        self.providers.get_key_value(domain_name).map(|(_, val)| &val[..])
+    }
+}
+
+#[cfg(test)]
+mod email_providers_tests {
+    use super::*;
+
+    #[test]
+    fn indicates_if_domain_is_a_number() {
+        let providers = EmailProviders::new();
+
+        assert!(!providers.is_member("test.xxx"));
+        assert!(providers.is_member("outlook.com"))
+    }
+
+    #[test]
+    fn returns_abuse_address_if_domain_is_a_number() {
+        let providers = EmailProviders::new();
+
+        assert_eq!(Some("abuse@gmail.com"), providers.abuse_address("googlemail.com"));
+    }
+
+    #[test]
+    fn returns_none_if_domain_is_not_a_member() {
+        let providers = EmailProviders::new();
+
+        assert!(providers.abuse_address("test.xxx").is_none())
+    }
+}
+
+struct EmailProviders {
+    providers: HashMap<String, String>
+}
+
+impl EmailProviders {
+    fn new() -> Self {
+        Self {
+            providers: HashMap::from([
+                           ("163.com".into(), "abuse@163.com".into()),
+                           ("aol.com".into(), "abuse@aol.com".into()),
+                           ("gmail.com".into(), "abuse@gmail.com".into()),
+                           ("googlemail.com".into(), "abuse@gmail.com".into()),
+                           ("hotmail.com".into(), "abuse@hotmail.com".into()),
+                           ("is.gd".into(), "abuse@is.gd".into()),
+                           ("outlook.com".into(), "abuse@outlook.com".into()),
+                           ("yahoo.com".into(), "abuse@yahoo.com".into()),
+            ])
+        }
+    }
+
+    pub fn is_member(&self, domain_name: &str) -> bool {
+        self.providers.get_key_value(domain_name).is_some()
+    }
+
+    pub fn abuse_address(&self, domain_name: &str) -> Option<&str> {
+        self.providers.get_key_value(domain_name).map(|(_, val)| &val[..])
+    }
 }
 
 impl fmt::Display for DomainCategory {
