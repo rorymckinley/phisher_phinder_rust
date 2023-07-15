@@ -8,6 +8,7 @@ pub mod errors;
 #[cfg(feature = "test-mocks")]
 pub mod mail_trap;
 pub mod mailer;
+pub mod mbox;
 #[cfg(feature = "test-mocks")]
 pub mod mountebank;
 pub mod populator;
