@@ -28,6 +28,9 @@ tokio = { version = "1.21.2", features = ["full"] }
 tokio-test = "0.4.2"
 url = "2.3.1"
 rusqlite = { version = "0.29.0", features = ["bundled"] }
+assert_fs = "1.0.13"
+fallible-streaming-iterator = "0.1.9"
+predicates = "2.1.1"
 
 [dev-dependencies]
 assert-json-diff = "2.0.2"
