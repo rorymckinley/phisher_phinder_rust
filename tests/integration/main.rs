@@ -1,7 +1,7 @@
 mod mailer_integration_tests;
-mod source_parsing_integration_tests;
+mod message_source_persistence_integration_tests;
 mod parser_integration_tests;
 mod rdap_integration_tests;
 mod reporter_integration_tests;
-mod store_mail_source_integration_tests;
+mod source_parsing_integration_tests;
 mod url_enumerator_integration_tests;

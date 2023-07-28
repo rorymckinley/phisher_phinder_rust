@@ -1,5 +1,5 @@
-use regex::Regex;
 use crate::message_source::MessageSource;
+use regex::Regex;
 
 #[cfg(test)]
 mod mbox_create_from_str_tests {
@@ -17,7 +17,10 @@ mod mbox_create_from_str_tests {
 
     #[test]
     fn treats_input_as_single_source_if_does_not_start_with_from() {
-        assert_eq!(single_source_expected(), create_from_str(&single_source_input()))
+        assert_eq!(
+            single_source_expected(),
+            create_from_str(&single_source_input())
+        )
     }
 
     fn input() -> String {
@@ -42,7 +45,7 @@ mod mbox_create_from_str_tests {
         vec![
             MessageSource::new(&mail_1()),
             MessageSource::new(&mail_containing_from()),
-            MessageSource::new(&mail_3())
+            MessageSource::new(&mail_3()),
         ]
     }
 
@@ -122,8 +125,7 @@ pub fn create_from_str(mbox_contents: &str) -> Vec<MessageSource> {
         mbox_contents
             .split("\r\nFrom ")
             .filter_map(|snippet| {
-                re
-                    .captures(snippet)
+                re.captures(snippet)
                     .map(|caps| caps.get(1).unwrap().as_str())
             })
             .map(|data| MessageSource::new(data))

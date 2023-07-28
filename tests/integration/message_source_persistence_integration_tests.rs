@@ -50,7 +50,17 @@ fn errors_out_if_db_path_is_bad() {
 }
 
 fn input() -> String {
-    json!(["Message Source 1", "Message Source 2"]).to_string()
+    json!([
+        {
+            "id": null,
+            "data": "Message Source 1",
+        },
+        {
+            "id": null,
+            "data": "Message Source 2"
+        }
+    ])
+    .to_string()
 }
 
 fn number_of_entries(db_path: &Path) -> usize {

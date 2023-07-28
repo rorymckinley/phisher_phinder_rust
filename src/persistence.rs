@@ -1,3 +1,4 @@
+use crate::message_source::MessageSource;
 use chrono::Utc;
 use rusqlite::Connection;
 use sha2::{Digest, Sha256};
@@ -41,7 +42,7 @@ mod persist_message_source_tests {
     fn creates_the_messages_sources_table() {
         let conn = connection();
 
-        persist_message_source(&conn, &message_source_1());
+        persist_message_source(&conn, message_source_1());
 
         assert!(table_exists(&conn))
     }
@@ -50,13 +51,13 @@ mod persist_message_source_tests {
     fn inserts_records_into_the_table() {
         let conn = connection();
 
-        persist_message_source(&conn, &message_source_1());
-        persist_message_source(&conn, &message_source_2());
+        persist_message_source(&conn, message_source_1());
+        persist_message_source(&conn, message_source_2());
 
         assert_eq!(
             vec![
-                (1, message_source_1(), message_1_hash()),
-                (2, message_source_2(), message_2_hash())
+                (1, message_source_data_1(), message_1_hash()),
+                (2, message_source_data_2(), message_2_hash())
             ],
             everything_except_created_at(table_contents(&conn))
         );
@@ -67,7 +68,7 @@ mod persist_message_source_tests {
         let conn = connection();
         let now = Utc::now();
 
-        persist_message_source(&conn, &message_source_1());
+        persist_message_source(&conn, message_source_1());
 
         let (_, _, _, created_at_string) = table_contents(&conn).pop().unwrap();
 
@@ -82,11 +83,11 @@ mod persist_message_source_tests {
     fn does_not_store_duplicate_messages() {
         let conn = connection();
 
-        persist_message_source(&conn, &message_source_1());
-        persist_message_source(&conn, &message_source_1());
+        persist_message_source(&conn, message_source_1());
+        persist_message_source(&conn, message_source_1());
 
         assert_eq!(
-            vec![(1, message_source_1(), message_1_hash()),],
+            vec![(1, message_source_data_1(), message_1_hash()),],
             everything_except_created_at(table_contents(&conn))
         );
     }
@@ -95,16 +96,24 @@ mod persist_message_source_tests {
         Connection::open_in_memory().unwrap()
     }
 
-    fn message_source_1() -> String {
+    fn message_source_data_1() -> String {
         "Message Source 1".into()
+    }
+
+    fn message_source_1() -> MessageSource {
+        MessageSource::new(&message_source_data_1())
     }
 
     fn message_1_hash() -> String {
         "41bea4496bda7a9eab66ca2f5e5a094992eaa4a98a81191d198ebdb115eed5f5".into()
     }
 
-    fn message_source_2() -> String {
+    fn message_source_data_2() -> String {
         "Message Source 2".into()
+    }
+
+    fn message_source_2() -> MessageSource {
+        MessageSource::new(&message_source_data_2())
     }
 
     fn message_2_hash() -> String {
@@ -143,7 +152,7 @@ mod persist_message_source_tests {
     }
 }
 
-pub fn persist_message_source(conn: &Connection, source: &str) {
+pub fn persist_message_source(conn: &Connection, source: MessageSource) {
     // TODO Think about ways the below can actually fail and then replace the `.unwrap()` calls
     conn.execute(
         "CREATE TABLE IF NOT EXISTS message_sources \
@@ -156,14 +165,14 @@ pub fn persist_message_source(conn: &Connection, source: &str) {
         [],
     )
     .unwrap();
-    let hash = sha256(source);
+    let hash = sha256(&source.data);
     let created_at = Utc::now();
 
     if new_record(conn, &hash) {
         conn.execute(
             "INSERT INTO message_sources (contents, hash, created_at) VALUES (?1, ?2, ?3)",
             (
-                source,
+                &source.data,
                 hash,
                 created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
             ),

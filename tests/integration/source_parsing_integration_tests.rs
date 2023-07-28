@@ -2,7 +2,7 @@ use assert_cmd::Command;
 use assert_json_diff::assert_json_eq;
 use serde_json::{json, Value};
 
-const BINARY_NAME: &str ="pp-source-parser";
+const BINARY_NAME: &str = "pp-source-parser";
 
 #[test]
 fn parses_mbox_file_test() {
