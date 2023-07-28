@@ -1,5 +1,5 @@
 mod mailer_integration_tests;
-mod mbox_parsing_integration_tests;
+mod source_parsing_integration_tests;
 mod parser_integration_tests;
 mod rdap_integration_tests;
 mod reporter_integration_tests;
