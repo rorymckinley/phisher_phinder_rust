@@ -6,7 +6,7 @@ fn main() {
 
     loop {
         if let Ok(0) = io::stdin().read_line(&mut mbox_contents) {
-            break
+            break;
         }
     }
 

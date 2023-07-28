@@ -1,10 +1,10 @@
 use chrono::prelude::*;
-use serde::{Deserialize, Serialize};
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use url::Url;
 use thiserror::Error;
+use url::Url;
 
 use crate::authentication_results::AuthenticationResults;
 
@@ -16,10 +16,7 @@ pub struct OutputData {
 }
 
 impl OutputData {
-    pub fn new(
-        parsed_mail: ParsedMail,
-        raw_mail: &str,
-    ) -> Self {
+    pub fn new(parsed_mail: ParsedMail, raw_mail: &str) -> Self {
         Self {
             parsed_mail,
             raw_mail: raw_mail.into(),
@@ -43,9 +40,15 @@ impl ParsedMail {
         delivery_nodes: Vec<DeliveryNode>,
         email_addresses: EmailAddresses,
         fulfillment_nodes: Vec<FulfillmentNode>,
-        subject: Option<String>
+        subject: Option<String>,
     ) -> Self {
-        Self { authentication_results, delivery_nodes, email_addresses, fulfillment_nodes, subject }
+        Self {
+            authentication_results,
+            delivery_nodes,
+            email_addresses,
+            fulfillment_nodes,
+            subject,
+        }
     }
 }
 
@@ -59,7 +62,7 @@ mod delivery_node_tests {
         let value = header_value(
             ("a.bar.com", "b.bar.com.", "10.10.10.12"),
             "a.baz.com",
-            "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)"
+            "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)",
         );
 
         let expected = DeliveryNode {
@@ -83,7 +86,7 @@ mod delivery_node_tests {
         let value = header_value(
             ("a.bar.com", "b.bar.com.", "10.10.10.12"),
             "a.baz.com",
-            "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)"
+            "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)",
         );
 
         let node = DeliveryNode::from_header_value(&value, 10, &mut trusted_node);
@@ -97,7 +100,7 @@ mod delivery_node_tests {
         let value = header_value(
             ("a.bar.com", "b.bar.com.", "10.10.10.12"),
             "a.baz.com",
-            "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)"
+            "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)",
         );
 
         DeliveryNode::from_header_value(&value, 10, &mut trusted_node);
@@ -116,9 +119,7 @@ mod delivery_node_tests {
     }
 
     fn host_node_option(host: &str, ip_address: Option<&str>) -> Option<HostNode> {
-        Some(
-            HostNode::new(Some(host), ip_address).unwrap()
-        )
+        Some(HostNode::new(Some(host), ip_address).unwrap())
     }
 
     fn recipient_option() -> Option<String> {
@@ -130,7 +131,10 @@ mod delivery_node_tests {
     }
 
     fn unobserved_trusted_node(recipient: &str) -> TrustedRecipientDeliveryNode {
-        TrustedRecipientDeliveryNode { recipient: String::from(recipient), observed: false }
+        TrustedRecipientDeliveryNode {
+            recipient: String::from(recipient),
+            observed: false,
+        }
     }
 }
 
@@ -148,11 +152,11 @@ impl DeliveryNode {
     pub fn from_header_value(
         header_value: &str,
         position: usize,
-        trusted_node: &mut TrustedRecipientDeliveryNode
+        trusted_node: &mut TrustedRecipientDeliveryNode,
     ) -> Self {
         let recipient = extract_recipient(header_value);
 
-        let trusted =  trusted_node.check_if_trusted(recipient.as_deref());
+        let trusted = trusted_node.check_if_trusted(recipient.as_deref());
 
         Self {
             advertised_sender: extract_advertised_sender(header_value),
@@ -214,7 +218,6 @@ fn extract_advertised_sender(header_value: &str) -> Option<HostNode> {
     regex.captures(header_value).map(|captures| {
         HostNode::new(Some(&captures[1]), None).expect("Creating a HostNode for advertised sender")
     })
-
 }
 
 #[cfg(test)]
@@ -307,7 +310,7 @@ mod extract_observed_sender_tests {
     fn header_value(
         advertised_host: &str,
         observed_host_opt: Option<&str>,
-        ip_opt: Option<&str>
+        ip_opt: Option<&str>,
     ) -> String {
         let observed_host_padded = if let Some(observed_host) = observed_host_opt {
             format!("{observed_host} ")
@@ -361,8 +364,9 @@ fn extract_observed_sender(header_value: &str) -> Option<HostNode> {
     if let Some(captures) = regex.captures(header_value) {
         HostNode::new(
             captures.name("host").map(|m| m.as_str()),
-            captures.name("ip").map(|m| m.as_str())
-        ).ok()
+            captures.name("ip").map(|m| m.as_str()),
+        )
+        .ok()
     } else {
         None
     }
@@ -390,10 +394,7 @@ mod extract_recipient_tests {
 
         let expected = Some("a.baz.com".into());
 
-        assert_eq!(
-            expected,
-            extract_recipient(&header)
-        );
+        assert_eq!(expected, extract_recipient(&header));
     }
 
     #[test]
@@ -402,10 +403,7 @@ mod extract_recipient_tests {
 
         let expected = Some("a.baz.com".into());
 
-        assert_eq!(
-            expected,
-            extract_recipient(&header)
-        );
+        assert_eq!(expected, extract_recipient(&header));
     }
 
     #[test]
@@ -449,9 +447,9 @@ mod extract_recipient_tests {
 fn extract_recipient(header_value: &str) -> Option<String> {
     let regex = Regex::new(r"by\s(?P<recipient>\S+)\s").unwrap();
 
-    regex.captures(header_value).map(|captures| {
-        captures["recipient"].into()
-    })
+    regex
+        .captures(header_value)
+        .map(|captures| captures["recipient"].into())
 }
 
 #[cfg(test)]
@@ -488,14 +486,12 @@ mod extract_time_from_header_tests {
 }
 
 fn extract_time_from_header(header_value: &str) -> Option<DateTime<Utc>> {
-    let header_parts = header_value
-        .split(';')
-        .collect::<Vec<&str>>();
+    let header_parts = header_value.split(';').collect::<Vec<&str>>();
 
     if let &[_, date_part] = header_parts.as_slice() {
         match DateTime::parse_from_rfc2822(date_part.trim()) {
             Ok(date) => Some(date.into()),
-            Err(_) => None
+            Err(_) => None,
         }
     } else {
         None
@@ -521,7 +517,7 @@ mod fulfillment_node_tests {
                 }),
                 registrar: None,
                 url: url.into(),
-            }
+            },
         };
 
         assert_eq!(expected, FulfillmentNode::new(url));
@@ -531,7 +527,7 @@ mod fulfillment_node_tests {
     fn visible_url_test() {
         let f_node = FulfillmentNode {
             hidden: Some(Node::new("https://foo.bar")),
-            visible: Node::new("https://foo.baz")
+            visible: Node::new("https://foo.baz"),
         };
 
         assert_eq!("https://foo.baz", f_node.visible_url());
@@ -542,7 +538,10 @@ mod fulfillment_node_tests {
         let mut f_node = FulfillmentNode::new("https://foo.bar");
         f_node.set_hidden("https://redirect.bar");
 
-        assert_eq!(Some(String::from("https://redirect.bar")), f_node.hidden_url());
+        assert_eq!(
+            Some(String::from("https://redirect.bar")),
+            f_node.hidden_url()
+        );
     }
 
     #[test]
@@ -566,7 +565,7 @@ mod fulfillment_node_tests {
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct FulfillmentNode {
     pub hidden: Option<Node>,
-    pub visible: Node
+    pub visible: Node,
 }
 
 impl FulfillmentNode {
@@ -664,7 +663,7 @@ mod host_node_tests {
 #[derive(Debug, Error)]
 pub enum HostNodeError {
     #[error("error instantiating HostNode")]
-    InstantiationError
+    InstantiationError,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -679,23 +678,21 @@ pub struct HostNode {
 impl HostNode {
     pub fn new(host: Option<&str>, ip_address: Option<&str>) -> Result<Self, HostNodeError> {
         if let (None, None) = (host, ip_address) {
-            return Err(HostNodeError::InstantiationError)
+            return Err(HostNodeError::InstantiationError);
         }
 
         let domain = match host {
             Some(h) => Domain::from_host(h),
-            None => None
+            None => None,
         };
 
-        Ok(
-            Self {
-                domain,
-                host: host.map(|h| h.into()),
-                infrastructure_provider: None,
-                ip_address: ip_address.map(|ip_a| ip_a.into()),
-                registrar: None,
-            }
-        )
+        Ok(Self {
+            domain,
+            host: host.map(|h| h.into()),
+            infrastructure_provider: None,
+            ip_address: ip_address.map(|ip_a| ip_a.into()),
+            registrar: None,
+        })
     }
 }
 
@@ -731,14 +728,18 @@ pub struct Node {
 
 impl Node {
     pub fn new(url: &str) -> Self {
-        Self { url: url.into(), domain: Domain::from_url(url), registrar: None }
+        Self {
+            url: url.into(),
+            domain: Domain::from_url(url),
+            registrar: None,
+        }
     }
 }
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 enum LinkCategory {
-    Other
+    Other,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -751,7 +752,11 @@ pub struct EmailAddresses {
 
 impl EmailAddresses {
     pub fn to_email_address_data(address: String) -> EmailAddressData {
-        EmailAddressData {address, domain: None, registrar: None}
+        EmailAddressData {
+            address,
+            domain: None,
+            registrar: None,
+        }
     }
 }
 
@@ -771,14 +776,12 @@ mod email_address_data_from_email_address {
         let address = "scammer@fake.zzz";
         let expected = EmailAddressData {
             address: address.into(),
-            domain: Some(
-                Domain {
-                    abuse_email_address: None,
-                    category: DomainCategory::Other,
-                    name: "fake.zzz".into(),
-                    registration_date: None,
-                }
-            ),
+            domain: Some(Domain {
+                abuse_email_address: None,
+                category: DomainCategory::Other,
+                name: "fake.zzz".into(),
+                registration_date: None,
+            }),
             registrar: None,
         };
 
@@ -829,7 +832,10 @@ mod domain_from_email_address_tests {
             registration_date: None,
         };
 
-        assert_eq!(Some(expected), Domain::from_email_address("foo@outlook.com"))
+        assert_eq!(
+            Some(expected),
+            Domain::from_email_address("foo@outlook.com")
+        )
     }
 
     #[test]
@@ -935,8 +941,8 @@ impl Domain {
                     } else {
                         Some(Self::initialise_other_domain(name))
                     }
-                },
-                None => None
+                }
+                None => None,
             }
         } else {
             None
@@ -1019,22 +1025,22 @@ mod shortened_url_providers {
 }
 
 struct ShortenedUrlProviders {
-    providers: HashMap<String, String>
+    providers: HashMap<String, String>,
 }
 
 impl ShortenedUrlProviders {
     fn new() -> Self {
         Self {
             providers: HashMap::from([
-                           ("bit.ly".into(), "abuse@bitly.com".into()),
-                           ("ow.ly".into(), "abuse@hootsuite.com".into()),
-                           ("rb.gy".into(), "support@rebrandly.com".into()),
-                           ("shorte.st".into(), "tcoabuse@twitter.com".into()),
-                           ("t.ly".into(), "support@t.ly".into()),
-                           ("t.co".into(), "tcoabuse@twitter.com".into()),
-                           ("tiny.cc".into(), "abuse@tiny.cc".into()),
-                           ("tinyurl.com".into(), "abuse@tinyurl.com".into()),
-            ])
+                ("bit.ly".into(), "abuse@bitly.com".into()),
+                ("ow.ly".into(), "abuse@hootsuite.com".into()),
+                ("rb.gy".into(), "support@rebrandly.com".into()),
+                ("shorte.st".into(), "tcoabuse@twitter.com".into()),
+                ("t.ly".into(), "support@t.ly".into()),
+                ("t.co".into(), "tcoabuse@twitter.com".into()),
+                ("tiny.cc".into(), "abuse@tiny.cc".into()),
+                ("tinyurl.com".into(), "abuse@tinyurl.com".into()),
+            ]),
         }
     }
 
@@ -1043,7 +1049,9 @@ impl ShortenedUrlProviders {
     }
 
     pub fn abuse_address(&self, domain_name: &str) -> Option<&str> {
-        self.providers.get_key_value(domain_name).map(|(_, val)| &val[..])
+        self.providers
+            .get_key_value(domain_name)
+            .map(|(_, val)| &val[..])
     }
 }
 
@@ -1063,7 +1071,10 @@ mod email_providers_tests {
     fn returns_abuse_address_if_domain_is_a_number() {
         let providers = EmailProviders::new();
 
-        assert_eq!(Some("abuse@gmail.com"), providers.abuse_address("googlemail.com"));
+        assert_eq!(
+            Some("abuse@gmail.com"),
+            providers.abuse_address("googlemail.com")
+        );
     }
 
     #[test]
@@ -1075,22 +1086,22 @@ mod email_providers_tests {
 }
 
 struct EmailProviders {
-    providers: HashMap<String, String>
+    providers: HashMap<String, String>,
 }
 
 impl EmailProviders {
     fn new() -> Self {
         Self {
             providers: HashMap::from([
-                           ("163.com".into(), "abuse@163.com".into()),
-                           ("aol.com".into(), "abuse@aol.com".into()),
-                           ("gmail.com".into(), "abuse@gmail.com".into()),
-                           ("googlemail.com".into(), "abuse@gmail.com".into()),
-                           ("hotmail.com".into(), "abuse@hotmail.com".into()),
-                           ("is.gd".into(), "abuse@is.gd".into()),
-                           ("outlook.com".into(), "abuse@outlook.com".into()),
-                           ("yahoo.com".into(), "abuse@yahoo.com".into()),
-            ])
+                ("163.com".into(), "abuse@163.com".into()),
+                ("aol.com".into(), "abuse@aol.com".into()),
+                ("gmail.com".into(), "abuse@gmail.com".into()),
+                ("googlemail.com".into(), "abuse@gmail.com".into()),
+                ("hotmail.com".into(), "abuse@hotmail.com".into()),
+                ("is.gd".into(), "abuse@is.gd".into()),
+                ("outlook.com".into(), "abuse@outlook.com".into()),
+                ("yahoo.com".into(), "abuse@yahoo.com".into()),
+            ]),
         }
     }
 
@@ -1099,12 +1110,14 @@ impl EmailProviders {
     }
 
     pub fn abuse_address(&self, domain_name: &str) -> Option<&str> {
-        self.providers.get_key_value(domain_name).map(|(_, val)| &val[..])
+        self.providers
+            .get_key_value(domain_name)
+            .map(|(_, val)| &val[..])
     }
 }
 
 impl fmt::Display for DomainCategory {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) ->fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self)
     }
 }
@@ -1121,7 +1134,6 @@ pub struct InfrastructureProvider {
     pub name: Option<String>,
 }
 
-
 #[derive(Debug, PartialEq)]
 pub struct TrustedRecipientDeliveryNode {
     pub recipient: String,
@@ -1136,7 +1148,7 @@ mod trusted_recipient_delivery_node_new_tests {
     fn can_instantiate_itself_from_a_name() {
         let expected = TrustedRecipientDeliveryNode {
             recipient: String::from("foo"),
-            observed: false
+            observed: false,
         };
 
         assert_eq!(expected, TrustedRecipientDeliveryNode::new("foo"));
@@ -1185,7 +1197,10 @@ mod trusted_recipient_delivery_node_check_if_trusted_tests {
     }
 
     fn trusted_node(observed: bool) -> TrustedRecipientDeliveryNode {
-        TrustedRecipientDeliveryNode { recipient: "trusted_recipient".into(), observed }
+        TrustedRecipientDeliveryNode {
+            recipient: "trusted_recipient".into(),
+            observed,
+        }
     }
 }
 
@@ -1210,8 +1225,8 @@ impl TrustedRecipientDeliveryNode {
                 } else {
                     false
                 }
-            },
-            None => false
+            }
+            None => false,
         }
     }
 }

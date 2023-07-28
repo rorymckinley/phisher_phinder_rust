@@ -1,9 +1,9 @@
 use assert_cmd::Command;
 use assert_fs::fixture::TempDir;
-use predicates::prelude::*;
-use serde_json::json;
 use fallible_streaming_iterator::FallibleStreamingIterator;
+use predicates::prelude::*;
 use rusqlite::Connection;
+use serde_json::json;
 use std::path::Path;
 
 #[test]
@@ -13,8 +13,7 @@ fn stores_message_source_data() {
 
     let mut cmd = Command::cargo_bin("pp-store-mail-source").unwrap();
 
-    cmd
-        .env("PP_DB_PATH", db_path.to_str().unwrap())
+    cmd.env("PP_DB_PATH", db_path.to_str().unwrap())
         .write_stdin(input())
         .assert()
         .success();
@@ -26,11 +25,12 @@ fn stores_message_source_data() {
 fn errors_out_if_no_db_path() {
     let mut cmd = Command::cargo_bin("pp-store-mail-source").unwrap();
 
-    cmd
-        .write_stdin(input())
+    cmd.write_stdin(input())
         .assert()
         .failure()
-        .stderr(predicate::str::contains("PP_DB_PATH ENV variable is required"));
+        .stderr(predicate::str::contains(
+            "PP_DB_PATH ENV variable is required",
+        ));
 }
 
 #[test]
@@ -40,16 +40,17 @@ fn errors_out_if_db_path_is_bad() {
 
     let mut cmd = Command::cargo_bin("pp-store-mail-source").unwrap();
 
-    cmd
-        .env("PP_DB_PATH", db_path.to_str().unwrap())
+    cmd.env("PP_DB_PATH", db_path.to_str().unwrap())
         .write_stdin(input())
         .assert()
         .failure()
-        .stderr(predicate::str::contains("PP_DB_PATH ENV variable appears to be incorrect"));
+        .stderr(predicate::str::contains(
+            "PP_DB_PATH ENV variable appears to be incorrect",
+        ));
 }
 
 fn input() -> String {
-    json!(["Message Source 1", "Message Source 2" ]).to_string()
+    json!(["Message Source 1", "Message Source 2"]).to_string()
 }
 
 fn number_of_entries(db_path: &Path) -> usize {

@@ -5,12 +5,9 @@ use assert_json_diff::assert_json_eq;
 fn returns_reportable_entities_in_json() {
     let mut cmd = Command::cargo_bin("pp-reporter").unwrap();
 
-    let assert = cmd
-        .write_stdin(json_input())
-        .assert()
-        .success();
+    let assert = cmd.write_stdin(json_input()).assert().success();
 
-    let std::process::Output {stdout, ..} = assert.get_output();
+    let std::process::Output { stdout, .. } = assert.get_output();
 
     assert_json_eq!(json_output(), String::from_utf8(stdout.to_vec()).unwrap());
 }
@@ -159,7 +156,8 @@ fn json_input() -> String {
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
         },
         "raw_mail": ""
-    }).to_string()
+    })
+    .to_string()
 }
 
 fn json_output() -> String {
@@ -357,5 +355,6 @@ fn json_output() -> String {
             ],
         },
         "raw_mail": ""
-    }).to_string()
+    })
+    .to_string()
 }

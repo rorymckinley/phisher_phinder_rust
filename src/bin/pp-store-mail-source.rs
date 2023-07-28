@@ -1,13 +1,13 @@
-use std::{io, process};
-use std::path::Path;
 use phisher_phinder_rust::persistence::{connect, persist_message_source};
+use std::path::Path;
+use std::{io, process};
 
 fn main() {
     let mut raw_message_sources = String::new();
 
     loop {
         if let Ok(0) = io::stdin().read_line(&mut raw_message_sources) {
-            break
+            break;
         }
     }
 
@@ -23,7 +23,7 @@ fn main() {
                 eprintln!("PP_DB_PATH ENV variable appears to be incorrect");
                 process::exit(2)
             }
-        },
+        }
         _ => {
             eprintln!("PP_DB_PATH ENV variable is required");
             process::exit(1)

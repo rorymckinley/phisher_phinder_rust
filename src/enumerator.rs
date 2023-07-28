@@ -32,7 +32,7 @@ mod enumerate_tests {
                 ],
                 None,
             ),
-            "raw mail text"
+            "raw mail text",
         )
     }
 
@@ -54,9 +54,9 @@ mod enumerate_tests {
                 vec![],
                 email_addresses(),
                 f_nodes,
-                None
+                None,
             ),
-            "raw mail text"
+            "raw mail text",
         )
     }
 
@@ -70,26 +70,26 @@ mod enumerate_tests {
     }
 
     fn authentication_results() -> Option<AuthenticationResults> {
-        Some(
-            AuthenticationResults {
-                dkim: Some(Dkim {
-                    result: Some(DkimResult::Fail),
-                    selector: Some("".into()),
-                    signature_snippet: Some("".into()),
-                    user_identifier_snippet: Some("".into()),
-                }),
-                service_identifier: Some("does.not.matter".into()),
-                spf: Some(Spf {
-                    ip_address: Some("".into()),
-                    result: Some(SpfResult::SoftFail),
-                    smtp_mailfrom: Some("".into())
-                })
-            }
-        )
+        Some(AuthenticationResults {
+            dkim: Some(Dkim {
+                result: Some(DkimResult::Fail),
+                selector: Some("".into()),
+                signature_snippet: Some("".into()),
+                user_identifier_snippet: Some("".into()),
+            }),
+            service_identifier: Some("does.not.matter".into()),
+            spf: Some(Spf {
+                ip_address: Some("".into()),
+                result: Some(SpfResult::SoftFail),
+                smtp_mailfrom: Some("".into()),
+            }),
+        })
     }
 
     fn sorted(mut data: OutputData) -> OutputData {
-        data.parsed_mail.fulfillment_nodes.sort_by(|a, b| a.visible_url().cmp(b.visible_url()));
+        data.parsed_mail
+            .fulfillment_nodes
+            .sort_by(|a, b| a.visible_url().cmp(b.visible_url()));
 
         data
     }
@@ -101,9 +101,7 @@ pub async fn enumerate(data: OutputData) -> OutputData {
     let mut set: JoinSet<FulfillmentNode> = JoinSet::new();
 
     for node in data.parsed_mail.fulfillment_nodes.into_iter() {
-        set.spawn(async  move{
-            enumerate_visible_url(node).await
-        });
+        set.spawn(async move { enumerate_visible_url(node).await });
     }
 
     let mut fulfillment_nodes = vec![];
@@ -190,7 +188,8 @@ async fn enumerate_visible_url(mut node: FulfillmentNode) -> FulfillmentNode {
     // TODO Can this ever produce an error?
     let client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .build().unwrap();
+        .build()
+        .unwrap();
 
     if let Ok(res) = client.head(node.visible_url()).send().await {
         match res.status() {

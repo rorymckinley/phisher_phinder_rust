@@ -1,9 +1,6 @@
 use assert_cmd::Command;
 
-use phisher_phinder_rust::mountebank::{
-    clear_all_impostors,
-    setup_head_impostor,
-};
+use phisher_phinder_rust::mountebank::{clear_all_impostors, setup_head_impostor};
 
 #[test]
 fn test_enumerate_fulfillment_nodes() {
@@ -11,16 +8,11 @@ fn test_enumerate_fulfillment_nodes() {
     setup_head_impostor(4545, true, Some("https://re.direct.to"));
 
     let mut cmd = Command::cargo_bin("pp-url-enumerator").unwrap();
-    cmd
-        .args(["--human"])
+    cmd.args(["--human"])
         .write_stdin(json_input())
         .assert()
         .success()
-        .stdout(
-            predicates::str::contains(
-                "https://re.direct.to"
-            )
-        );
+        .stdout(predicates::str::contains("https://re.direct.to"));
 }
 
 #[test]
@@ -29,8 +21,7 @@ fn test_enumerate_fulfillment_nodes_json() {
     setup_head_impostor(4545, true, Some("https://re.direct.to"));
 
     let mut cmd = Command::cargo_bin("pp-url-enumerator").unwrap();
-    cmd
-        .write_stdin(json_input())
+    cmd.write_stdin(json_input())
         .assert()
         .success()
         .stdout(json_output());
@@ -108,7 +99,8 @@ fn json_input() -> String {
         },
         "raw_mail": "",
         "reportable_entities": null
-    }).to_string()
+    })
+    .to_string()
 }
 
 fn json_output() -> String {
@@ -192,5 +184,6 @@ fn json_output() -> String {
         },
         "raw_mail": "",
         "reportable_entities": null
-    }).to_string()
+    })
+    .to_string()
 }

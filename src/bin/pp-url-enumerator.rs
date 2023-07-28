@@ -11,7 +11,7 @@ async fn main() {
 
     loop {
         if let Ok(0) = io::stdin().read_line(&mut raw_input) {
-            break
+            break;
         }
     }
 

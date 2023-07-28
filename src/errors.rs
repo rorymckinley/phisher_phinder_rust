@@ -7,5 +7,5 @@ pub enum AppError {
     #[error(transparent)]
     UTF8(#[from] std::string::FromUtf8Error),
     #[error(transparent)]
-    Rusqlite(#[from] rusqlite::Error)
+    Rusqlite(#[from] rusqlite::Error),
 }

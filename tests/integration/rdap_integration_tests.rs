@@ -2,15 +2,11 @@ use assert_cmd::Command;
 use assert_json_diff::assert_json_eq;
 use predicates::prelude::*;
 
-use phisher_phinder_rust::mountebank::{
-    clear_all_impostors,
-    setup_bootstrap_server,
-    setup_dns_server,
-    setup_ip_v4_server,
-    DnsServerConfig,
-    IpServerConfig,
-};
 use chrono::prelude::*;
+use phisher_phinder_rust::mountebank::{
+    clear_all_impostors, setup_bootstrap_server, setup_dns_server, setup_ip_v4_server,
+    DnsServerConfig, IpServerConfig,
+};
 
 #[test]
 fn test_fetching_rdap_details() {
@@ -18,22 +14,16 @@ fn test_fetching_rdap_details() {
 
     let mut cmd = Command::cargo_bin("pp-rdap").unwrap();
 
-    cmd
-        .args(["--human"])
+    cmd.args(["--human"])
         .write_stdin(json_input())
         .env("RDAP_BOOTSTRAP_HOST", "http://localhost:4545")
         .assert()
         .success()
         .stdout(
-            predicates::str::contains(
-                "abuse@regone.zzz"
-            ).and(
-                predicates::str::contains("Reg Two")
-            ).and(
-                predicates::str::contains("2022-11-18 10:11:14")
-            ).and(
-                predicates::str::contains("visible.net")
-            )
+            predicates::str::contains("abuse@regone.zzz")
+                .and(predicates::str::contains("Reg Two"))
+                .and(predicates::str::contains("2022-11-18 10:11:14"))
+                .and(predicates::str::contains("visible.net")),
         );
 }
 
@@ -49,7 +39,7 @@ fn test_fetching_rdap_details_json() {
         .assert()
         .success();
 
-    let std::process::Output {stdout, ..} = assert.get_output();
+    let std::process::Output { stdout, .. } = assert.get_output();
 
     assert_json_eq!(json_output(), String::from_utf8(stdout.to_vec()).unwrap());
 }
@@ -173,7 +163,8 @@ fn json_input() -> String {
         },
         "raw_mail": "",
         "reportable_entities": null,
-    }).to_string()
+    })
+    .to_string()
 }
 
 fn json_output() -> String {
@@ -321,88 +312,85 @@ fn json_output() -> String {
         },
         "raw_mail": "",
         "reportable_entities": null,
-    }).to_string()
+    })
+    .to_string()
 }
 
 fn setup_mountebank() {
     clear_all_impostors();
     setup_bootstrap_server();
 
-    setup_dns_server(
-        vec![
-            DnsServerConfig {
-                domain_name: "fake.net",
-                handle: None,
-                registrar: Some("Reg One"),
-                abuse_email: Some("abuse@regone.zzz"),
-                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
-                response_code: 200,
-            },
-            DnsServerConfig {
-                domain_name: "possiblynotfake.com",
-                handle: None,
-                registrar: Some("Reg Two"),
-                abuse_email: Some("abuse@regtwo.zzz"),
-                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()),
-                response_code: 200,
-            },
-            DnsServerConfig {
-                domain_name: "morethanlikelyfake.net",
-                handle: None,
-                registrar: Some("Reg Three"),
-                abuse_email: Some("abuse@regthree.zzz"),
-                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap()),
-                response_code: 200,
-            },
-            DnsServerConfig {
-                domain_name: "visible.net",
-                handle: None,
-                registrar: Some("Reg Four"),
-                abuse_email: Some("abuse@regfour.zzz"),
-                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 15).unwrap()),
-                response_code: 200,
-            },
-            DnsServerConfig {
-                domain_name: "hidden.com",
-                handle: None,
-                registrar: Some("Reg Five"),
-                abuse_email: Some("abuse@regfive.zzz"),
-                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 16).unwrap()),
-                response_code: 200,
-            },
-            DnsServerConfig {
-                domain_name: "alsofake.net",
-                handle: None,
-                registrar: Some("Reg Six"),
-                abuse_email: Some("abuse@regsix.zzz"),
-                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap()),
-                response_code: 200,
-            },
-            DnsServerConfig {
-                domain_name: "dodgyaf.com",
-                handle: None,
-                registrar: Some("Reg Seven"),
-                abuse_email: Some("abuse@regseven.zzz"),
-                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 18).unwrap()),
-                response_code: 200,
-            },
-            DnsServerConfig {
-                domain_name: "probablylegit.com",
-                handle: None,
-                registrar: Some("Reg Eight"),
-                abuse_email: Some("abuse@regeight.zzz"),
-                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 19).unwrap()),
-                response_code: 200,
-            },
-        ]
-    );
-
-    setup_ip_v4_server(vec![
-        IpServerConfig::response_200(
-            "10.10.10.10",
-            None,
-            ("10.0.0.0", "10.255.255.255"),
-            Some(&[("Acme Hosting", "registrant", "abuse@acmehost.zzz")])
-        )
+    setup_dns_server(vec![
+        DnsServerConfig {
+            domain_name: "fake.net",
+            handle: None,
+            registrar: Some("Reg One"),
+            abuse_email: Some("abuse@regone.zzz"),
+            registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
+            response_code: 200,
+        },
+        DnsServerConfig {
+            domain_name: "possiblynotfake.com",
+            handle: None,
+            registrar: Some("Reg Two"),
+            abuse_email: Some("abuse@regtwo.zzz"),
+            registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()),
+            response_code: 200,
+        },
+        DnsServerConfig {
+            domain_name: "morethanlikelyfake.net",
+            handle: None,
+            registrar: Some("Reg Three"),
+            abuse_email: Some("abuse@regthree.zzz"),
+            registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap()),
+            response_code: 200,
+        },
+        DnsServerConfig {
+            domain_name: "visible.net",
+            handle: None,
+            registrar: Some("Reg Four"),
+            abuse_email: Some("abuse@regfour.zzz"),
+            registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 15).unwrap()),
+            response_code: 200,
+        },
+        DnsServerConfig {
+            domain_name: "hidden.com",
+            handle: None,
+            registrar: Some("Reg Five"),
+            abuse_email: Some("abuse@regfive.zzz"),
+            registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 16).unwrap()),
+            response_code: 200,
+        },
+        DnsServerConfig {
+            domain_name: "alsofake.net",
+            handle: None,
+            registrar: Some("Reg Six"),
+            abuse_email: Some("abuse@regsix.zzz"),
+            registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap()),
+            response_code: 200,
+        },
+        DnsServerConfig {
+            domain_name: "dodgyaf.com",
+            handle: None,
+            registrar: Some("Reg Seven"),
+            abuse_email: Some("abuse@regseven.zzz"),
+            registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 18).unwrap()),
+            response_code: 200,
+        },
+        DnsServerConfig {
+            domain_name: "probablylegit.com",
+            handle: None,
+            registrar: Some("Reg Eight"),
+            abuse_email: Some("abuse@regeight.zzz"),
+            registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 19).unwrap()),
+            response_code: 200,
+        },
     ]);
+
+    setup_ip_v4_server(vec![IpServerConfig::response_200(
+        "10.10.10.10",
+        None,
+        ("10.0.0.0", "10.255.255.255"),
+        Some(&[("Acme Hosting", "registrant", "abuse@acmehost.zzz")]),
+    )]);
 }

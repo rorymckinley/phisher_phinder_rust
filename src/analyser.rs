@@ -1,16 +1,12 @@
 use crate::analysable_message::AnalysableMessage;
 use crate::authentication_results::AuthenticationResults;
 use crate::data::{
-    DeliveryNode,
-    EmailAddressData,
-    EmailAddresses,
-    FulfillmentNode,
-    TrustedRecipientDeliveryNode,
+    DeliveryNode, EmailAddressData, EmailAddresses, FulfillmentNode, TrustedRecipientDeliveryNode,
 };
 use regex::Regex;
 
 pub struct Analyser<'a, T> {
-    parsed_mail: &'a T
+    parsed_mail: &'a T,
 }
 
 #[cfg(test)]
@@ -20,9 +16,7 @@ mod email_addresses_tests {
 
     #[test]
     fn sender_email_addresses() {
-        let parsed = parsed_mail(vec![
-            "mailto:link2@test.com;link1@test.com",
-        ]);
+        let parsed = parsed_mail(vec!["mailto:link2@test.com;link1@test.com"]);
         let analyser = Analyser::new(&parsed);
 
         let expected_result = EmailAddresses {
@@ -47,10 +41,10 @@ mod email_addresses_tests {
         let analyser = Analyser::new(&parsed);
 
         let expected = vec![
-                convert_email_addresses("link1@test.com"),
-                convert_email_addresses("link2@test.com"),
-                convert_email_addresses("link3@test.com"),
-                convert_email_addresses("link4@test.com"),
+            convert_email_addresses("link1@test.com"),
+            convert_email_addresses("link2@test.com"),
+            convert_email_addresses("link3@test.com"),
+            convert_email_addresses("link4@test.com"),
         ];
 
         assert_eq!(expected, analyser.sender_email_addresses().links)
@@ -66,8 +60,8 @@ mod email_addresses_tests {
         let analyser = Analyser::new(&parsed);
 
         let expected = vec![
-                convert_email_addresses("link1@test.com"),
-                convert_email_addresses("link2@test.com"),
+            convert_email_addresses("link1@test.com"),
+            convert_email_addresses("link2@test.com"),
         ];
 
         assert_eq!(expected, analyser.sender_email_addresses().links)
@@ -83,8 +77,8 @@ mod email_addresses_tests {
         let analyser = Analyser::new(&parsed);
 
         let expected = vec![
-                convert_email_addresses("link1@test.com"),
-                convert_email_addresses("link2@test.com"),
+            convert_email_addresses("link1@test.com"),
+            convert_email_addresses("link2@test.com"),
         ];
 
         assert_eq!(expected, analyser.sender_email_addresses().links)
@@ -93,14 +87,12 @@ mod email_addresses_tests {
     fn convert_email_addresses(address: &str) -> EmailAddressData {
         EmailAddressData {
             address: address.into(),
-            domain: Some(
-                Domain {
-                    abuse_email_address: None,
-                    category: DomainCategory::Other,
-                    name: "test.com".into(),
-                    registration_date: None,
-                }
-            ),
+            domain: Some(Domain {
+                abuse_email_address: None,
+                category: DomainCategory::Other,
+                name: "test.com".into(),
+                registration_date: None,
+            }),
             registrar: None,
         }
     }
@@ -113,7 +105,7 @@ mod email_addresses_tests {
             "My First Phishing Email".into(),
             links,
             vec![],
-            None
+            None,
         )
     }
 }
@@ -127,18 +119,19 @@ mod fulfillment_nodes_tests {
         let parsed = parsed_mail(vec![]);
         let analyser = Analyser::new(&parsed);
 
-        assert_eq!(String::from("My First Phishing Email"), analyser.subject().unwrap());
+        assert_eq!(
+            String::from("My First Phishing Email"),
+            analyser.subject().unwrap()
+        );
     }
 
     #[test]
     fn test_fullfillment_nodes() {
-        let parsed = parsed_mail(
-            vec![
-                "https://foo.biz",
-                "https://foo.baz",
-                "https://foo.bar",
-            ]
-        );
+        let parsed = parsed_mail(vec![
+            "https://foo.biz",
+            "https://foo.baz",
+            "https://foo.bar",
+        ]);
         let analyser = Analyser::new(&parsed);
 
         let expected_result = vec![
@@ -147,21 +140,17 @@ mod fulfillment_nodes_tests {
             FulfillmentNode::new("https://foo.biz"),
         ];
 
-        assert_eq!(
-            expected_result, analyser.fulfillment_nodes()
-        )
+        assert_eq!(expected_result, analyser.fulfillment_nodes())
     }
 
     #[test]
     fn test_fulfillment_nodes_duplicates() {
-        let parsed = parsed_mail(
-            vec![
-                "https://foo.biz",
-                "https://foo.bar",
-                "https://foo.baz",
-                "https://foo.bar",
-            ]
-        );
+        let parsed = parsed_mail(vec![
+            "https://foo.biz",
+            "https://foo.bar",
+            "https://foo.baz",
+            "https://foo.bar",
+        ]);
         let analyser = Analyser::new(&parsed);
 
         let expected_result = vec![
@@ -170,21 +159,17 @@ mod fulfillment_nodes_tests {
             FulfillmentNode::new("https://foo.biz"),
         ];
 
-        assert_eq!(
-            expected_result, analyser.fulfillment_nodes()
-        )
+        assert_eq!(expected_result, analyser.fulfillment_nodes())
     }
 
     #[test]
     fn test_fulfillment_nodes_empty_link() {
-        let parsed = parsed_mail(
-            vec![
-                "https://foo.biz",
-                "https://foo.bar",
-                "https://foo.baz",
-                "",
-            ]
-        );
+        let parsed = parsed_mail(vec![
+            "https://foo.biz",
+            "https://foo.bar",
+            "https://foo.baz",
+            "",
+        ]);
         let analyser = Analyser::new(&parsed);
 
         let expected_result = vec![
@@ -193,9 +178,7 @@ mod fulfillment_nodes_tests {
             FulfillmentNode::new("https://foo.biz"),
         ];
 
-        assert_eq!(
-            expected_result, analyser.fulfillment_nodes()
-        )
+        assert_eq!(expected_result, analyser.fulfillment_nodes())
     }
 
     fn parsed_mail(links: Vec<&str>) -> TestParsedMail {
@@ -206,7 +189,7 @@ mod fulfillment_nodes_tests {
             "My First Phishing Email".into(),
             links,
             vec![],
-            None
+            None,
         )
     }
 }
@@ -214,20 +197,20 @@ mod fulfillment_nodes_tests {
 #[cfg(test)]
 mod delivery_nodes_tests {
     use super::*;
-    use chrono::prelude::*;
     use crate::data::{DeliveryNode, HostNode};
+    use chrono::prelude::*;
 
     #[test]
     fn return_delivery_nodes() {
         let h_1 = header(
             ("a.bar.com", "b.bar.com.", "10.10.10.12"),
             "a.baz.com",
-            "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)"
+            "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)",
         );
         let h_2 = header(
             ("c.bar.com", "d.bar.com.", "10.10.10.11"),
             "b.baz.com",
-            "Tue, 06 Sep 2022 16:17:21 -0700 (PDT)"
+            "Tue, 06 Sep 2022 16:17:21 -0700 (PDT)",
         );
 
         let parsed = parsed_mail(vec![&h_1, &h_2]);
@@ -252,9 +235,7 @@ mod delivery_nodes_tests {
             },
         ];
 
-        assert_eq!(
-            expected_result, analyser.delivery_nodes("a.baz.com")
-        )
+        assert_eq!(expected_result, analyser.delivery_nodes("a.baz.com"))
     }
 
     #[test]
@@ -262,33 +243,28 @@ mod delivery_nodes_tests {
         let h_1 = header(
             ("a.bar.com", "b.bar.com.", "10.10.10.12"),
             "a.baz.com",
-            "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)"
+            "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)",
         );
         let h_2 = header(
             ("c.bar.com", "d.bar.com.", "10.10.10.11"),
             "b.baz.com",
-            "Tue, 06 Sep 2022 16:17:21 -0700 (PDT)"
+            "Tue, 06 Sep 2022 16:17:21 -0700 (PDT)",
         );
         let h_3 = header(
             ("e.bar.com", "f.bar.com.", "10.10.10.10"),
             "b.baz.com",
-            "Tue, 06 Sep 2022 16:17:21 -0700 (PDT)"
+            "Tue, 06 Sep 2022 16:17:21 -0700 (PDT)",
         );
         let h_4 = header(
             ("g.bar.com", "h.bar.com.", "10.10.10.9"),
             "c.baz.com",
-            "Tue, 06 Sep 2022 16:17:21 -0700 (PDT)"
+            "Tue, 06 Sep 2022 16:17:21 -0700 (PDT)",
         );
 
         let parsed = parsed_mail(vec![&h_1, &h_2, &h_3, &h_4]);
         let analyser = Analyser::new(&parsed);
 
-        let expected_trusted_per_position = vec![
-            (0, false),
-            (1, true),
-            (2, false),
-            (3, false),
-        ];
+        let expected_trusted_per_position = vec![(0, false), (1, true), (2, false), (3, false)];
 
         assert_eq!(
             expected_trusted_per_position,
@@ -325,15 +301,19 @@ mod delivery_nodes_tests {
     fn extract_trusted_by_position(nodes: Vec<DeliveryNode>) -> Vec<(usize, bool)> {
         nodes
             .into_iter()
-            .map(|DeliveryNode {position, trusted, ..}| (position, trusted))
+            .map(
+                |DeliveryNode {
+                     position, trusted, ..
+                 }| (position, trusted),
+            )
             .collect()
     }
 }
 
 #[cfg(test)]
 mod authentication_results_tests {
-    use crate::authentication_results::{Dkim, DkimResult, Spf, SpfResult};
     use super::*;
+    use crate::authentication_results::{Dkim, DkimResult, Spf, SpfResult};
 
     #[test]
     fn returns_none_if_no_authentication_results() {
@@ -363,7 +343,7 @@ mod authentication_results_tests {
                 ip_address: Some("10.10.10.10".into()),
                 result: Some(SpfResult::Pass),
                 smtp_mailfrom: Some("info@xxx.fr".into()),
-            })
+            }),
         };
 
         assert_eq!(Some(expected_result), analyser.authentication_results());
@@ -395,12 +375,12 @@ mod authentication_results_tests {
             "My First Phishing Email".into(),
             vec![],
             vec![],
-            authentication_header.map(|val| val.into())
+            authentication_header.map(|val| val.into()),
         )
     }
-// Authentication-Results: mx.google.com;\r
-//        dkim=pass header.i=@compromised.zzz header.s=ymy header.b=JPh8bpEm;
-//        spf=pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as permitted sender) smtp.mailfrom=info@xxx.fr\r
+    // Authentication-Results: mx.google.com;\r
+    //        dkim=pass header.i=@compromised.zzz header.s=ymy header.b=JPh8bpEm;
+    //        spf=pass (google.com: domain of info@xxx.fr designates 10.10.10.10 as permitted sender) smtp.mailfrom=info@xxx.fr\r
 }
 
 #[cfg(test)]
@@ -432,7 +412,7 @@ impl<'a> TestParsedMail<'a> {
             subject,
             links,
             received_headers,
-            authentication_results
+            authentication_results,
         }
     }
 }
@@ -461,10 +441,9 @@ impl<'a> AnalysableMessage for TestParsedMail<'a> {
     }
 
     fn get_received_headers(&self) -> Vec<String> {
-        self
-            .received_headers
+        self.received_headers
             .iter()
-            .map (|header_value| String::from(*header_value))
+            .map(|header_value| String::from(*header_value))
             .collect()
     }
 
@@ -492,10 +471,8 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
             .filter(|address_string| pattern.is_match(address_string))
             .flat_map(|link| {
                 if let Some((_mailto, addresses_string)) = link.split_once(':') {
-                    let addresses: Vec<String> = addresses_string
-                        .split(';')
-                        .map(String::from)
-                        .collect();
+                    let addresses: Vec<String> =
+                        addresses_string.split(';').map(String::from).collect();
                     self.convert_addresses(addresses)
                 } else {
                     vec![]
@@ -503,7 +480,7 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
             })
             .collect();
 
-        links.sort_by(|a,b| a.address.cmp(&b.address));
+        links.sort_by(|a, b| a.address.cmp(&b.address));
         links.dedup();
 
         EmailAddresses {
@@ -517,8 +494,7 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
     pub fn delivery_nodes(&self, trusted_recipient_name: &str) -> Vec<DeliveryNode> {
         let mut trusted_node = TrustedRecipientDeliveryNode::new(trusted_recipient_name);
 
-        self
-            .parsed_mail
+        self.parsed_mail
             .get_received_headers()
             .iter()
             .enumerate()
@@ -537,15 +513,14 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
             .map(|url| FulfillmentNode::new(url))
             .collect();
 
-        nodes.sort_by(|a,b| a.visible_url().cmp(b.visible_url()));
+        nodes.sort_by(|a, b| a.visible_url().cmp(b.visible_url()));
         nodes.dedup();
 
         nodes
     }
 
     pub fn authentication_results(&self) -> Option<AuthenticationResults> {
-        self
-            .parsed_mail
+        self.parsed_mail
             .get_authentication_results_header()
             .map(AuthenticationResults::parse_header)
     }

@@ -1,35 +1,19 @@
 use crate::data::{
-    DeliveryNode,
-    Domain,
-    DomainCategory,
-    EmailAddressData,
-    EmailAddresses,
-    FulfillmentNode,
-    HostNode,
-    InfrastructureProvider,
-    Node,
-    Registrar,
-    ReportableEntities
+    DeliveryNode, Domain, DomainCategory, EmailAddressData, EmailAddresses, FulfillmentNode,
+    HostNode, InfrastructureProvider, Node, Registrar, ReportableEntities,
 };
+use lettre::message::{header::ContentType, Attachment, MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::Credentials;
-use lettre::{Message, AsyncSmtpTransport, AsyncTransport, Tokio1Executor};
-use lettre::message::{Attachment, header::ContentType, MultiPart, SinglePart};
-use url::Url;
+use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 use std::fmt;
+use url::Url;
 
 #[cfg(test)]
 mod build_mail_definitions_tests {
     use super::*;
     use crate::data::{
-        DeliveryNode,
-        Domain,
-        DomainCategory,
-        EmailAddressData,
-        FulfillmentNode,
-        HostNode,
-        InfrastructureProvider,
-        Node,
-        ReportableEntities,
+        DeliveryNode, Domain, DomainCategory, EmailAddressData, FulfillmentNode, HostNode,
+        InfrastructureProvider, Node, ReportableEntities,
     };
 
     #[test]
@@ -59,54 +43,50 @@ mod build_mail_definitions_tests {
             from: vec![email_address_data("foo@test.com", "abuse@regone.zzz")],
             links: vec![],
             reply_to: vec![],
-            return_path: vec![]
+            return_path: vec![],
         }
     }
 
     fn fulfillment_nodes() -> Vec<FulfillmentNode> {
-        vec![
-            FulfillmentNode {
-                hidden: None,
-                visible: Node {
-                    domain: None,
-                    registrar: Some(Registrar {
-                        abuse_email_address: Some("abuse@regtwo.zzz".into()),
-                        name: None,
-                    }),
-                    url: "https://dodgy.phishing.link".into()
-                },
-            }
-        ]
+        vec![FulfillmentNode {
+            hidden: None,
+            visible: Node {
+                domain: None,
+                registrar: Some(Registrar {
+                    abuse_email_address: Some("abuse@regtwo.zzz".into()),
+                    name: None,
+                }),
+                url: "https://dodgy.phishing.link".into(),
+            },
+        }]
     }
 
     fn delivery_nodes() -> Vec<DeliveryNode> {
-        vec![
-            DeliveryNode {
-                advertised_sender: None,
-                observed_sender: Some(HostNode {
-                    domain: Some(Domain {
-                        abuse_email_address: None,
-                        category: DomainCategory::Other,
-                        name: "delivery-node.zzz".into(),
-                        registration_date: None,
-                    }),
-                    host: None,
-                    infrastructure_provider: Some(InfrastructureProvider {
-                        abuse_email_address: Some("abuse@providerone.zzz".into()),
-                        name: None
-                    }),
-                    ip_address: Some("10.10.10.10".into()),
-                    registrar: Some(Registrar {
-                        abuse_email_address: Some("abuse@regthree.zzz".into()),
-                        name: None
-                    })
+        vec![DeliveryNode {
+            advertised_sender: None,
+            observed_sender: Some(HostNode {
+                domain: Some(Domain {
+                    abuse_email_address: None,
+                    category: DomainCategory::Other,
+                    name: "delivery-node.zzz".into(),
+                    registration_date: None,
                 }),
-                position: 0,
-                recipient: None,
-                time: None,
-                trusted: true,
-            }
-        ]
+                host: None,
+                infrastructure_provider: Some(InfrastructureProvider {
+                    abuse_email_address: Some("abuse@providerone.zzz".into()),
+                    name: None,
+                }),
+                ip_address: Some("10.10.10.10".into()),
+                registrar: Some(Registrar {
+                    abuse_email_address: Some("abuse@regthree.zzz".into()),
+                    name: None,
+                }),
+            }),
+            position: 0,
+            recipient: None,
+            time: None,
+            trusted: true,
+        }]
     }
 
     fn email_address_data(address: &str, abuse_email_address: &str) -> EmailAddressData {
@@ -115,8 +95,8 @@ mod build_mail_definitions_tests {
             domain: Domain::from_email_address(address),
             registrar: Some(Registrar {
                 abuse_email_address: Some(abuse_email_address.into()),
-                name: None
-            })
+                name: None,
+            }),
         }
     }
 
@@ -132,14 +112,15 @@ mod build_mail_definitions_tests {
 
 pub fn build_mail_definitions(entities_option: Option<&ReportableEntities>) -> Vec<MailDefinition> {
     match entities_option {
-        Some(entities) => {
-            vec![
-                build_mail_definitions_from_email_addresses(&entities.email_addresses),
-                build_mail_definitions_from_fulfillment_nodes(&entities.fulfillment_nodes),
-                build_mail_definitions_from_delivery_nodes(&entities.delivery_nodes),
-            ].into_iter().flatten().collect()
-        },
-        None => vec![]
+        Some(entities) => vec![
+            build_mail_definitions_from_email_addresses(&entities.email_addresses),
+            build_mail_definitions_from_fulfillment_nodes(&entities.fulfillment_nodes),
+            build_mail_definitions_from_delivery_nodes(&entities.delivery_nodes),
+        ]
+        .into_iter()
+        .flatten()
+        .collect(),
+        None => vec![],
     }
 }
 
@@ -173,7 +154,7 @@ mod build_mail_definitions_from_email_addresses_tests {
             return_path: vec![
                 email_address_data("return_path_1@test.com", "abuse@regseven.zzz"),
                 email_address_data("return_path_2@test.com", "abuse@regeight.zzz"),
-            ]
+            ],
         }
     }
 
@@ -183,8 +164,8 @@ mod build_mail_definitions_from_email_addresses_tests {
             domain: Domain::from_email_address(address),
             registrar: Some(Registrar {
                 abuse_email_address: Some(abuse_email_address.into()),
-                name: None
-            })
+                name: None,
+            }),
         }
     }
 
@@ -208,7 +189,10 @@ fn build_mail_definitions_from_email_addresses(addresses: &EmailAddresses) -> Ve
         convert_addresses_to_mail_definitions(&addresses.links),
         convert_addresses_to_mail_definitions(&addresses.reply_to),
         convert_addresses_to_mail_definitions(&addresses.return_path),
-    ].into_iter().flatten().collect()
+    ]
+    .into_iter()
+    .flatten()
+    .collect()
 }
 
 #[cfg(test)]
@@ -247,7 +231,7 @@ mod build_mail_definitions_from_fulfillment_nodes_tests {
                     abuse_email_address: Some(abuse_email_address.into()),
                     name: None,
                 }),
-                url: url.into()
+                url: url.into(),
             },
         }
     }
@@ -267,10 +251,7 @@ mod convert_addresses_to_mail_definitions_tests {
 
     #[test]
     fn converts_collection_of_email_address_data() {
-        assert_eq!(
-            expected(),
-            convert_addresses_to_mail_definitions(&input())
-        );
+        assert_eq!(expected(), convert_addresses_to_mail_definitions(&input()));
     }
 
     fn input() -> Vec<EmailAddressData> {
@@ -286,8 +267,8 @@ mod convert_addresses_to_mail_definitions_tests {
             domain: Domain::from_email_address(address),
             registrar: Some(Registrar {
                 abuse_email_address: Some(abuse_email_address.into()),
-                name: None
-            })
+                name: None,
+            }),
         }
     }
 
@@ -299,10 +280,13 @@ mod convert_addresses_to_mail_definitions_tests {
     }
 }
 
-fn convert_addresses_to_mail_definitions(email_addresses: &[EmailAddressData]) -> Vec<MailDefinition> {
-    email_addresses.iter().map(|e_a_d| {
-        convert_address_data_to_definition(e_a_d)
-    }).collect()
+fn convert_addresses_to_mail_definitions(
+    email_addresses: &[EmailAddressData],
+) -> Vec<MailDefinition> {
+    email_addresses
+        .iter()
+        .map(|e_a_d| convert_address_data_to_definition(e_a_d))
+        .collect()
 }
 
 #[cfg(test)]
@@ -312,10 +296,7 @@ mod convert_address_data_to_definition_tests {
 
     #[test]
     fn creates_mail_definition() {
-        assert_eq!(
-            expected(),
-            convert_address_data_to_definition(&input())
-        )
+        assert_eq!(expected(), convert_address_data_to_definition(&input()))
     }
 
     #[test]
@@ -377,16 +358,13 @@ mod convert_address_data_to_definition_tests {
     }
 
     fn input_email_provider_category() -> EmailAddressData {
-        email_address_data(
-            "evildirtyscammer@googlemail.com",
-            None
-        )
+        email_address_data("evildirtyscammer@googlemail.com", None)
     }
 
     fn input_provider_and_registrar() -> EmailAddressData {
         email_address_data(
             "evildirtyscammer@googlemail.com",
-            Some("shouldnotseethis@regone.zzz")
+            Some("shouldnotseethis@regone.zzz"),
         )
     }
 
@@ -397,12 +375,12 @@ mod convert_address_data_to_definition_tests {
                 abuse_email_address: None,
                 category: DomainCategory::OpenEmailProvider,
                 name: "test.com".into(),
-                registration_date: None
+                registration_date: None,
             }),
             registrar: Some(Registrar {
                 abuse_email_address: Some("abuse@regone.zzz".into()),
-                name: None
-            })
+                name: None,
+            }),
         }
     }
 
@@ -413,7 +391,7 @@ mod convert_address_data_to_definition_tests {
                 abuse_email_address: None,
                 category: DomainCategory::OpenEmailProvider,
                 name: "test.com".into(),
-                registration_date: None
+                registration_date: None,
             }),
             registrar: None,
         }
@@ -423,7 +401,7 @@ mod convert_address_data_to_definition_tests {
         EmailAddressData {
             address: "from_1@test.com".into(),
             domain: Domain::from_email_address("from_1@test.com"),
-            registrar: None
+            registrar: None,
         }
     }
 
@@ -433,8 +411,8 @@ mod convert_address_data_to_definition_tests {
             domain: Domain::from_email_address(address),
             registrar: Some(Registrar {
                 abuse_email_address: abuse_email_address.map(String::from),
-                name: None
-            })
+                name: None,
+            }),
         }
     }
 
@@ -455,7 +433,11 @@ fn convert_address_data_to_definition(data: &EmailAddressData) -> MailDefinition
     let abuse_address: Option<&str> = vec![
         extract_abuse_address_from_registrar(data.registrar.as_ref()),
         extract_abuse_address_from_domain(data.domain.as_ref()),
-    ].into_iter().flatten().collect::<Vec<&str>>().pop();
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<&str>>()
+    .pop();
 
     MailDefinition::new(&data.address, abuse_address)
 }
@@ -475,7 +457,6 @@ mod extract_abuse_address_from_domain_tests {
             Some("abuse@test.zzz"),
             extract_abuse_address_from_domain(Some(&email_provider_domain()))
         )
-
     }
 
     #[test]
@@ -507,7 +488,7 @@ mod extract_abuse_address_from_domain_tests {
             abuse_email_address: Some("abuse@test.zzz".into()),
             category: DomainCategory::OpenEmailProvider,
             name: "does-not-matter".into(),
-            registration_date: None
+            registration_date: None,
         }
     }
 
@@ -516,7 +497,7 @@ mod extract_abuse_address_from_domain_tests {
             abuse_email_address: Some("abuse@test.zzz".into()),
             category: DomainCategory::UrlShortener,
             name: "does-not-matter".into(),
-            registration_date: None
+            registration_date: None,
         }
     }
 
@@ -525,7 +506,7 @@ mod extract_abuse_address_from_domain_tests {
             abuse_email_address: Some("abuse@test.zzz".into()),
             category: DomainCategory::Other,
             name: "does-not-matter".into(),
-            registration_date: None
+            registration_date: None,
         }
     }
 
@@ -534,22 +515,20 @@ mod extract_abuse_address_from_domain_tests {
             abuse_email_address: None,
             category: DomainCategory::OpenEmailProvider,
             name: "does-not-matter".into(),
-            registration_date: None
+            registration_date: None,
         }
     }
 }
 
 fn extract_abuse_address_from_domain(domain_option: Option<&Domain>) -> Option<&str> {
     match domain_option {
-        Some(domain) => {
-            match domain.category {
-                DomainCategory::OpenEmailProvider | DomainCategory::UrlShortener => {
-                    domain.abuse_email_address.as_deref()
-                },
-                _ => None
+        Some(domain) => match domain.category {
+            DomainCategory::OpenEmailProvider | DomainCategory::UrlShortener => {
+                domain.abuse_email_address.as_deref()
             }
+            _ => None,
         },
-        None => None
+        None => None,
     }
 }
 
@@ -581,21 +560,22 @@ mod extract_abuse_address_from_registrar_tests {
     fn registrar_with_address() -> Registrar {
         Registrar {
             abuse_email_address: Some("abuse@regone.zzz".into()),
-            name: None
+            name: None,
         }
     }
 
     fn registrar_without_address() -> Registrar {
-        Registrar { abuse_email_address: None, name: None }
+        Registrar {
+            abuse_email_address: None,
+            name: None,
+        }
     }
 }
 
 fn extract_abuse_address_from_registrar(registrar_option: Option<&Registrar>) -> Option<&str> {
     match registrar_option {
-        Some(registrar) => {
-            registrar.abuse_email_address.as_deref()
-        },
-        None => None
+        Some(registrar) => registrar.abuse_email_address.as_deref(),
+        None => None,
     }
 }
 
@@ -628,7 +608,7 @@ mod build_mail_definitions_from_fulfillment_node_tests {
                     abuse_email_address: Some("abuse@regtwo.zzz".into()),
                     name: None,
                 }),
-                url: "https://another.dodgy.phishing.link".into()
+                url: "https://another.dodgy.phishing.link".into(),
             }),
             visible: Node {
                 domain: None,
@@ -636,7 +616,7 @@ mod build_mail_definitions_from_fulfillment_node_tests {
                     abuse_email_address: Some("abuse@regone.zzz".into()),
                     name: None,
                 }),
-                url: "https://dodgy.phishing.link".into()
+                url: "https://dodgy.phishing.link".into(),
             },
         }
     }
@@ -650,7 +630,7 @@ mod build_mail_definitions_from_fulfillment_node_tests {
                     abuse_email_address: Some("abuse@regone.zzz".into()),
                     name: None,
                 }),
-                url: "https://dodgy.phishing.link".into()
+                url: "https://dodgy.phishing.link".into(),
             },
         }
     }
@@ -658,21 +638,23 @@ mod build_mail_definitions_from_fulfillment_node_tests {
     fn expected() -> Vec<MailDefinition> {
         vec![
             MailDefinition::new("https://dodgy.phishing.link", Some("abuse@regone.zzz")),
-            MailDefinition::new("https://another.dodgy.phishing.link", Some("abuse@regtwo.zzz")),
+            MailDefinition::new(
+                "https://another.dodgy.phishing.link",
+                Some("abuse@regtwo.zzz"),
+            ),
         ]
     }
 
     fn expected_no_hidden() -> Vec<MailDefinition> {
-        vec![
-            MailDefinition::new("https://dodgy.phishing.link", Some("abuse@regone.zzz")),
-        ]
+        vec![MailDefinition::new(
+            "https://dodgy.phishing.link",
+            Some("abuse@regone.zzz"),
+        )]
     }
 }
 
-fn build_mail_definitions_from_fulfillment_node(f_node: &FulfillmentNode) ->  Vec<MailDefinition> {
-    let mut output = vec![
-        build_mail_definition_from_node(&f_node.visible)
-    ];
+fn build_mail_definitions_from_fulfillment_node(f_node: &FulfillmentNode) -> Vec<MailDefinition> {
+    let mut output = vec![build_mail_definition_from_node(&f_node.visible)];
 
     if let Some(node) = &f_node.hidden {
         output.push(build_mail_definition_from_node(node))
@@ -683,14 +665,11 @@ fn build_mail_definitions_from_fulfillment_node(f_node: &FulfillmentNode) ->  Ve
 
 #[cfg(test)]
 mod build_mail_definition_from_node_tests {
-    use  super::*;
+    use super::*;
 
     #[test]
     fn build_mail_definition() {
-        assert_eq!(
-            expected(),
-            build_mail_definition_from_node(&input())
-        )
+        assert_eq!(expected(), build_mail_definition_from_node(&input()))
     }
 
     #[test]
@@ -732,7 +711,7 @@ mod build_mail_definition_from_node_tests {
                 abuse_email_address: Some("abuse@regone.zzz".into()),
                 name: None,
             }),
-            url: "https://dodgy.phishing.link".into()
+            url: "https://dodgy.phishing.link".into(),
         }
     }
 
@@ -740,7 +719,7 @@ mod build_mail_definition_from_node_tests {
         Node {
             domain: Domain::from_url("https://bit.ly/xyz"),
             registrar: None,
-            url: "https://bit.ly/xyz".into()
+            url: "https://bit.ly/xyz".into(),
         }
     }
 
@@ -751,7 +730,7 @@ mod build_mail_definition_from_node_tests {
                 abuse_email_address: Some("abuse@regone.zzz".into()),
                 name: None,
             }),
-            url: "https://bit.ly/xyz".into()
+            url: "https://bit.ly/xyz".into(),
         }
     }
 
@@ -762,7 +741,7 @@ mod build_mail_definition_from_node_tests {
                 abuse_email_address: None,
                 name: None,
             }),
-            url: "https://dodgy.phishing.link".into()
+            url: "https://dodgy.phishing.link".into(),
         }
     }
 
@@ -770,7 +749,7 @@ mod build_mail_definition_from_node_tests {
         Node {
             domain: None,
             registrar: None,
-            url: "https://dodgy.phishing.link".into()
+            url: "https://dodgy.phishing.link".into(),
         }
     }
 
@@ -791,20 +770,19 @@ fn build_mail_definition_from_node(node: &Node) -> MailDefinition {
     let abuse_address = vec![
         extract_abuse_address_from_registrar(node.registrar.as_ref()),
         extract_abuse_address_from_domain(node.domain.as_ref()),
-    ].into_iter().flatten().collect::<Vec<&str>>().pop();
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<&str>>()
+    .pop();
 
     MailDefinition::new(&node.url, abuse_address)
 }
 
 #[cfg(test)]
 mod build_mail_definitions_from_delivery_nodes_tests {
-    use crate::data:: {
-        Domain,
-        DomainCategory,
-        HostNode,
-        InfrastructureProvider,
-    };
     use super::*;
+    use crate::data::{Domain, DomainCategory, HostNode, InfrastructureProvider};
 
     #[test]
     fn returns_empty_collection_if_no_delivery_nodes() {
@@ -817,11 +795,12 @@ mod build_mail_definitions_from_delivery_nodes_tests {
 
         let expected = vec![
             MailDefinition::new("delivery-node.zzz", Some("abuse@regthree.zzz")),
-            MailDefinition::new("10.10.10.10", Some("abuse@providerone.zzz"))
+            MailDefinition::new("10.10.10.10", Some("abuse@providerone.zzz")),
         ];
 
         assert_eq!(
-            expected, build_mail_definitions_from_delivery_nodes(&delivery_nodes)
+            expected,
+            build_mail_definitions_from_delivery_nodes(&delivery_nodes)
         );
     }
 
@@ -840,8 +819,8 @@ mod build_mail_definitions_from_delivery_nodes_tests {
                 ip_address: None,
                 registrar: Some(Registrar {
                     abuse_email_address: Some("abuse@regthree.zzz".into()),
-                    name: None
-                })
+                    name: None,
+                }),
             }),
             position: 0,
             recipient: None,
@@ -858,7 +837,7 @@ mod build_mail_definitions_from_delivery_nodes_tests {
                 host: None,
                 infrastructure_provider: Some(InfrastructureProvider {
                     abuse_email_address: Some("abuse@providerone.zzz".into()),
-                    name: None
+                    name: None,
                 }),
                 ip_address: Some("10.10.10.10".into()),
                 registrar: None,
@@ -871,7 +850,7 @@ mod build_mail_definitions_from_delivery_nodes_tests {
     }
 }
 fn build_mail_definitions_from_delivery_nodes(
-    delivery_nodes: &[DeliveryNode]
+    delivery_nodes: &[DeliveryNode],
 ) -> Vec<MailDefinition> {
     delivery_nodes
         .iter()
@@ -881,8 +860,8 @@ fn build_mail_definitions_from_delivery_nodes(
 
 #[cfg(test)]
 mod build_mail_definitions_from_delivery_node_tests {
-    use crate::data::{Domain, DomainCategory, HostNode, InfrastructureProvider};
     use super::*;
+    use crate::data::{Domain, DomainCategory, HostNode, InfrastructureProvider};
 
     #[test]
     fn returns_empty_collection_if_no_observed_sender() {
@@ -916,7 +895,7 @@ mod build_mail_definitions_from_delivery_node_tests {
 
         let expected = vec![
             MailDefinition::new("delivery-node.zzz", Some("abuse@regthree.zzz")),
-            MailDefinition::new("10.10.10.10", Some("abuse@providerone.zzz"))
+            MailDefinition::new("10.10.10.10", Some("abuse@providerone.zzz")),
         ];
 
         assert_eq!(expected, build_mail_definitions_from_delivery_node(&node));
@@ -941,13 +920,13 @@ mod build_mail_definitions_from_delivery_node_tests {
                 host: None,
                 infrastructure_provider: Some(InfrastructureProvider {
                     abuse_email_address: Some("abuse@providerone.zzz".into()),
-                    name: None
+                    name: None,
                 }),
                 ip_address: None,
                 registrar: Some(Registrar {
                     abuse_email_address: Some("abuse@regthree.zzz".into()),
-                    name: None
-                })
+                    name: None,
+                }),
             }),
             position: 0,
             recipient: None,
@@ -969,13 +948,13 @@ mod build_mail_definitions_from_delivery_node_tests {
                 host: None,
                 infrastructure_provider: Some(InfrastructureProvider {
                     abuse_email_address: Some("abuse@providerone.zzz".into()),
-                    name: None
+                    name: None,
                 }),
                 ip_address: Some("10.10.10.10".into()),
                 registrar: Some(Registrar {
                     abuse_email_address: Some("abuse@regthree.zzz".into()),
-                    name: None
-                })
+                    name: None,
+                }),
             }),
             position: 0,
             recipient: None,
@@ -1011,53 +990,60 @@ fn build_mail_definitions_from_delivery_node(node: &DeliveryNode) -> Vec<MailDef
     vec![
         build_mail_definition_from_delivery_node_domain(node.observed_sender.as_ref()),
         build_mail_definition_from_delivery_node_ip(node.observed_sender.as_ref()),
-    ].into_iter().flatten().collect()
+    ]
+    .into_iter()
+    .flatten()
+    .collect()
 }
 
-fn build_mail_definition_from_delivery_node_domain(node_option: Option<&HostNode>) -> Option<MailDefinition> {
+fn build_mail_definition_from_delivery_node_domain(
+    node_option: Option<&HostNode>,
+) -> Option<MailDefinition> {
     match node_option {
-        Some(node) => {
-            match node.domain.as_ref() {
-                Some(domain) => {
-                    if let Some(
-                        Registrar {abuse_email_address: Some(abuse_address), ..}
-                    ) = node.registrar.as_ref() {
-                        Some(MailDefinition::new(&domain.name, Some(abuse_address)))
-                    } else {
-                        Some(MailDefinition::new(&domain.name, None))
-                    }
-                },
-                None => None
+        Some(node) => match node.domain.as_ref() {
+            Some(domain) => {
+                if let Some(Registrar {
+                    abuse_email_address: Some(abuse_address),
+                    ..
+                }) = node.registrar.as_ref()
+                {
+                    Some(MailDefinition::new(&domain.name, Some(abuse_address)))
+                } else {
+                    Some(MailDefinition::new(&domain.name, None))
+                }
             }
+            None => None,
         },
-        None => None
+        None => None,
     }
 }
 
-fn build_mail_definition_from_delivery_node_ip(node_option: Option<&HostNode>) -> Option<MailDefinition> {
+fn build_mail_definition_from_delivery_node_ip(
+    node_option: Option<&HostNode>,
+) -> Option<MailDefinition> {
     match node_option {
-        Some(node) => {
-            match node.ip_address.as_ref() {
-                Some(ip) => {
-                    if let Some(
-                        InfrastructureProvider {abuse_email_address: Some(abuse_address), ..}
-                    ) = node.infrastructure_provider.as_ref() {
-                        Some(MailDefinition::new(ip, Some(abuse_address)))
-                    } else {
-                        Some(MailDefinition::new(ip, None))
-                    }
-                },
-                None => None
+        Some(node) => match node.ip_address.as_ref() {
+            Some(ip) => {
+                if let Some(InfrastructureProvider {
+                    abuse_email_address: Some(abuse_address),
+                    ..
+                }) = node.infrastructure_provider.as_ref()
+                {
+                    Some(MailDefinition::new(ip, Some(abuse_address)))
+                } else {
+                    Some(MailDefinition::new(ip, None))
+                }
             }
+            None => None,
         },
-        None => None
+        None => None,
     }
 }
 
 #[derive(Debug, PartialEq)]
 pub struct MailDefinition {
     entity: Entity,
-    abuse_email_address: Option<String>
+    abuse_email_address: Option<String>,
 }
 
 #[cfg(test)]
@@ -1119,23 +1105,21 @@ mod mail_definition_tests {
 
 impl MailDefinition {
     fn new(entity: &str, abuse_email_address: Option<&str>) -> Self {
-        let entity = match  Url::parse(entity) {
+        let entity = match Url::parse(entity) {
             Ok(url) => Entity::FulfillmentNode(url),
-            Err(_) => Entity::EmailAddress(entity.into())
+            Err(_) => Entity::EmailAddress(entity.into()),
         };
 
         Self {
             entity,
-            abuse_email_address: abuse_email_address.map(String::from)
+            abuse_email_address: abuse_email_address.map(String::from),
         }
     }
 
     fn reportable(&self) -> bool {
         match &self.entity {
-            Entity::FulfillmentNode(url) => {
-                url.scheme() == "https" || url.scheme() == "http"
-            },
-            Entity::EmailAddress(_) => true
+            Entity::FulfillmentNode(url) => url.scheme() == "https" || url.scheme() == "http",
+            Entity::EmailAddress(_) => true,
         }
     }
 }
@@ -1143,7 +1127,7 @@ impl MailDefinition {
 #[derive(Debug, PartialEq)]
 enum Entity {
     EmailAddress(String),
-    FulfillmentNode(Url)
+    FulfillmentNode(Url),
 }
 
 #[cfg(test)]
@@ -1154,10 +1138,7 @@ mod entity_tests {
     fn email_variant_as_string() {
         let entity = Entity::EmailAddress("foo@test.com".into());
 
-        assert_eq!(
-            String::from("foo@test.com"),
-            entity.to_string()
-        );
+        assert_eq!(String::from("foo@test.com"), entity.to_string());
     }
 
     #[test]
@@ -1166,10 +1147,7 @@ mod entity_tests {
 
         let entity = Entity::FulfillmentNode(url::Url::parse(url).unwrap());
 
-        assert_eq!(
-            String::from(url),
-            entity.to_string()
-        );
+        assert_eq!(String::from(url), entity.to_string());
     }
 
     #[test]
@@ -1179,10 +1157,7 @@ mod entity_tests {
 
         let entity = Entity::FulfillmentNode(url::Url::parse(url).unwrap());
 
-        assert_eq!(
-            String::from(expected_url),
-            entity.to_string()
-        );
+        assert_eq!(String::from(expected_url), entity.to_string());
     }
 
     #[test]
@@ -1191,10 +1166,7 @@ mod entity_tests {
 
         let entity = Entity::FulfillmentNode(url::Url::parse(url).unwrap());
 
-        assert_eq!(
-            String::from(url),
-            entity.to_string()
-        );
+        assert_eq!(String::from(url), entity.to_string());
     }
 }
 
@@ -1203,10 +1175,15 @@ impl fmt::Display for Entity {
         match self {
             Entity::EmailAddress(email_address) => {
                 write!(f, "{email_address}")
-            },
+            }
             Entity::FulfillmentNode(original_url) => {
                 let host = original_url.host_str().unwrap_or("");
-                let url = format!("{}://{}{}", original_url.scheme(), host, original_url.path());
+                let url = format!(
+                    "{}://{}{}",
+                    original_url.scheme(),
+                    host,
+                    original_url.path()
+                );
                 write!(f, "{url}")
             }
         }
@@ -1217,7 +1194,7 @@ impl fmt::Display for Entity {
 pub struct Server {
     host_uri: String,
     password: String,
-    username: String
+    username: String,
 }
 
 #[cfg(test)]
@@ -1242,7 +1219,7 @@ impl Server {
         Self {
             host_uri: host_uri.into(),
             username: username.into(),
-            password: password.into()
+            password: password.into(),
         }
     }
 }
@@ -1250,11 +1227,11 @@ impl Server {
 #[derive(Debug, PartialEq)]
 pub struct Mailer {
     server: Server,
-    from_address: String
+    from_address: String,
 }
 
 #[cfg(test)]
-mod  mailer_tests {
+mod mailer_tests {
     use super::*;
     use crate::mail_trap::{Email, MailTrap};
 
@@ -1285,18 +1262,21 @@ mod  mailer_tests {
                 "abuse@regone.zzz",
                 &mail_subject("foo"),
                 &mail_body("foo"),
-                &raw_email()
+                &raw_email(),
             ),
             Email::new(
                 "from@test.com",
                 "abuse@regtwo.zzz",
                 &mail_subject("bar"),
                 &mail_body("bar"),
-                &raw_email()
-            )
+                &raw_email(),
+            ),
         ]);
 
-        assert_eq!(expected, sorted_mail_trap_records(mailtrap.get_all_emails()));
+        assert_eq!(
+            expected,
+            sorted_mail_trap_records(mailtrap.get_all_emails())
+        );
     }
 
     #[test]
@@ -1306,20 +1286,21 @@ mod  mailer_tests {
         let mailer = Mailer::new(mailtrap_server(), "from@test.com");
 
         tokio_test::block_on(
-            mailer.send_mails(&mail_definitions_including_no_abuse_contact(), &raw_email())
+            mailer.send_mails(&mail_definitions_including_no_abuse_contact(), &raw_email()),
         );
 
-        let expected = sorted_mail_trap_records(vec![
-            Email::new(
-                "from@test.com",
-                "abuse@regone.zzz",
-                &mail_subject("foo"),
-                &mail_body("foo"),
-                &raw_email()
-            )
-        ]);
+        let expected = sorted_mail_trap_records(vec![Email::new(
+            "from@test.com",
+            "abuse@regone.zzz",
+            &mail_subject("foo"),
+            &mail_body("foo"),
+            &raw_email(),
+        )]);
 
-        assert_eq!(expected, sorted_mail_trap_records(mailtrap.get_all_emails()));
+        assert_eq!(
+            expected,
+            sorted_mail_trap_records(mailtrap.get_all_emails())
+        );
     }
 
     #[test]
@@ -1328,21 +1309,23 @@ mod  mailer_tests {
 
         let mailer = Mailer::new(mailtrap_server(), "from@test.com");
 
-        tokio_test::block_on(
-            mailer.send_mails(&mail_definitions_including_no_reportable_entity(), &raw_email())
+        tokio_test::block_on(mailer.send_mails(
+            &mail_definitions_including_no_reportable_entity(),
+            &raw_email(),
+        ));
+
+        let expected = sorted_mail_trap_records(vec![Email::new(
+            "from@test.com",
+            "abuse@regone.zzz",
+            &mail_subject("foo"),
+            &mail_body("foo"),
+            &raw_email(),
+        )]);
+
+        assert_eq!(
+            expected,
+            sorted_mail_trap_records(mailtrap.get_all_emails())
         );
-
-        let expected = sorted_mail_trap_records(vec![
-            Email::new(
-                "from@test.com",
-                "abuse@regone.zzz",
-                &mail_subject("foo"),
-                &mail_body("foo"),
-                &raw_email()
-            )
-        ]);
-
-        assert_eq!(expected, sorted_mail_trap_records(mailtrap.get_all_emails()));
     }
 
     fn mailtrap_server() -> Server {
@@ -1391,8 +1374,8 @@ mod  mailer_tests {
     }
 
     fn sorted_mail_trap_records(mut emails: Vec<Email>) -> Vec<Email> {
-       emails.sort_by(|a,b| a.to.cmp(&b.to));
-       emails
+        emails.sort_by(|a, b| a.to.cmp(&b.to));
+        emails
     }
 
     fn mail_subject(entity: &str) -> String {
@@ -1415,25 +1398,24 @@ impl Mailer {
     pub fn new(server: Server, from_address: &str) -> Self {
         Self {
             server,
-            from_address: from_address.into()
+            from_address: from_address.into(),
         }
     }
 
-    pub async fn send_mails(&self, definitions: &[MailDefinition], raw_email: &str)  {
+    pub async fn send_mails(&self, definitions: &[MailDefinition], raw_email: &str) {
         use tokio::task::JoinSet;
 
-        let mut set: JoinSet<Result<lettre::transport::smtp::response::Response, lettre::transport::smtp::Error>> = JoinSet::new();
+        let mut set: JoinSet<
+            Result<lettre::transport::smtp::response::Response, lettre::transport::smtp::Error>,
+        > = JoinSet::new();
         for definition in definitions.iter() {
             if definition.reportable() {
                 if let Some(abuse_email_address) = &definition.abuse_email_address {
-
                     let mailer = self.build_mailer();
 
                     let mail = self.build_mail(abuse_email_address, &definition.entity, raw_email);
 
-                    set.spawn(async move {
-                        mailer.send(mail).await
-                    });
+                    set.spawn(async move { mailer.send(mail).await });
                 }
             }
         }
@@ -1453,14 +1435,15 @@ impl Mailer {
             .multipart(
                 MultiPart::mixed()
                     .singlepart(self.build_body(entity))
-                    .singlepart(self.build_attachment(raw_email))
-            ).unwrap()
+                    .singlepart(self.build_attachment(raw_email)),
+            )
+            .unwrap()
     }
 
     fn credentials(&self) -> Credentials {
         Credentials::new(
             String::from(&self.server.username),
-            String::from(&self.server.password)
+            String::from(&self.server.password),
         )
     }
 

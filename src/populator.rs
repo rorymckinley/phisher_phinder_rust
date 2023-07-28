@@ -1,35 +1,20 @@
-use chrono::prelude::*;
 use crate::data::{
-    DeliveryNode,
-    Domain,
-    DomainCategory,
-    EmailAddressData,
-    FulfillmentNode,
-    HostNode,
-    InfrastructureProvider,
-    Node,
-    OutputData,
-    ParsedMail,
-    Registrar,
-    EmailAddresses
+    DeliveryNode, Domain, DomainCategory, EmailAddressData, EmailAddresses, FulfillmentNode,
+    HostNode, InfrastructureProvider, Node, OutputData, ParsedMail, Registrar,
 };
+use chrono::prelude::*;
 use std::str::FromStr;
-use test_friendly_rdap_client::bootstrap::Bootstrap;
-use test_friendly_rdap_client::Client;
-use test_friendly_rdap_client::parser;
 use std::sync::Arc;
+use test_friendly_rdap_client::bootstrap::Bootstrap;
+use test_friendly_rdap_client::parser;
+use test_friendly_rdap_client::Client;
 
 #[cfg(test)]
 mod populate_tests {
     use super::*;
     use crate::authentication_results::{AuthenticationResults, Dkim, DkimResult, Spf, SpfResult};
     use crate::data::{
-        Domain,
-        EmailAddressData,
-        InfrastructureProvider,
-        ParsedMail,
-        Registrar,
-        EmailAddresses
+        Domain, EmailAddressData, EmailAddresses, InfrastructureProvider, ParsedMail, Registrar,
     };
     use crate::mountebank::*;
 
@@ -46,16 +31,14 @@ mod populate_tests {
         let actual = tokio_test::block_on(populate(bootstrap, input));
 
         assert_eq!(
-            vec! [
-                EmailAddressData {
-                    address: "someone@fake.net".into(),
-                    domain: domain_object(
-                        "fake.net",
-                        Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
-                    ),
-                    registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
-                }
-            ],
+            vec![EmailAddressData {
+                address: "someone@fake.net".into(),
+                domain: domain_object(
+                    "fake.net",
+                    Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
+                ),
+                registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
+            }],
             actual.parsed_mail.email_addresses.from
         );
     }
@@ -73,16 +56,14 @@ mod populate_tests {
         let actual = tokio_test::block_on(populate(bootstrap, input));
 
         assert_eq!(
-            vec! [
-                EmailAddressData {
-                    address: "anyone@possiblynotfake.com".into(),
-                    domain: domain_object(
-                        "possiblynotfake.com",
-                        Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()),
-                    ),
-                    registrar: registrar_object("Reg Two", Some("abuse@regtwo.zzz")),
-                },
-            ],
+            vec![EmailAddressData {
+                address: "anyone@possiblynotfake.com".into(),
+                domain: domain_object(
+                    "possiblynotfake.com",
+                    Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()),
+                ),
+                registrar: registrar_object("Reg Two", Some("abuse@regtwo.zzz")),
+            },],
             actual.parsed_mail.email_addresses.reply_to
         );
     }
@@ -100,16 +81,14 @@ mod populate_tests {
         let actual = tokio_test::block_on(populate(bootstrap, input));
 
         assert_eq!(
-            vec! [
-                EmailAddressData {
-                    address: "everyone@morethanlikelyfake.net".into(),
-                    domain: domain_object(
-                        "morethanlikelyfake.net",
-                        Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap()),
-                    ),
-                    registrar: registrar_object("Reg Three", Some("abuse@regthree.zzz")),
-                },
-            ],
+            vec![EmailAddressData {
+                address: "everyone@morethanlikelyfake.net".into(),
+                domain: domain_object(
+                    "morethanlikelyfake.net",
+                    Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap()),
+                ),
+                registrar: registrar_object("Reg Three", Some("abuse@regthree.zzz")),
+            },],
             actual.parsed_mail.email_addresses.return_path
         );
     }
@@ -127,16 +106,14 @@ mod populate_tests {
         let actual = tokio_test::block_on(populate(bootstrap, input));
 
         assert_eq!(
-            vec! [
-                EmailAddressData {
-                    address: "perp@alsofake.net".into(),
-                    domain: domain_object(
-                        "alsofake.net",
-                        Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 15).unwrap()),
-                    ),
-                    registrar: registrar_object("Reg Four", Some("abuse@regfour.zzz")),
-                }
-            ],
+            vec![EmailAddressData {
+                address: "perp@alsofake.net".into(),
+                domain: domain_object(
+                    "alsofake.net",
+                    Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 15).unwrap()),
+                ),
+                registrar: registrar_object("Reg Four", Some("abuse@regfour.zzz")),
+            }],
             actual.parsed_mail.email_addresses.links
         );
     }
@@ -154,19 +131,17 @@ mod populate_tests {
         let actual = tokio_test::block_on(populate(bootstrap, input));
 
         assert_eq!(
-            vec![
-                FulfillmentNode {
-                    hidden: None,
-                    visible: Node {
-                        domain: domain_object(
-                            "iamascamsite.com",
-                            Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 16).unwrap())
-                        ),
-                        registrar: registrar_object("Reg Five", Some("abuse@regfive.zzz")),
-                        url: "https://iamascamsite.com".into(),
-                    }
+            vec![FulfillmentNode {
+                hidden: None,
+                visible: Node {
+                    domain: domain_object(
+                        "iamascamsite.com",
+                        Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 16).unwrap())
+                    ),
+                    registrar: registrar_object("Reg Five", Some("abuse@regfive.zzz")),
+                    url: "https://iamascamsite.com".into(),
                 }
-            ],
+            }],
             actual.parsed_mail.fulfillment_nodes
         );
     }
@@ -217,50 +192,36 @@ mod populate_tests {
             parsed_mail: ParsedMail {
                 authentication_results: authentication_results(),
                 delivery_nodes: vec![
-                    input_delivery_node(
-                        observed_sender("host.dodgyaf.com", "10.10.10.10"),
-                        30,
-                        0
-                    ),
+                    input_delivery_node(observed_sender("host.dodgyaf.com", "10.10.10.10"), 30, 0),
                     input_delivery_node(
                         observed_sender("host.probablyalsoascammer.net", "192.168.10.10"),
                         31,
-                        1
-                    )
+                        1,
+                    ),
                 ],
-                fulfillment_nodes: vec![
-                    FulfillmentNode::new("https://iamascamsite.com"),
-                ],
+                fulfillment_nodes: vec![FulfillmentNode::new("https://iamascamsite.com")],
                 subject: Some("Does not matter".into()),
                 email_addresses: EmailAddresses {
-                    from: vec![
-                        EmailAddressData {
-                            address: "someone@fake.net".into(),
-                            domain: domain_object("fake.net", None),
-                            registrar: None,
-                        }
-                    ],
-                    links: vec![
-                        EmailAddressData {
-                            address: "perp@alsofake.net".into(),
-                            domain: domain_object("alsofake.net", None),
-                            registrar: None,
-                        }
-                    ],
-                    reply_to: vec![
-                        EmailAddressData {
-                            address: "anyone@possiblynotfake.com".into(),
-                            domain: domain_object("possiblynotfake.com", None),
-                            registrar: None,
-                        },
-                    ],
-                    return_path: vec![
-                        EmailAddressData {
-                            address: "everyone@morethanlikelyfake.net".into(),
-                            domain: domain_object("morethanlikelyfake.net", None),
-                            registrar: None,
-                        },
-                    ],
+                    from: vec![EmailAddressData {
+                        address: "someone@fake.net".into(),
+                        domain: domain_object("fake.net", None),
+                        registrar: None,
+                    }],
+                    links: vec![EmailAddressData {
+                        address: "perp@alsofake.net".into(),
+                        domain: domain_object("alsofake.net", None),
+                        registrar: None,
+                    }],
+                    reply_to: vec![EmailAddressData {
+                        address: "anyone@possiblynotfake.com".into(),
+                        domain: domain_object("possiblynotfake.com", None),
+                        registrar: None,
+                    }],
+                    return_path: vec![EmailAddressData {
+                        address: "everyone@morethanlikelyfake.net".into(),
+                        domain: domain_object("morethanlikelyfake.net", None),
+                        registrar: None,
+                    }],
                 },
             },
             raw_mail: "raw mail text goes here".into(),
@@ -271,7 +232,7 @@ mod populate_tests {
     fn input_delivery_node(
         observed_sender: Option<HostNode>,
         seconds: u32,
-        position: usize
+        position: usize,
     ) -> DeliveryNode {
         let time = Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, seconds).unwrap());
 
@@ -290,22 +251,20 @@ mod populate_tests {
     }
 
     fn authentication_results() -> Option<AuthenticationResults> {
-        Some(
-            AuthenticationResults {
-                dkim: Some(Dkim {
-                    result: Some(DkimResult::Fail),
-                    selector: Some("".into()),
-                    signature_snippet: Some("".into()),
-                    user_identifier_snippet: Some("".into()),
-                }),
-                service_identifier: Some("does.not.matter".into()),
-                spf: Some(Spf {
-                    ip_address: Some("".into()),
-                    result: Some(SpfResult::SoftFail),
-                    smtp_mailfrom: Some("".into())
-                })
-            }
-        )
+        Some(AuthenticationResults {
+            dkim: Some(Dkim {
+                result: Some(DkimResult::Fail),
+                selector: Some("".into()),
+                signature_snippet: Some("".into()),
+                user_identifier_snippet: Some("".into()),
+            }),
+            service_identifier: Some("does.not.matter".into()),
+            spf: Some(Spf {
+                ip_address: Some("".into()),
+                result: Some(SpfResult::SoftFail),
+                smtp_mailfrom: Some("".into()),
+            }),
+        })
     }
 
     fn output_delivery_node(
@@ -321,17 +280,16 @@ mod populate_tests {
     ) -> DeliveryNode {
         let time = Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, seconds).unwrap());
 
-        let observed_sender = Some(
-            HostNode {
-                domain: domain_object(host_name, Some(registration_date)),
-                host: Some(host_name.into()),
-                infrastructure_provider: infrastructure_provider_instance(
-                    infrastructure_provider_name, Some(infrastructure_provider_email_address)
-                ),
-                ip_address: Some(ip_address.into()),
-                registrar: registrar_object(registrar_name, Some(registrar_abuse_email_address)),
-            }
-        );
+        let observed_sender = Some(HostNode {
+            domain: domain_object(host_name, Some(registration_date)),
+            host: Some(host_name.into()),
+            infrastructure_provider: infrastructure_provider_instance(
+                infrastructure_provider_name,
+                Some(infrastructure_provider_email_address),
+            ),
+            ip_address: Some(ip_address.into()),
+            registrar: registrar_object(registrar_name, Some(registrar_abuse_email_address)),
+        });
 
         DeliveryNode {
             advertised_sender: None,
@@ -343,108 +301,98 @@ mod populate_tests {
         }
     }
 
-    fn domain_object(
-        name: &str,
-        registration_date: Option<DateTime<Utc>>,
-    ) ->  Option<Domain> {
-        Some(
-            Domain {
-                category: DomainCategory::Other,
-                name: name.into(),
-                registration_date,
-                abuse_email_address: None
-            }
-        )
+    fn domain_object(name: &str, registration_date: Option<DateTime<Utc>>) -> Option<Domain> {
+        Some(Domain {
+            category: DomainCategory::Other,
+            name: name.into(),
+            registration_date,
+            abuse_email_address: None,
+        })
     }
 
     fn registrar_object(name: &str, abuse_email_address: Option<&str>) -> Option<Registrar> {
-        Some(
-            Registrar {
-                name: Some(name.into()),
-                abuse_email_address: abuse_email_address.map(String::from)
-            }
-        )
+        Some(Registrar {
+            name: Some(name.into()),
+            abuse_email_address: abuse_email_address.map(String::from),
+        })
     }
 
     fn infrastructure_provider_instance(
-        name: &str, abuse_email_address: Option<&str>
+        name: &str,
+        abuse_email_address: Option<&str>,
     ) -> Option<InfrastructureProvider> {
-        Some(
-            InfrastructureProvider {
-                name: Some(name.into()),
-                abuse_email_address: abuse_email_address.map(String::from)
-            }
-        )
+        Some(InfrastructureProvider {
+            name: Some(name.into()),
+            abuse_email_address: abuse_email_address.map(String::from),
+        })
     }
 
     fn setup_impostors() {
-        setup_dns_server(
-            vec![
-                DnsServerConfig::response_200(
-                    "fake.net",
-                    None,
-                    "Reg One",
-                    "abuse@regone.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
-                ),
-                DnsServerConfig::response_200(
-                    "possiblynotfake.com",
-                    None,
-                    "Reg Two",
-                    "abuse@regtwo.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()
-                ),
-                DnsServerConfig::response_200(
-                    "morethanlikelyfake.net",
-                    None,
-                    "Reg Three",
-                    "abuse@regthree.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap()
-                ),
-                DnsServerConfig::response_200(
-                    "alsofake.net",
-                    None,
-                    "Reg Four",
-                    "abuse@regfour.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 15).unwrap()
-                ),
-                DnsServerConfig::response_200(
-                    "iamascamsite.com",
-                    None,
-                    "Reg Five",
-                    "abuse@regfive.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 16).unwrap()
-                ),
-                DnsServerConfig::response_200(
-                    "host.dodgyaf.com",
-                    None,
-                    "Reg Six",
-                    "abuse@regsix.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap()
-                ),
-                DnsServerConfig::response_200(
-                    "host.probablyalsoascammer.net",
-                    None,
-                    "Reg Seven",
-                    "abuse@regseven.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 18).unwrap()
-                ),
-            ]
-        );
+        setup_dns_server(vec![
+            DnsServerConfig::response_200(
+                "fake.net",
+                None,
+                "Reg One",
+                "abuse@regone.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap(),
+            ),
+            DnsServerConfig::response_200(
+                "possiblynotfake.com",
+                None,
+                "Reg Two",
+                "abuse@regtwo.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap(),
+            ),
+            DnsServerConfig::response_200(
+                "morethanlikelyfake.net",
+                None,
+                "Reg Three",
+                "abuse@regthree.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap(),
+            ),
+            DnsServerConfig::response_200(
+                "alsofake.net",
+                None,
+                "Reg Four",
+                "abuse@regfour.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 15).unwrap(),
+            ),
+            DnsServerConfig::response_200(
+                "iamascamsite.com",
+                None,
+                "Reg Five",
+                "abuse@regfive.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 16).unwrap(),
+            ),
+            DnsServerConfig::response_200(
+                "host.dodgyaf.com",
+                None,
+                "Reg Six",
+                "abuse@regsix.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap(),
+            ),
+            DnsServerConfig::response_200(
+                "host.probablyalsoascammer.net",
+                None,
+                "Reg Seven",
+                "abuse@regseven.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 18).unwrap(),
+            ),
+        ]);
 
         setup_ip_v4_server(vec![
             IpServerConfig::response_200(
                 "10.10.10.10",
                 None,
                 ("10.0.0.0", "10.255.255.255"),
-                Some(&[("Acme Hosting", "registrant", "abuse@acmehost.zzz")])
+                Some(&[("Acme Hosting", "registrant", "abuse@acmehost.zzz")]),
             ),
             IpServerConfig::response_200(
                 "192.168.10.10",
                 None,
                 ("192.168.0.0", "192.168.255.255"),
-                Some(&[("Hackme Hosting", "registrant", "abuse@hackmehost.zzz")])
-            )
+                Some(&[("Hackme Hosting", "registrant", "abuse@hackmehost.zzz")]),
+            ),
         ]);
     }
 
@@ -457,37 +405,33 @@ mod populate_tests {
     }
 
     fn sorted(mut nodes: Vec<DeliveryNode>) -> Vec<DeliveryNode> {
-        nodes.sort_by_key(|node| node.time );
+        nodes.sort_by_key(|node| node.time);
         nodes
     }
 }
 
 pub async fn populate(bootstrap: Bootstrap, data: OutputData) -> OutputData {
     let b_strap = Arc::new(bootstrap);
-    let update_from = lookup_email_address_from_rdap(
-        Arc::clone(&b_strap),
-        data.parsed_mail.email_addresses.from
-    );
+    let update_from =
+        lookup_email_address_from_rdap(Arc::clone(&b_strap), data.parsed_mail.email_addresses.from);
     let update_links = lookup_email_address_from_rdap(
         Arc::clone(&b_strap),
-        data.parsed_mail.email_addresses.links
+        data.parsed_mail.email_addresses.links,
     );
     let update_reply_to = lookup_email_address_from_rdap(
         Arc::clone(&b_strap),
-        data.parsed_mail.email_addresses.reply_to
+        data.parsed_mail.email_addresses.reply_to,
     );
     let update_return_path = lookup_email_address_from_rdap(
         Arc::clone(&b_strap),
-        data.parsed_mail.email_addresses.return_path
+        data.parsed_mail.email_addresses.return_path,
     );
     let update_fulfillment_nodes = lookup_fulfillment_nodes_from_rdap(
         Arc::clone(&b_strap),
-        data.parsed_mail.fulfillment_nodes
+        data.parsed_mail.fulfillment_nodes,
     );
-    let update_delivery_nodes = lookup_delivery_nodes_from_rdap(
-        Arc::clone(&b_strap),
-        data.parsed_mail.delivery_nodes
-    );
+    let update_delivery_nodes =
+        lookup_delivery_nodes_from_rdap(Arc::clone(&b_strap), data.parsed_mail.delivery_nodes);
 
     let (from, links, reply_to, return_path, fulfillment_nodes, delivery_nodes) = tokio::join!(
         update_from,
@@ -519,8 +463,8 @@ pub async fn populate(bootstrap: Bootstrap, data: OutputData) -> OutputData {
 #[cfg(test)]
 mod lookup_email_address_from_rdap_tests {
     use super::*;
+    use crate::data::Registrar;
     use crate::mountebank::*;
-    use crate:: data::Registrar;
     use test_support::*;
 
     #[test]
@@ -532,9 +476,8 @@ mod lookup_email_address_from_rdap_tests {
 
         let input = input();
 
-        let actual = tokio_test::block_on(
-            lookup_email_address_from_rdap(Arc::new(bootstrap), input)
-        );
+        let actual =
+            tokio_test::block_on(lookup_email_address_from_rdap(Arc::new(bootstrap), input));
 
         assert_eq!(sorted(populated_output()), sorted(actual));
     }
@@ -580,36 +523,33 @@ mod lookup_email_address_from_rdap_tests {
     fn domain_object(
         name: &str,
         registration_date: Option<DateTime<Utc>>,
-        category: DomainCategory
-    ) ->  Option<Domain> {
-        Some(
-            Domain {
-                category,
-                name: name.into(),
-                registration_date,
-                abuse_email_address: None
-            }
-        )
+        category: DomainCategory,
+    ) -> Option<Domain> {
+        Some(Domain {
+            category,
+            name: name.into(),
+            registration_date,
+            abuse_email_address: None,
+        })
     }
 
     fn registrar_object(name: &str, abuse_email_address: Option<&str>) -> Option<Registrar> {
-        Some(
-            Registrar {
-                name: Some(name.into()),
-                abuse_email_address: abuse_email_address.map(String::from)
-            }
-        )
+        Some(Registrar {
+            name: Some(name.into()),
+            abuse_email_address: abuse_email_address.map(String::from),
+        })
     }
 
     fn sorted(mut addresses: Vec<EmailAddressData>) -> Vec<EmailAddressData> {
-        addresses.sort_by(|a,b| a.address.cmp(&b.address));
+        addresses.sort_by(|a, b| a.address.cmp(&b.address));
 
         addresses
     }
 }
 
 async fn lookup_email_address_from_rdap(
-    bootstrap: Arc<Bootstrap>, data: Vec<EmailAddressData>
+    bootstrap: Arc<Bootstrap>,
+    data: Vec<EmailAddressData>,
 ) -> Vec<EmailAddressData> {
     use tokio::task::JoinSet;
 
@@ -617,9 +557,7 @@ async fn lookup_email_address_from_rdap(
 
     for e_a_d in data.into_iter() {
         let b_strap = Arc::clone(&bootstrap);
-        set.spawn(async  move{
-            lookup_email_address(b_strap, e_a_d).await
-        });
+        set.spawn(async move { lookup_email_address(b_strap, e_a_d).await });
     }
 
     let mut output = vec![];
@@ -644,9 +582,10 @@ mod lookup_fulfillment_nodes_from_rdap_tests {
         setup_impostors();
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
-        let actual = tokio_test::block_on(
-            lookup_fulfillment_nodes_from_rdap(Arc::new(bootstrap), input())
-        );
+        let actual = tokio_test::block_on(lookup_fulfillment_nodes_from_rdap(
+            Arc::new(bootstrap),
+            input(),
+        ));
 
         assert_eq!(sorted(output()), sorted(actual));
     }
@@ -654,7 +593,7 @@ mod lookup_fulfillment_nodes_from_rdap_tests {
     fn input() -> Vec<FulfillmentNode> {
         vec![
             FulfillmentNode::new("https://fake.net"),
-            FulfillmentNode::new("https://possiblynotfake.com")
+            FulfillmentNode::new("https://possiblynotfake.com"),
         ]
     }
 
@@ -664,70 +603,61 @@ mod lookup_fulfillment_nodes_from_rdap_tests {
                 hidden: None,
                 visible: Node {
                     domain: domain_object(
-                                "fake.net",
-                                Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap())
-                            ),
-                            registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
-                            url: "https://fake.net".into(),
-                }
+                        "fake.net",
+                        Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
+                    ),
+                    registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
+                    url: "https://fake.net".into(),
+                },
             },
             FulfillmentNode {
                 hidden: None,
                 visible: Node {
                     domain: domain_object(
-                                "possiblynotfake.com",
-                                Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap())
-                            ),
-                            registrar: registrar_object("Reg Two", Some("abuse@regtwo.zzz")),
-                            url: "https://possiblynotfake.com".into(),
-                }
+                        "possiblynotfake.com",
+                        Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()),
+                    ),
+                    registrar: registrar_object("Reg Two", Some("abuse@regtwo.zzz")),
+                    url: "https://possiblynotfake.com".into(),
+                },
             },
         ]
     }
 
     fn setup_impostors() {
-        setup_dns_server(
-            vec![
-                DnsServerConfig::response_200(
-                    "fake.net",
-                    None,
-                    "Reg One",
-                    "abuse@regone.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
-                ),
-                DnsServerConfig::response_200(
-                    "possiblynotfake.com",
-                    None,
-                    "Reg Two",
-                    "abuse@regtwo.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()
-                ),
-            ]
-        );
+        setup_dns_server(vec![
+            DnsServerConfig::response_200(
+                "fake.net",
+                None,
+                "Reg One",
+                "abuse@regone.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap(),
+            ),
+            DnsServerConfig::response_200(
+                "possiblynotfake.com",
+                None,
+                "Reg Two",
+                "abuse@regtwo.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap(),
+            ),
+        ]);
     }
 
     // test_support rather?
-    fn domain_object(
-        name: &str,
-        registration_date: Option<DateTime<Utc>>,
-    ) ->  Option<Domain> {
-        Some(
-            Domain {
-                category: DomainCategory::Other,
-                name: name.into(),
-                registration_date,
-                abuse_email_address: None
-            }
-        )
+    fn domain_object(name: &str, registration_date: Option<DateTime<Utc>>) -> Option<Domain> {
+        Some(Domain {
+            category: DomainCategory::Other,
+            name: name.into(),
+            registration_date,
+            abuse_email_address: None,
+        })
     }
 
     fn registrar_object(name: &str, abuse_email_address: Option<&str>) -> Option<Registrar> {
-        Some(
-            Registrar {
-                name: Some(name.into()),
-                abuse_email_address: abuse_email_address.map(String::from)
-            }
-        )
+        Some(Registrar {
+            name: Some(name.into()),
+            abuse_email_address: abuse_email_address.map(String::from),
+        })
     }
 
     fn sorted(mut nodes: Vec<FulfillmentNode>) -> Vec<FulfillmentNode> {
@@ -737,7 +667,8 @@ mod lookup_fulfillment_nodes_from_rdap_tests {
 }
 
 async fn lookup_fulfillment_nodes_from_rdap(
-    bootstrap: Arc<Bootstrap>, data: Vec<FulfillmentNode>
+    bootstrap: Arc<Bootstrap>,
+    data: Vec<FulfillmentNode>,
 ) -> Vec<FulfillmentNode> {
     use tokio::task::JoinSet;
 
@@ -745,9 +676,7 @@ async fn lookup_fulfillment_nodes_from_rdap(
 
     for node in data.into_iter() {
         let b_strap = Arc::clone(&bootstrap);
-        set.spawn(async  move{
-            lookup_fulfillment_node(b_strap, node).await
-        });
+        set.spawn(async move { lookup_fulfillment_node(b_strap, node).await });
     }
 
     let mut output = vec![];
@@ -761,10 +690,10 @@ async fn lookup_fulfillment_nodes_from_rdap(
 
 #[cfg(test)]
 mod lookup_delivery_nodes_from_rdap_tests {
-    use test_support::*;
     use super::*;
     use crate::data::{HostNode, InfrastructureProvider};
     use crate::mountebank::*;
+    use test_support::*;
 
     #[test]
     fn populates_delivery_nodes_with_rdap_data() {
@@ -773,25 +702,22 @@ mod lookup_delivery_nodes_from_rdap_tests {
         setup_impostors();
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
-        let actual = tokio_test::block_on(
-            lookup_delivery_nodes_from_rdap(Arc::new(bootstrap), input())
-        );
+        let actual = tokio_test::block_on(lookup_delivery_nodes_from_rdap(
+            Arc::new(bootstrap),
+            input(),
+        ));
 
         assert_eq!(sorted(output()), sorted(actual));
     }
 
     fn input() -> Vec<DeliveryNode> {
         vec![
-            input_delivery_node(
-                observed_sender("host.dodgyaf.com", "10.10.10.10"),
-                30,
-                0
-            ),
+            input_delivery_node(observed_sender("host.dodgyaf.com", "10.10.10.10"), 30, 0),
             input_delivery_node(
                 observed_sender("host.probablyalsoascammer.net", "192.168.10.10"),
                 31,
-                1
-            )
+                1,
+            ),
         ]
     }
 
@@ -818,14 +744,14 @@ mod lookup_delivery_nodes_from_rdap_tests {
                 "abuse@hackmehost.zzz",
                 1,
                 31,
-            )
+            ),
         ]
     }
 
     fn input_delivery_node(
         observed_sender: Option<HostNode>,
         seconds: u32,
-        position: usize
+        position: usize,
     ) -> DeliveryNode {
         let time = Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, seconds).unwrap());
 
@@ -856,17 +782,16 @@ mod lookup_delivery_nodes_from_rdap_tests {
     ) -> DeliveryNode {
         let time = Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, seconds).unwrap());
 
-        let observed_sender = Some(
-            HostNode {
-                domain: domain_object(host_name, Some(registration_date)),
-                host: Some(host_name.into()),
-                infrastructure_provider: infrastructure_provider_instance(
-                    infrastructure_provider_name, Some(infrastructure_provider_email_address)
-                ),
-                ip_address: Some(ip_address.into()),
-                registrar: registrar_object(registrar_name, Some(registrar_abuse_email_address)),
-            }
-        );
+        let observed_sender = Some(HostNode {
+            domain: domain_object(host_name, Some(registration_date)),
+            host: Some(host_name.into()),
+            infrastructure_provider: infrastructure_provider_instance(
+                infrastructure_provider_name,
+                Some(infrastructure_provider_email_address),
+            ),
+            ip_address: Some(ip_address.into()),
+            registrar: registrar_object(registrar_name, Some(registrar_abuse_email_address)),
+        });
         DeliveryNode {
             advertised_sender: None,
             observed_sender,
@@ -878,84 +803,75 @@ mod lookup_delivery_nodes_from_rdap_tests {
     }
 
     fn infrastructure_provider_instance(
-        name: &str, abuse_email_address: Option<&str>
+        name: &str,
+        abuse_email_address: Option<&str>,
     ) -> Option<InfrastructureProvider> {
-        Some(
-            InfrastructureProvider {
-                name: Some(name.into()),
-                abuse_email_address: abuse_email_address.map(String::from)
-            }
-        )
+        Some(InfrastructureProvider {
+            name: Some(name.into()),
+            abuse_email_address: abuse_email_address.map(String::from),
+        })
     }
 
     fn setup_impostors() {
-        setup_dns_server(
-            vec![
-                DnsServerConfig::response_200(
-                    "host.dodgyaf.com",
-                    None,
-                    "Reg Six",
-                    "abuse@regsix.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap()
-                ),
-                DnsServerConfig::response_200(
-                    "host.probablyalsoascammer.net",
-                    None,
-                    "Reg Seven",
-                    "abuse@regseven.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 18).unwrap()
-                ),
-            ]
-        );
+        setup_dns_server(vec![
+            DnsServerConfig::response_200(
+                "host.dodgyaf.com",
+                None,
+                "Reg Six",
+                "abuse@regsix.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap(),
+            ),
+            DnsServerConfig::response_200(
+                "host.probablyalsoascammer.net",
+                None,
+                "Reg Seven",
+                "abuse@regseven.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 18).unwrap(),
+            ),
+        ]);
 
         setup_ip_v4_server(vec![
             IpServerConfig::response_200(
                 "10.10.10.10",
                 None,
                 ("10.0.0.0", "10.255.255.255"),
-                Some(&[("Acme Hosting", "registrant", "abuse@acmehost.zzz")])
+                Some(&[("Acme Hosting", "registrant", "abuse@acmehost.zzz")]),
             ),
             IpServerConfig::response_200(
                 "192.168.10.10",
                 None,
                 ("192.168.0.0", "192.168.255.255"),
-                Some(&[("Hackme Hosting", "registrant", "abuse@hackmehost.zzz")])
-            )
+                Some(&[("Hackme Hosting", "registrant", "abuse@hackmehost.zzz")]),
+            ),
         ]);
     }
 
     // test_support rather?
-    fn domain_object(
-        name: &str,
-        registration_date: Option<DateTime<Utc>>,
-    ) ->  Option<Domain> {
-        Some(
-            Domain {
-                category: DomainCategory::Other,
-                name: name.into(),
-                registration_date,
-                abuse_email_address: None
-            }
-        )
+    fn domain_object(name: &str, registration_date: Option<DateTime<Utc>>) -> Option<Domain> {
+        Some(Domain {
+            category: DomainCategory::Other,
+            name: name.into(),
+            registration_date,
+            abuse_email_address: None,
+        })
     }
 
     fn registrar_object(name: &str, abuse_email_address: Option<&str>) -> Option<Registrar> {
-        Some(
-            Registrar {
-                name: Some(name.into()),
-                abuse_email_address: abuse_email_address.map(String::from)
-            }
-        )
+        Some(Registrar {
+            name: Some(name.into()),
+            abuse_email_address: abuse_email_address.map(String::from),
+        })
     }
 
     fn sorted(mut nodes: Vec<DeliveryNode>) -> Vec<DeliveryNode> {
-        nodes.sort_by_key(|node| node.time );
+        nodes.sort_by_key(|node| node.time);
         nodes
     }
 }
 
 async fn lookup_delivery_nodes_from_rdap(
-    bootstrap: Arc<Bootstrap>, data: Vec<DeliveryNode>
+    bootstrap: Arc<Bootstrap>,
+    data: Vec<DeliveryNode>,
 ) -> Vec<DeliveryNode> {
     use tokio::task::JoinSet;
 
@@ -963,9 +879,7 @@ async fn lookup_delivery_nodes_from_rdap(
 
     for node in data.into_iter() {
         let b_strap = Arc::clone(&bootstrap);
-        set.spawn(async  move{
-            lookup_delivery_node(b_strap, node).await
-        });
+        set.spawn(async move { lookup_delivery_node(b_strap, node).await });
     }
 
     let mut output = vec![];
@@ -990,9 +904,7 @@ mod lookup_fulfillment_node_tests {
         setup_impostors();
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
-        let actual = tokio_test::block_on(
-            lookup_fulfillment_node(Arc::new(bootstrap), input())
-        );
+        let actual = tokio_test::block_on(lookup_fulfillment_node(Arc::new(bootstrap), input()));
 
         assert_eq!(output(), actual);
     }
@@ -1008,71 +920,63 @@ mod lookup_fulfillment_node_tests {
         FulfillmentNode {
             hidden: Some(Node {
                 domain: domain_object(
-                            "possiblynotfake.com",
-                            Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap())
-                        ),
+                    "possiblynotfake.com",
+                    Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()),
+                ),
                 registrar: registrar_object("Reg Two", Some("abuse@regtwo.zzz")),
                 url: "https://possiblynotfake.com".into(),
             }),
             visible: Node {
                 domain: domain_object(
-                            "fake.net",
-                            Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap())
-                        ),
+                    "fake.net",
+                    Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
+                ),
                 registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
                 url: "https://fake.net".into(),
-            }
+            },
         }
     }
 
     // test_support rather?
-    fn domain_object(
-        name: &str,
-        registration_date: Option<DateTime<Utc>>,
-    ) ->  Option<Domain> {
-        Some(
-            Domain {
-                category: DomainCategory::Other,
-                name: name.into(),
-                registration_date,
-                abuse_email_address: None
-            }
-        )
+    fn domain_object(name: &str, registration_date: Option<DateTime<Utc>>) -> Option<Domain> {
+        Some(Domain {
+            category: DomainCategory::Other,
+            name: name.into(),
+            registration_date,
+            abuse_email_address: None,
+        })
     }
 
     fn registrar_object(name: &str, abuse_email_address: Option<&str>) -> Option<Registrar> {
-        Some(
-            Registrar {
-                name: Some(name.into()),
-                abuse_email_address: abuse_email_address.map(String::from)
-            }
-        )
+        Some(Registrar {
+            name: Some(name.into()),
+            abuse_email_address: abuse_email_address.map(String::from),
+        })
     }
 
     fn setup_impostors() {
-        setup_dns_server(
-            vec![
-                DnsServerConfig::response_200(
-                    "fake.net",
-                    None,
-                    "Reg One",
-                    "abuse@regone.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
-                ),
-                DnsServerConfig::response_200(
-                    "possiblynotfake.com",
-                    None,
-                    "Reg Two",
-                    "abuse@regtwo.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()
-                ),
-            ]
-        );
+        setup_dns_server(vec![
+            DnsServerConfig::response_200(
+                "fake.net",
+                None,
+                "Reg One",
+                "abuse@regone.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap(),
+            ),
+            DnsServerConfig::response_200(
+                "possiblynotfake.com",
+                None,
+                "Reg Two",
+                "abuse@regtwo.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap(),
+            ),
+        ]);
     }
 }
 
 async fn lookup_fulfillment_node(
-    bootstrap: Arc<Bootstrap>, f_node: FulfillmentNode
+    bootstrap: Arc<Bootstrap>,
+    f_node: FulfillmentNode,
 ) -> FulfillmentNode {
     let (hidden, visible) = tokio::join!(
         lookup_node(Arc::clone(&bootstrap), f_node.hidden),
@@ -1087,9 +991,9 @@ async fn lookup_fulfillment_node(
 
 #[cfg(test)]
 mod lookup_delivery_node_tests {
-    use test_support::*;
     use super::*;
     use crate::mountebank::*;
+    use test_support::*;
 
     #[test]
     fn updates_the_observed_sender_with_rdap_data() {
@@ -1099,11 +1003,10 @@ mod lookup_delivery_node_tests {
 
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
-        let actual = tokio_test::block_on(
-            lookup_delivery_node(
-                Arc::new(bootstrap), input_delivery_node()
-            )
-        );
+        let actual = tokio_test::block_on(lookup_delivery_node(
+            Arc::new(bootstrap),
+            input_delivery_node(),
+        ));
 
         assert_eq!(output_delivery_node(), actual);
     }
@@ -1130,7 +1033,7 @@ mod lookup_delivery_node_tests {
             abuse_email_address: None,
             category: DomainCategory::Other,
             name: "host.dodgyaf.com".into(),
-            registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap())
+            registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap()),
         });
 
         DeliveryNode {
@@ -1146,53 +1049,42 @@ mod lookup_delivery_node_tests {
     }
 
     fn infrastructure_provider_instance() -> Option<InfrastructureProvider> {
-        Some(
-            InfrastructureProvider {
-                name: Some("Acme Hosting".into()),
-                abuse_email_address: Some("abuse@acmehost.zzz".into())
-            }
-        )
+        Some(InfrastructureProvider {
+            name: Some("Acme Hosting".into()),
+            abuse_email_address: Some("abuse@acmehost.zzz".into()),
+        })
     }
 
     fn registrar_instance() -> Option<Registrar> {
-        Some(
-            Registrar {
-                name: Some("Reg Six".into()),
-                abuse_email_address: Some("abuse@regsix.zzz".into())
-            }
-        )
+        Some(Registrar {
+            name: Some("Reg Six".into()),
+            abuse_email_address: Some("abuse@regsix.zzz".into()),
+        })
     }
 
     fn setup_impostors() {
-        setup_dns_server(
-            vec![
-                DnsServerConfig::response_200(
-                    "host.dodgyaf.com",
-                    None,
-                    "Reg Six",
-                    "abuse@regsix.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap()
-                ),
-            ]
-        );
+        setup_dns_server(vec![DnsServerConfig::response_200(
+            "host.dodgyaf.com",
+            None,
+            "Reg Six",
+            "abuse@regsix.zzz",
+            Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap(),
+        )]);
 
-        setup_ip_v4_server(vec![
-            IpServerConfig::response_200(
-                "10.10.10.10",
-                None,
-                ("10.0.0.0", "10.255.255.255"),
-                Some(&[("Acme Hosting", "registrant", "abuse@acmehost.zzz")])
-            ),
-        ]);
+        setup_ip_v4_server(vec![IpServerConfig::response_200(
+            "10.10.10.10",
+            None,
+            ("10.0.0.0", "10.255.255.255"),
+            Some(&[("Acme Hosting", "registrant", "abuse@acmehost.zzz")]),
+        )]);
     }
 }
 
-async fn lookup_delivery_node(
-    bootstrap: Arc<Bootstrap>, d_node: DeliveryNode
-) -> DeliveryNode {
-    let (observed_sender,) = tokio::join!(
-        lookup_host_node(Arc::clone(&bootstrap), d_node.observed_sender)
-    );
+async fn lookup_delivery_node(bootstrap: Arc<Bootstrap>, d_node: DeliveryNode) -> DeliveryNode {
+    let (observed_sender,) = tokio::join!(lookup_host_node(
+        Arc::clone(&bootstrap),
+        d_node.observed_sender
+    ));
 
     DeliveryNode {
         observed_sender,
@@ -1213,9 +1105,8 @@ mod lookup_node_tests {
         setup_impostors();
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
-        let actual = tokio_test::block_on(
-            lookup_node(Arc::new(bootstrap), node("https://fake.net"))
-        );
+        let actual =
+            tokio_test::block_on(lookup_node(Arc::new(bootstrap), node("https://fake.net")));
 
         assert_eq!(Some(populated_node()), actual);
     }
@@ -1248,9 +1139,8 @@ mod lookup_node_tests {
         setup_bootstrap_server();
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
-        let actual = tokio_test::block_on(
-            lookup_node(Arc::new(bootstrap), node("https://fake.zzz"))
-        );
+        let actual =
+            tokio_test::block_on(lookup_node(Arc::new(bootstrap), node("https://fake.zzz")));
 
         assert_eq!(node("https://fake.zzz"), actual);
     }
@@ -1260,61 +1150,49 @@ mod lookup_node_tests {
     }
 
     fn node_sans_domain() -> Option<Node> {
-        Some(
-            Node {
-                domain: None,
-                registrar: None,
-                url: "https://fake.net".into()
-            }
-        )
+        Some(Node {
+            domain: None,
+            registrar: None,
+            url: "https://fake.net".into(),
+        })
     }
 
     fn populated_node() -> Node {
         Node {
             domain: domain_object(
-                        "fake.net", Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap())
-                    ),
+                "fake.net",
+                Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
+            ),
             registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
             url: "https://fake.net".into(),
         }
     }
 
     // test_support rather?
-    fn domain_object(
-        name: &str,
-        registration_date: Option<DateTime<Utc>>,
-    ) ->  Option<Domain> {
-        Some(
-            Domain {
-                category: DomainCategory::Other,
-                name: name.into(),
-                registration_date,
-                abuse_email_address: None
-            }
-        )
+    fn domain_object(name: &str, registration_date: Option<DateTime<Utc>>) -> Option<Domain> {
+        Some(Domain {
+            category: DomainCategory::Other,
+            name: name.into(),
+            registration_date,
+            abuse_email_address: None,
+        })
     }
 
     fn registrar_object(name: &str, abuse_email_address: Option<&str>) -> Option<Registrar> {
-        Some(
-            Registrar {
-                name: Some(name.into()),
-                abuse_email_address: abuse_email_address.map(String::from)
-            }
-        )
+        Some(Registrar {
+            name: Some(name.into()),
+            abuse_email_address: abuse_email_address.map(String::from),
+        })
     }
 
     fn setup_impostors() {
-        setup_dns_server(
-            vec![
-                DnsServerConfig::response_200(
-                    "fake.net",
-                    None,
-                    "Reg One",
-                    "abuse@regone.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
-                ),
-            ]
-        );
+        setup_dns_server(vec![DnsServerConfig::response_200(
+            "fake.net",
+            None,
+            "Reg One",
+            "abuse@regone.zzz",
+            Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap(),
+        )]);
     }
 }
 
@@ -1322,19 +1200,17 @@ async fn lookup_node(bootstrap: Arc<Bootstrap>, node_option: Option<Node>) -> Op
     if let Some(node) = node_option {
         if let Some(domain) = node.domain {
             if let Some(response) = get_rdap_data(bootstrap, Some(domain.name.clone())).await {
-                Some(
-                    Node {
-                        domain: Some(Domain {
-                            registration_date: extract_registration_date(&response.events),
-                            ..domain
-                        }),
-                        registrar: Some(Registrar {
-                            abuse_email_address: extract_abuse_email(&response.entities),
-                            name: extract_registrar_name(&response.entities)
-                        }),
-                        ..node
-                    }
-                )
+                Some(Node {
+                    domain: Some(Domain {
+                        registration_date: extract_registration_date(&response.events),
+                        ..domain
+                    }),
+                    registrar: Some(Registrar {
+                        abuse_email_address: extract_abuse_email(&response.entities),
+                        name: extract_registrar_name(&response.entities),
+                    }),
+                    ..node
+                })
             } else {
                 Some(Node {
                     domain: Some(domain),
@@ -1351,10 +1227,10 @@ async fn lookup_node(bootstrap: Arc<Bootstrap>, node_option: Option<Node>) -> Op
 
 #[cfg(test)]
 mod lookup_host_node_tests {
-    use test_support::*;
     use super::*;
     use crate::data::{HostNode, InfrastructureProvider};
     use crate::mountebank::*;
+    use test_support::*;
 
     #[test]
     fn updates_host_node_with_rdap_data() {
@@ -1364,24 +1240,20 @@ mod lookup_host_node_tests {
 
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
-        let expected = Some(
-            output_host_node(
-                "host.dodgyaf.com",
-                "Reg Six",
-                "abuse@regfive.zzz",
-                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap(),
-                "10.10.10.10",
-                "Acme Hosting",
-                "abuse@acmehost.zzz",
-            )
-        );
+        let expected = Some(output_host_node(
+            "host.dodgyaf.com",
+            "Reg Six",
+            "abuse@regfive.zzz",
+            Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap(),
+            "10.10.10.10",
+            "Acme Hosting",
+            "abuse@acmehost.zzz",
+        ));
 
-        let actual = tokio_test::block_on(
-            lookup_host_node(
-                Arc::new(bootstrap),
-                input_host_node("host.dodgyaf.com", "10.10.10.10"),
-            )
-        );
+        let actual = tokio_test::block_on(lookup_host_node(
+            Arc::new(bootstrap),
+            input_host_node("host.dodgyaf.com", "10.10.10.10"),
+        ));
 
         assert_eq!(expected, actual);
     }
@@ -1403,21 +1275,17 @@ mod lookup_host_node_tests {
 
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
-        let expected = Some(
-            output_host_node_sans_domain(
-                "host.dodgyaf.com",
-                "10.10.10.10",
-                "Acme Hosting",
-                "abuse@acmehost.zzz",
-            )
-        );
+        let expected = Some(output_host_node_sans_domain(
+            "host.dodgyaf.com",
+            "10.10.10.10",
+            "Acme Hosting",
+            "abuse@acmehost.zzz",
+        ));
 
-        let actual = tokio_test::block_on(
-            lookup_host_node(
-                Arc::new(bootstrap),
-                input_host_node_sans_domain("host.dodgyaf.com", "10.10.10.10"),
-            )
-        );
+        let actual = tokio_test::block_on(lookup_host_node(
+            Arc::new(bootstrap),
+            input_host_node_sans_domain("host.dodgyaf.com", "10.10.10.10"),
+        ));
 
         assert_eq!(expected, actual);
     }
@@ -1430,21 +1298,17 @@ mod lookup_host_node_tests {
 
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
-        let expected = Some(
-            output_host_node_sans_ip_address(
-                "host.dodgyaf.com",
-                "Reg Six",
-                "abuse@regfive.zzz",
-                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap(),
-            )
-        );
+        let expected = Some(output_host_node_sans_ip_address(
+            "host.dodgyaf.com",
+            "Reg Six",
+            "abuse@regfive.zzz",
+            Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap(),
+        ));
 
-        let actual = tokio_test::block_on(
-            lookup_host_node(
-                Arc::new(bootstrap),
-                input_host_node_sans_ip_address("host.dodgyaf.com"),
-            )
-        );
+        let actual = tokio_test::block_on(lookup_host_node(
+            Arc::new(bootstrap),
+            input_host_node_sans_ip_address("host.dodgyaf.com"),
+        ));
 
         assert_eq!(expected, actual);
     }
@@ -1457,22 +1321,18 @@ mod lookup_host_node_tests {
 
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
-        let expected = Some(
-            output_host_node_sans_infrastructure_provider(
-                "host.dodgyaf.com",
-                "192.168.10.10",
-                "Reg Six",
-                "abuse@regfive.zzz",
-                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap(),
-            )
-        );
+        let expected = Some(output_host_node_sans_infrastructure_provider(
+            "host.dodgyaf.com",
+            "192.168.10.10",
+            "Reg Six",
+            "abuse@regfive.zzz",
+            Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap(),
+        ));
 
-        let actual = tokio_test::block_on(
-            lookup_host_node(
-                Arc::new(bootstrap),
-                input_host_node("host.dodgyaf.com", "192.168.10.10"),
-            )
-        );
+        let actual = tokio_test::block_on(lookup_host_node(
+            Arc::new(bootstrap),
+            input_host_node("host.dodgyaf.com", "192.168.10.10"),
+        ));
 
         assert_eq!(expected, actual);
     }
@@ -1482,12 +1342,12 @@ mod lookup_host_node_tests {
     }
 
     fn input_host_node_sans_domain(host_name: &str, ip_address: &str) -> Option<HostNode> {
-        Some(HostNode{
+        Some(HostNode {
             domain: None,
             host: Some(host_name.into()),
             infrastructure_provider: None,
             ip_address: Some(ip_address.into()),
-            registrar: None
+            registrar: None,
         })
     }
 
@@ -1508,7 +1368,8 @@ mod lookup_host_node_tests {
             domain: domain_object(host_name, Some(registration_date)),
             host: Some(host_name.into()),
             infrastructure_provider: infrastructure_provider_instance(
-                infrastructure_provider_name, Some(infrastructure_provider_email_address)
+                infrastructure_provider_name,
+                Some(infrastructure_provider_email_address),
             ),
             ip_address: Some(ip_address.into()),
             registrar: registrar_object(registrar_name, Some(registrar_abuse_email_address)),
@@ -1525,10 +1386,11 @@ mod lookup_host_node_tests {
             domain: None,
             host: Some(host_name.into()),
             infrastructure_provider: infrastructure_provider_instance(
-                infrastructure_provider_name, Some(infrastructure_provider_email_address)
+                infrastructure_provider_name,
+                Some(infrastructure_provider_email_address),
             ),
             ip_address: Some(ip_address.into()),
-            registrar: None
+            registrar: None,
         }
     }
 
@@ -1564,86 +1426,76 @@ mod lookup_host_node_tests {
     }
 
     fn setup_impostors() {
-        setup_dns_server(
-            vec![
-                DnsServerConfig::response_200(
-                    "host.dodgyaf.com",
-                    None,
-                    "Reg Six",
-                    "abuse@regfive.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap()
-                ),
-            ]
-        );
+        setup_dns_server(vec![DnsServerConfig::response_200(
+            "host.dodgyaf.com",
+            None,
+            "Reg Six",
+            "abuse@regfive.zzz",
+            Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap(),
+        )]);
 
         setup_ip_v4_server(vec![
             IpServerConfig::response_200(
                 "10.10.10.10",
                 None,
                 ("10.0.0.0", "10.255.255.255"),
-                Some(&[("Acme Hosting", "registrant", "abuse@acmehost.zzz")])
+                Some(&[("Acme Hosting", "registrant", "abuse@acmehost.zzz")]),
             ),
             IpServerConfig::response_200(
                 "192.168.10.10",
                 None,
                 ("192.168.0.0", "192.168.255.255"),
-                None
+                None,
             ),
         ]);
     }
 
-    fn domain_object(
-        name: &str,
-        registration_date: Option<DateTime<Utc>>,
-    ) ->  Option<Domain> {
-        Some(
-            Domain {
-                category: DomainCategory::Other,
-                name: name.into(),
-                registration_date,
-                abuse_email_address: None
-            }
-        )
+    fn domain_object(name: &str, registration_date: Option<DateTime<Utc>>) -> Option<Domain> {
+        Some(Domain {
+            category: DomainCategory::Other,
+            name: name.into(),
+            registration_date,
+            abuse_email_address: None,
+        })
     }
 
     fn registrar_object(name: &str, abuse_email_address: Option<&str>) -> Option<Registrar> {
-        Some(
-            Registrar {
-                name: Some(name.into()),
-                abuse_email_address: abuse_email_address.map(String::from)
-            }
-        )
+        Some(Registrar {
+            name: Some(name.into()),
+            abuse_email_address: abuse_email_address.map(String::from),
+        })
     }
 
     fn infrastructure_provider_instance(
-        name: &str, abuse_email_address: Option<&str>
+        name: &str,
+        abuse_email_address: Option<&str>,
     ) -> Option<InfrastructureProvider> {
-        Some(
-            InfrastructureProvider {
-                name: Some(name.into()),
-                abuse_email_address: abuse_email_address.map(String::from)
-            }
-        )
+        Some(InfrastructureProvider {
+            name: Some(name.into()),
+            abuse_email_address: abuse_email_address.map(String::from),
+        })
     }
 }
 
 async fn lookup_host_node(bootstrap: Arc<Bootstrap>, node: Option<HostNode>) -> Option<HostNode> {
     if let Some(host_node) = node {
-        let get_domain_data = get_rdap_data(bootstrap.clone(), host_node.domain.as_ref().map(|dom| dom.name.clone()));
-        let get_ip_data = get_rdap_ip_data(bootstrap.clone(), host_node.ip_address.as_ref().cloned());
+        let get_domain_data = get_rdap_data(
+            bootstrap.clone(),
+            host_node.domain.as_ref().map(|dom| dom.name.clone()),
+        );
+        let get_ip_data =
+            get_rdap_ip_data(bootstrap.clone(), host_node.ip_address.as_ref().cloned());
 
         let (domain_response, ip_response) = tokio::join!(get_domain_data, get_ip_data);
 
         let (domain, registrar) = if let Some(domain_data) = domain_response {
-            let domain = host_node.domain.map(|dom| {
-                Domain {
-                    registration_date: extract_registration_date(&domain_data.events),
-                    ..dom
-                }
+            let domain = host_node.domain.map(|dom| Domain {
+                registration_date: extract_registration_date(&domain_data.events),
+                ..dom
             });
             let registrar = Some(Registrar {
                 abuse_email_address: extract_abuse_email(&domain_data.entities),
-                name: extract_registrar_name(&domain_data.entities)
+                name: extract_registrar_name(&domain_data.entities),
             });
             (domain, registrar)
         } else {
@@ -1651,24 +1503,22 @@ async fn lookup_host_node(bootstrap: Arc<Bootstrap>, node: Option<HostNode>) -> 
         };
 
         let infrastructure_provider = if let Some(ip_data) = ip_response {
-            ip_data.entities.map(|ip_data_entities| {
-                InfrastructureProvider {
+            ip_data
+                .entities
+                .map(|ip_data_entities| InfrastructureProvider {
                     abuse_email_address: extract_abuse_email(&ip_data_entities),
-                    name: extract_provider_name(&ip_data_entities)
-                }
-            })
+                    name: extract_provider_name(&ip_data_entities),
+                })
         } else {
             None
         };
 
-        Some(
-            HostNode {
-                domain,
-                registrar,
-                infrastructure_provider,
-                ..host_node
-            }
-        )
+        Some(HostNode {
+            domain,
+            registrar,
+            infrastructure_provider,
+            ..host_node
+        })
     } else {
         None
     }
@@ -1677,8 +1527,8 @@ async fn lookup_host_node(bootstrap: Arc<Bootstrap>, node: Option<HostNode>) -> 
 #[cfg(test)]
 mod lookup_email_address_tests {
     use super::*;
+    use crate::data::Registrar;
     use crate::mountebank::*;
-    use crate:: data::Registrar;
     use test_support::*;
 
     #[test]
@@ -1766,11 +1616,7 @@ mod lookup_email_address_tests {
     }
 
     pub fn setup_404_impostor() {
-        setup_dns_server(
-            vec![
-            DnsServerConfig::response_404("fake.net"),
-            ]
-        );
+        setup_dns_server(vec![DnsServerConfig::response_404("fake.net")]);
     }
 
     fn email_address_data() -> EmailAddressData {
@@ -1813,68 +1659,77 @@ mod lookup_email_address_tests {
         EmailAddressData {
             address: "someone@fake.net".into(),
             domain: domain_object("fake.net", None, DomainCategory::Other),
-            registrar: Some(
-                Registrar {
-                    abuse_email_address: None,
-                    name: None,
-                }
-            )
+            registrar: Some(Registrar {
+                abuse_email_address: None,
+                name: None,
+            }),
         }
     }
 
     fn email_address_data_with_open_email_provider() -> EmailAddressData {
-            EmailAddressData {
-                address: "someone@fake.net".into(),
-                domain: domain_object("fake.net", None, DomainCategory::OpenEmailProvider),
-                registrar: None
-            }
+        EmailAddressData {
+            address: "someone@fake.net".into(),
+            domain: domain_object("fake.net", None, DomainCategory::OpenEmailProvider),
+            registrar: None,
+        }
     }
 
     fn domain_object(
         name: &str,
         registration_date: Option<DateTime<Utc>>,
-        category: DomainCategory
-    ) ->  Option<Domain> {
-        Some(
-            Domain {
-                category,
-                name: name.into(),
-                registration_date,
-                abuse_email_address: None
-            }
-        )
+        category: DomainCategory,
+    ) -> Option<Domain> {
+        Some(Domain {
+            category,
+            name: name.into(),
+            registration_date,
+            abuse_email_address: None,
+        })
     }
 
     fn registrar_object(name: &str, abuse_email_address: Option<&str>) -> Option<Registrar> {
-        Some(
-            Registrar {
-                name: Some(name.into()),
-                abuse_email_address: abuse_email_address.map(String::from)
-            }
-        )
+        Some(Registrar {
+            name: Some(name.into()),
+            abuse_email_address: abuse_email_address.map(String::from),
+        })
     }
 }
 
 async fn lookup_email_address(
-    bootstrap: Arc<Bootstrap>, data: EmailAddressData
+    bootstrap: Arc<Bootstrap>,
+    data: EmailAddressData,
 ) -> EmailAddressData {
     if let EmailAddressData {
-        domain: Some(
-                    Domain {name, category: DomainCategory::Other, ..}
-                ),
+        domain:
+            Some(Domain {
+                name,
+                category: DomainCategory::Other,
+                ..
+            }),
         registrar: None,
         ..
-    } = &data {
+    } = &data
+    {
         if let Some(response) = get_rdap_data(bootstrap, Some(name.into())).await {
             let registrar_name = extract_registrar_name(&response.entities);
             let abuse_email_address = extract_abuse_email(&response.entities);
             let registration_date = extract_registration_date(&response.events);
 
-            let domain = Domain { registration_date, ..data.domain.unwrap() };
+            let domain = Domain {
+                registration_date,
+                ..data.domain.unwrap()
+            };
 
-            let registrar = Registrar { name: registrar_name, abuse_email_address, };
+            let registrar = Registrar {
+                name: registrar_name,
+                abuse_email_address,
+            };
 
-            EmailAddressData { domain: Some(domain), registrar: Some(registrar), ..data }
+            EmailAddressData {
+                domain: Some(domain),
+                registrar: Some(registrar),
+                ..data
+            }
         } else {
             data
         }
@@ -1886,8 +1741,8 @@ async fn lookup_email_address(
 #[cfg(test)]
 mod get_rdap_data_tests {
     use super::*;
-    use test_support::*;
     use crate::mountebank::*;
+    use test_support::*;
 
     #[test]
     fn generalises_domain_name_until_match_is_found() {
@@ -1896,9 +1751,21 @@ mod get_rdap_data_tests {
         setup_impostors();
         let bootstrap = Arc::new(tokio_test::block_on(get_bootstrap()));
 
-        assert_handle(Arc::clone(&bootstrap), Some("foo.bar.baz.biz.net"), "DOM-BIZ");
-        assert_handle(Arc::clone(&bootstrap), Some("foo.bar.baz.buzz.net"), "DOM-BUZZ");
-        assert_handle(Arc::clone(&bootstrap), Some("foo.bar.baz.boz.net"), "DOM-BOZ");
+        assert_handle(
+            Arc::clone(&bootstrap),
+            Some("foo.bar.baz.biz.net"),
+            "DOM-BIZ",
+        );
+        assert_handle(
+            Arc::clone(&bootstrap),
+            Some("foo.bar.baz.buzz.net"),
+            "DOM-BUZZ",
+        );
+        assert_handle(
+            Arc::clone(&bootstrap),
+            Some("foo.bar.baz.boz.net"),
+            "DOM-BOZ",
+        );
         assert_none(Arc::clone(&bootstrap), Some("un.ob.tai.nium.net"));
     }
 
@@ -1918,60 +1785,68 @@ mod get_rdap_data_tests {
         assert_none(Arc::clone(&bootstrap), None)
     }
 
-    fn assert_handle(bootstrap: Arc<Bootstrap>, domain_name_option: Option<&str>, expected_handle: &str) {
-        let domain = tokio_test::block_on(
-            get_rdap_data(Arc::clone(&bootstrap), domain_name_option.map(|val| val.into()))
-        ).unwrap();
+    fn assert_handle(
+        bootstrap: Arc<Bootstrap>,
+        domain_name_option: Option<&str>,
+        expected_handle: &str,
+    ) {
+        let domain = tokio_test::block_on(get_rdap_data(
+            Arc::clone(&bootstrap),
+            domain_name_option.map(|val| val.into()),
+        ))
+        .unwrap();
 
         assert_eq!(String::from(expected_handle), domain.handle.unwrap())
     }
 
     fn assert_none(bootstrap: Arc<Bootstrap>, domain_name_option: Option<&str>) {
-        let result = tokio_test::block_on(
-            get_rdap_data(Arc::clone(&bootstrap), domain_name_option.map(|val| val.into()))
-        );
+        let result = tokio_test::block_on(get_rdap_data(
+            Arc::clone(&bootstrap),
+            domain_name_option.map(|val| val.into()),
+        ));
 
         assert!(result.is_none())
     }
 
     fn setup_impostors() {
-        setup_dns_server(
-            vec![
-                DnsServerConfig::response_200(
-                    "foo.bar.baz.biz.net",
-                    Some("DOM-BIZ"),
-                    "Reg One",
-                    "abuse@regone.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
-                ),
-                DnsServerConfig::response_200(
-                    "bar.baz.buzz.net",
-                    Some("DOM-BUZZ"),
-                    "Reg One",
-                    "abuse@regone.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
-                ),
-                DnsServerConfig::response_200(
-                    "boz.net",
-                    Some("DOM-BOZ"),
-                    "Reg One",
-                    "abuse@regone.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
-                ),
-                // Spurious, just to validate that we do not submit the TLD :)
-                DnsServerConfig::response_200(
-                    "net",
-                    Some("DOM-NET"),
-                    "Reg One",
-                    "abuse@regone.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
-                ),
-            ]
-        );
+        setup_dns_server(vec![
+            DnsServerConfig::response_200(
+                "foo.bar.baz.biz.net",
+                Some("DOM-BIZ"),
+                "Reg One",
+                "abuse@regone.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap(),
+            ),
+            DnsServerConfig::response_200(
+                "bar.baz.buzz.net",
+                Some("DOM-BUZZ"),
+                "Reg One",
+                "abuse@regone.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap(),
+            ),
+            DnsServerConfig::response_200(
+                "boz.net",
+                Some("DOM-BOZ"),
+                "Reg One",
+                "abuse@regone.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap(),
+            ),
+            // Spurious, just to validate that we do not submit the TLD :)
+            DnsServerConfig::response_200(
+                "net",
+                Some("DOM-NET"),
+                "Reg One",
+                "abuse@regone.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap(),
+            ),
+        ]);
     }
 }
 
-async fn get_rdap_data(bootstrap: Arc<Bootstrap>, domain_name_option: Option<String>) -> Option<parser::Domain> {
+async fn get_rdap_data(
+    bootstrap: Arc<Bootstrap>,
+    domain_name_option: Option<String>,
+) -> Option<parser::Domain> {
     let mut domain_response: Option<parser::Domain> = None;
 
     if let Some(domain_name) = domain_name_option {
@@ -1988,7 +1863,7 @@ async fn get_rdap_data(bootstrap: Arc<Bootstrap>, domain_name_option: Option<Str
                         domain_response = Some(response);
                     }
                 }
-            };
+            }
         }
     }
 
@@ -1997,9 +1872,9 @@ async fn get_rdap_data(bootstrap: Arc<Bootstrap>, domain_name_option: Option<Str
 
 #[cfg(test)]
 mod get_rdap_ip_data_tests {
-    use test_support::*;
     use super::*;
     use crate::mountebank::*;
+    use test_support::*;
 
     #[test]
     fn returns_ip_data_for_the_provided_v4_address() {
@@ -2009,7 +1884,8 @@ mod get_rdap_ip_data_tests {
 
         let bootstrap = Arc::new(tokio_test::block_on(get_bootstrap()));
 
-        let data = tokio_test::block_on(get_rdap_ip_data(bootstrap, Some("10.10.10.10".into()))).unwrap();
+        let data =
+            tokio_test::block_on(get_rdap_ip_data(bootstrap, Some("10.10.10.10".into()))).unwrap();
 
         assert_eq!(String::from("NET-10.0.0.0"), data.handle);
     }
@@ -2022,7 +1898,8 @@ mod get_rdap_ip_data_tests {
 
         let bootstrap = Arc::new(tokio_test::block_on(get_bootstrap()));
 
-        let data = tokio_test::block_on(get_rdap_ip_data(bootstrap, Some("abcd::1".into()))).unwrap();
+        let data =
+            tokio_test::block_on(get_rdap_ip_data(bootstrap, Some("abcd::1".into()))).unwrap();
 
         assert_eq!(String::from("NET-abcd"), data.handle);
     }
@@ -2035,7 +1912,9 @@ mod get_rdap_ip_data_tests {
 
         let bootstrap = Arc::new(tokio_test::block_on(get_bootstrap()));
 
-        assert!(tokio_test::block_on(get_rdap_ip_data(bootstrap, Some("10.10.10.11".into()))).is_none());
+        assert!(
+            tokio_test::block_on(get_rdap_ip_data(bootstrap, Some("10.10.10.11".into()))).is_none()
+        );
     }
 
     #[test]
@@ -2057,7 +1936,9 @@ mod get_rdap_ip_data_tests {
 
         let bootstrap = Arc::new(tokio_test::block_on(get_bootstrap()));
 
-        assert!(tokio_test::block_on(get_rdap_ip_data(bootstrap, Some("20.20.20.20".into()))).is_none());
+        assert!(
+            tokio_test::block_on(get_rdap_ip_data(bootstrap, Some("20.20.20.20".into()))).is_none()
+        );
     }
 
     #[test]
@@ -2068,7 +1949,9 @@ mod get_rdap_ip_data_tests {
 
         let bootstrap = Arc::new(tokio_test::block_on(get_bootstrap()));
 
-        assert!(tokio_test::block_on(get_rdap_ip_data(bootstrap, Some("30.30.30.30".into()))).is_none());
+        assert!(
+            tokio_test::block_on(get_rdap_ip_data(bootstrap, Some("30.30.30.30".into()))).is_none()
+        );
     }
 
     #[test]
@@ -2084,14 +1967,14 @@ mod get_rdap_ip_data_tests {
                 "10.10.10.10",
                 Some("NET-10.0.0.0"),
                 ("10.0.0.0", "10.255.255.255"),
-                Some(&[("Acme Hosting", "abuse", "abuse@acmehost.zzz")])
+                Some(&[("Acme Hosting", "abuse", "abuse@acmehost.zzz")]),
             ),
             IpServerConfig::response_404("10.10.10.11"),
             IpServerConfig::response_200(
                 "192.168.10.10",
                 Some("NET-192.168.10.10"),
                 ("192.168.0.0", "192.168.255.255"),
-                Some(&[("Hackme Hosting", "abuse", "abuse@hackmehost.zzz")])
+                Some(&[("Hackme Hosting", "abuse", "abuse@hackmehost.zzz")]),
             ),
         ]);
 
@@ -2100,13 +1983,13 @@ mod get_rdap_ip_data_tests {
                 "abcd::1",
                 Some("NET-abcd"),
                 ("abcd::1", "abcd::ffff"),
-                Some(&[("Acme V6 Hosting", "abuse", "abuse@acmev6host.zzz")])
+                Some(&[("Acme V6 Hosting", "abuse", "abuse@acmev6host.zzz")]),
             ),
             IpServerConfig::response_200(
                 "bcde::1",
                 Some("NET-bcde"),
                 ("bcde::1", "bcde::ffff"),
-                Some(&[("Hackme V6 Hosting", "abuse", "abuse@hackmev6host.zzz")])
+                Some(&[("Hackme V6 Hosting", "abuse", "abuse@hackmev6host.zzz")]),
             ),
         ])
     }
@@ -2114,19 +1997,17 @@ mod get_rdap_ip_data_tests {
 
 async fn get_rdap_ip_data(
     bootstrap: Arc<Bootstrap>,
-    ip_as_string_option: Option<String>
+    ip_as_string_option: Option<String>,
 ) -> Option<parser::IpNetwork> {
     ip_as_string_option.as_ref()?;
 
     let ip_as_string = ip_as_string_option.unwrap();
     let parsed_ip_option = match std::net::Ipv4Addr::from_str(&ip_as_string) {
         Ok(v4_ip) => Some(std::net::IpAddr::from(v4_ip)),
-        Err(_) => {
-            match std::net::Ipv6Addr::from_str(&ip_as_string) {
-                Ok(v6_ip) => Some(std::net::IpAddr::from(v6_ip)),
-                Err(_) => None
-            }
-        }
+        Err(_) => match std::net::Ipv6Addr::from_str(&ip_as_string) {
+            Ok(v6_ip) => Some(std::net::IpAddr::from(v6_ip)),
+            Err(_) => None,
+        },
     };
 
     if let Some(ip) = parsed_ip_option {
@@ -2144,7 +2025,6 @@ async fn get_rdap_ip_data(
         None
     }
 }
-
 
 #[cfg(test)]
 mod extract_registrar_name_tests {
@@ -2164,20 +2044,14 @@ mod extract_registrar_name_tests {
     fn no_registrar_role() {
         let entities = entities_no_registrar();
 
-        assert_eq!(
-            None,
-            extract_registrar_name(&entities)
-        );
+        assert_eq!(None, extract_registrar_name(&entities));
     }
 
     #[test]
     fn registrar_role_no_full_name() {
         let entities = entities_including_registrar_no_fn();
 
-        assert_eq!(
-            None,
-            extract_registrar_name(&entities)
-        );
+        assert_eq!(None, extract_registrar_name(&entities));
     }
 
     fn entities_including_registrar() -> Vec<parser::Entity> {
@@ -2190,14 +2064,14 @@ mod extract_registrar_name_tests {
                 Some(vec![
                     parser::Role::Noc,
                     parser::Role::Registrar,
-                    parser::Role::Sponsor
+                    parser::Role::Sponsor,
                 ]),
                 ("fn", "Reg One"),
             ),
             build_entity(
                 Some(vec![parser::Role::Noc, parser::Role::Sponsor]),
-                ("fn", "Not Reg Two")
-            )
+                ("fn", "Not Reg Two"),
+            ),
         ]
     }
 
@@ -2208,19 +2082,13 @@ mod extract_registrar_name_tests {
                 ("fn", "Not Reg One"),
             ),
             build_entity(
-                Some(vec![
-                    parser::Role::Noc,
-                    parser::Role::Sponsor
-                ]),
+                Some(vec![parser::Role::Noc, parser::Role::Sponsor]),
                 ("fn", "Not Reg Two"),
             ),
             build_entity(
-                Some(vec![
-                    parser::Role::Noc,
-                    parser::Role::Sponsor,
-                ]),
-                ("fn", "Not Reg Three")
-            )
+                Some(vec![parser::Role::Noc, parser::Role::Sponsor]),
+                ("fn", "Not Reg Three"),
+            ),
         ]
     }
 
@@ -2234,20 +2102,20 @@ mod extract_registrar_name_tests {
                 Some(vec![
                     parser::Role::Noc,
                     parser::Role::Registrar,
-                    parser::Role::Sponsor
+                    parser::Role::Sponsor,
                 ]),
                 ("not-fn", "Reg One"),
             ),
             build_entity(
                 Some(vec![parser::Role::Noc, parser::Role::Sponsor]),
-                ("fn", "Not Reg Two")
-            )
+                ("fn", "Not Reg Two"),
+            ),
         ]
     }
 
     fn build_entity(
         roles: Option<Vec<parser::Role>>,
-        additional_vcard_item: (&str, &str)
+        additional_vcard_item: (&str, &str),
     ) -> parser::Entity {
         let vcard_array = parser::JCard(
             parser::JCardType::Vcard,
@@ -2255,7 +2123,7 @@ mod extract_registrar_name_tests {
                 build_jcard_item("foo", "bar"),
                 build_jcard_item(additional_vcard_item.0, additional_vcard_item.1),
                 build_jcard_item("baz", "biz"),
-            ]
+            ],
         );
 
         let handle: Option<String> = None;
@@ -2273,20 +2141,19 @@ mod extract_registrar_name_tests {
             status: None,
             port43: None,
             lang: None,
-            object_class_name: "entity".into()
+            object_class_name: "entity".into(),
         }
     }
 
     fn build_jcard_item(property_name: &str, value: &str) -> parser::JCardItem {
-        use serde_json::map::Map;
         use serde_json::json;
+        use serde_json::map::Map;
 
         parser::JCardItem {
             property_name: property_name.into(),
             parameters: Map::new(),
             type_identifier: parser::JCardItemDataType::Text,
-            values: vec![json!(value)]
-
+            values: vec![json!(value)],
         }
     }
 }
@@ -2331,13 +2198,14 @@ mod extract_provider_name_tests {
         roles: &[parser::Role],
         entities: Option<Vec<parser::Entity>>,
         additional_items: Option<&[(&str, &[&str])]>,
-        last_changed: Option<DateTime<FixedOffset>>
+        last_changed: Option<DateTime<FixedOffset>>,
     ) -> parser::Entity {
         let vcard_array = if let Some(additional) = additional_items {
             let mut vcard_items = vec![build_jcard_item("foo", &["bar"])];
-            let mut additional_vcard_items = additional.iter().map(|(c_type, c_values)| {
-                build_jcard_item(c_type, c_values)
-            }).collect();
+            let mut additional_vcard_items = additional
+                .iter()
+                .map(|(c_type, c_values)| build_jcard_item(c_type, c_values))
+                .collect();
             let mut trailing_vcard_items = vec![build_jcard_item("baz", &["biz"])];
 
             vcard_items.append(&mut additional_vcard_items);
@@ -2361,7 +2229,7 @@ mod extract_provider_name_tests {
             status: None,
             port43: None,
             lang: None,
-            object_class_name: "entity".into()
+            object_class_name: "entity".into(),
         }
     }
 
@@ -2370,21 +2238,21 @@ mod extract_provider_name_tests {
             event_actor: None,
             event_action: parser::EventAction::LastChanged,
             event_date,
-            links: None
+            links: None,
         };
 
         parser::Events(vec![event])
     }
 
     fn build_jcard_item(property_name: &str, values: &[&str]) -> parser::JCardItem {
-        use serde_json::map::Map;
         use serde_json::json;
+        use serde_json::map::Map;
 
         parser::JCardItem {
             property_name: property_name.into(),
             parameters: Map::new(),
             type_identifier: parser::JCardItemDataType::Text,
-            values: values.iter().map(|v| json!(v)).collect()
+            values: values.iter().map(|v| json!(v)).collect(),
         }
     }
 }
@@ -2409,7 +2277,7 @@ mod extract_eligible_registrant_entities_tests {
             registrant_entity("H-R-1"),
             non_registrant_entity("H-NR-2"),
             registrant_entity("H-R-2"),
-            registrant_entity_no_full_name("H-R-NFN")
+            registrant_entity_no_full_name("H-R-NFN"),
         ];
 
         let expected_handles: Vec<String> = vec!["H-R-1".into(), "H-R-2".into()];
@@ -2422,47 +2290,38 @@ mod extract_eligible_registrant_entities_tests {
     fn registrant_entity(handle: &str) -> parser::Entity {
         build_entity(
             handle,
-            Some(
-                &[
-                    parser::Role::Sponsor,
-                    parser::Role::Registrant,
-                    parser::Role::Reseller,
-                ]
-            ),
+            Some(&[
+                parser::Role::Sponsor,
+                parser::Role::Registrant,
+                parser::Role::Reseller,
+            ]),
             None,
             Some(&[("fn", &["does not matter"])]),
-            None
+            None,
         )
     }
 
     fn registrant_entity_no_full_name(handle: &str) -> parser::Entity {
         build_entity(
             handle,
-            Some(
-                &[
-                    parser::Role::Sponsor,
-                    parser::Role::Registrant,
-                    parser::Role::Reseller,
-                ]
-            ),
+            Some(&[
+                parser::Role::Sponsor,
+                parser::Role::Registrant,
+                parser::Role::Reseller,
+            ]),
             None,
             None,
-            None
+            None,
         )
     }
 
     fn non_registrant_entity(handle: &str) -> parser::Entity {
         build_entity(
             handle,
-            Some(
-                &[
-                    parser::Role::Sponsor,
-                    parser::Role::Reseller,
-                ]
-            ),
+            Some(&[parser::Role::Sponsor, parser::Role::Reseller]),
             None,
             Some(&[("fn", &["does not matter"])]),
-            None
+            None,
         )
     }
 
@@ -2471,13 +2330,14 @@ mod extract_eligible_registrant_entities_tests {
         roles: Option<&[parser::Role]>,
         entities: Option<Vec<parser::Entity>>,
         additional_items: Option<&[(&str, &[&str])]>,
-        last_changed: Option<DateTime<FixedOffset>>
+        last_changed: Option<DateTime<FixedOffset>>,
     ) -> parser::Entity {
         let vcard_array = if let Some(additional) = additional_items {
             let mut vcard_items = vec![build_jcard_item("foo", &["bar"])];
-            let mut additional_vcard_items = additional.iter().map(|(c_type, c_values)| {
-                build_jcard_item(c_type, c_values)
-            }).collect();
+            let mut additional_vcard_items = additional
+                .iter()
+                .map(|(c_type, c_values)| build_jcard_item(c_type, c_values))
+                .collect();
             let mut trailing_vcard_items = vec![build_jcard_item("baz", &["biz"])];
 
             vcard_items.append(&mut additional_vcard_items);
@@ -2503,7 +2363,7 @@ mod extract_eligible_registrant_entities_tests {
             status: None,
             port43: None,
             lang: None,
-            object_class_name: "entity".into()
+            object_class_name: "entity".into(),
         }
     }
 
@@ -2512,21 +2372,21 @@ mod extract_eligible_registrant_entities_tests {
             event_actor: None,
             event_action: parser::EventAction::LastChanged,
             event_date,
-            links: None
+            links: None,
         };
 
         parser::Events(vec![event])
     }
 
     fn build_jcard_item(property_name: &str, values: &[&str]) -> parser::JCardItem {
-        use serde_json::map::Map;
         use serde_json::json;
+        use serde_json::map::Map;
 
         parser::JCardItem {
             property_name: property_name.into(),
             parameters: Map::new(),
             type_identifier: parser::JCardItemDataType::Text,
-            values: values.iter().map(|v| json!(v)).collect()
+            values: values.iter().map(|v| json!(v)).collect(),
         }
     }
 
@@ -2541,9 +2401,7 @@ mod extract_eligible_registrant_entities_tests {
 fn extract_eligible_registrant_entities(entities: &[parser::Entity]) -> Vec<&parser::Entity> {
     entities
         .iter()
-        .filter(|entity| {
-            is_registrant(entity) && has_full_name(entity)
-        })
+        .filter(|entity| is_registrant(entity) && has_full_name(entity))
         .collect()
 }
 
@@ -2590,13 +2448,10 @@ mod is_registrant_tests {
     fn non_registrant_entity() -> parser::Entity {
         build_entity(
             "does not matter",
-            Some(&[
-                parser::Role::Sponsor,
-                parser::Role::Reseller,
-            ]),
+            Some(&[parser::Role::Sponsor, parser::Role::Reseller]),
             None,
             None,
-            None
+            None,
         )
     }
 
@@ -2610,7 +2465,7 @@ mod is_registrant_tests {
             ]),
             None,
             None,
-            None
+            None,
         )
     }
 
@@ -2619,13 +2474,14 @@ mod is_registrant_tests {
         roles: Option<&[parser::Role]>,
         entities: Option<Vec<parser::Entity>>,
         additional_items: Option<&[(&str, &[&str])]>,
-        last_changed: Option<DateTime<FixedOffset>>
+        last_changed: Option<DateTime<FixedOffset>>,
     ) -> parser::Entity {
         let vcard_array = if let Some(additional) = additional_items {
             let mut vcard_items = vec![build_jcard_item("foo", &["bar"])];
-            let mut additional_vcard_items = additional.iter().map(|(c_type, c_values)| {
-                build_jcard_item(c_type, c_values)
-            }).collect();
+            let mut additional_vcard_items = additional
+                .iter()
+                .map(|(c_type, c_values)| build_jcard_item(c_type, c_values))
+                .collect();
             let mut trailing_vcard_items = vec![build_jcard_item("baz", &["biz"])];
 
             vcard_items.append(&mut additional_vcard_items);
@@ -2651,7 +2507,7 @@ mod is_registrant_tests {
             status: None,
             port43: None,
             lang: None,
-            object_class_name: "entity".into()
+            object_class_name: "entity".into(),
         }
     }
 
@@ -2660,24 +2516,23 @@ mod is_registrant_tests {
             event_actor: None,
             event_action: parser::EventAction::LastChanged,
             event_date,
-            links: None
+            links: None,
         };
 
         parser::Events(vec![event])
     }
 
     fn build_jcard_item(property_name: &str, values: &[&str]) -> parser::JCardItem {
-        use serde_json::map::Map;
         use serde_json::json;
+        use serde_json::map::Map;
 
         parser::JCardItem {
             property_name: property_name.into(),
             parameters: Map::new(),
             type_identifier: parser::JCardItemDataType::Text,
-            values: values.iter().map(|v| json!(v)).collect()
+            values: values.iter().map(|v| json!(v)).collect(),
         }
     }
-
 }
 
 fn is_registrant(entity: &parser::Entity) -> bool {
@@ -2747,11 +2602,23 @@ mod has_full_name_tests {
     }
 
     fn entity_with_card_but_empty_string_values() -> parser::Entity {
-        build_entity("does not matter", None, None, Some(&[("fn", &["", ""])]), None)
+        build_entity(
+            "does not matter",
+            None,
+            None,
+            Some(&[("fn", &["", ""])]),
+            None,
+        )
     }
 
     fn entity_with_single_full_name_card() -> parser::Entity {
-        build_entity("does not matter", None, None, Some(&[("fn", &["My Name"])]), None)
+        build_entity(
+            "does not matter",
+            None,
+            None,
+            Some(&[("fn", &["My Name"])]),
+            None,
+        )
     }
 
     fn entity_with_multiple_full_name_cards() -> parser::Entity {
@@ -2760,7 +2627,7 @@ mod has_full_name_tests {
             None,
             None,
             Some(&[("fn", &["My Name"]), ("fn", &["My Other Name"])]),
-            None
+            None,
         )
     }
 
@@ -2769,13 +2636,14 @@ mod has_full_name_tests {
         roles: Option<&[parser::Role]>,
         entities: Option<Vec<parser::Entity>>,
         additional_items: Option<&[(&str, &[&str])]>,
-        last_changed: Option<DateTime<FixedOffset>>
+        last_changed: Option<DateTime<FixedOffset>>,
     ) -> parser::Entity {
         let vcard_array = if let Some(additional) = additional_items {
             let mut vcard_items = vec![build_jcard_item("foo", &["bar"])];
-            let mut additional_vcard_items = additional.iter().map(|(c_type, c_values)| {
-                build_jcard_item(c_type, c_values)
-            }).collect();
+            let mut additional_vcard_items = additional
+                .iter()
+                .map(|(c_type, c_values)| build_jcard_item(c_type, c_values))
+                .collect();
             let mut trailing_vcard_items = vec![build_jcard_item("baz", &["biz"])];
 
             vcard_items.append(&mut additional_vcard_items);
@@ -2801,7 +2669,7 @@ mod has_full_name_tests {
             status: None,
             port43: None,
             lang: None,
-            object_class_name: "entity".into()
+            object_class_name: "entity".into(),
         }
     }
 
@@ -2810,21 +2678,21 @@ mod has_full_name_tests {
             event_actor: None,
             event_action: parser::EventAction::LastChanged,
             event_date,
-            links: None
+            links: None,
         };
 
         parser::Events(vec![event])
     }
 
     fn build_jcard_item(property_name: &str, values: &[&str]) -> parser::JCardItem {
-        use serde_json::map::Map;
         use serde_json::json;
+        use serde_json::map::Map;
 
         parser::JCardItem {
             property_name: property_name.into(),
             parameters: Map::new(),
             type_identifier: parser::JCardItemDataType::Text,
-            values: values.iter().map(|v| json!(v)).collect()
+            values: values.iter().map(|v| json!(v)).collect(),
         }
     }
 }
@@ -2876,7 +2744,13 @@ mod find_most_recent_full_name_tests {
         let fullname_values = vec![name];
         let vcard_items = &[("fn", &fullname_values[..])];
 
-        build_entity("does not matter", None, None, Some(vcard_items), Some(last_changed))
+        build_entity(
+            "does not matter",
+            None,
+            None,
+            Some(vcard_items),
+            Some(last_changed),
+        )
     }
 
     fn build_entity(
@@ -2884,13 +2758,14 @@ mod find_most_recent_full_name_tests {
         roles: Option<&[parser::Role]>,
         entities: Option<Vec<parser::Entity>>,
         additional_items: Option<&[(&str, &[&str])]>,
-        last_changed: Option<DateTime<FixedOffset>>
+        last_changed: Option<DateTime<FixedOffset>>,
     ) -> parser::Entity {
         let vcard_array = if let Some(additional) = additional_items {
             let mut vcard_items = vec![build_jcard_item("foo", &["bar"])];
-            let mut additional_vcard_items = additional.iter().map(|(c_type, c_values)| {
-                build_jcard_item(c_type, c_values)
-            }).collect();
+            let mut additional_vcard_items = additional
+                .iter()
+                .map(|(c_type, c_values)| build_jcard_item(c_type, c_values))
+                .collect();
             let mut trailing_vcard_items = vec![build_jcard_item("baz", &["biz"])];
 
             vcard_items.append(&mut additional_vcard_items);
@@ -2916,7 +2791,7 @@ mod find_most_recent_full_name_tests {
             status: None,
             port43: None,
             lang: None,
-            object_class_name: "entity".into()
+            object_class_name: "entity".into(),
         }
     }
 
@@ -2925,21 +2800,21 @@ mod find_most_recent_full_name_tests {
             event_actor: None,
             event_action: parser::EventAction::LastChanged,
             event_date,
-            links: None
+            links: None,
         };
 
         parser::Events(vec![event])
     }
 
     fn build_jcard_item(property_name: &str, values: &[&str]) -> parser::JCardItem {
-        use serde_json::map::Map;
         use serde_json::json;
+        use serde_json::map::Map;
 
         parser::JCardItem {
             property_name: property_name.into(),
             parameters: Map::new(),
             type_identifier: parser::JCardItemDataType::Text,
-            values: values.iter().map(|v| json!(v)).collect()
+            values: values.iter().map(|v| json!(v)).collect(),
         }
     }
 }
@@ -2968,18 +2843,12 @@ mod extract_full_name_tests {
 
     #[test]
     fn extract_full_name_no_vcard_array() {
-        assert_eq!(
-            None,
-            extract_full_name(&entity_without_vcards())
-        );
+        assert_eq!(None, extract_full_name(&entity_without_vcards()));
     }
 
     #[test]
     fn extract_full_name_no_fn_vcard() {
-        assert_eq!(
-            None,
-            extract_full_name(&entity_without_fn_vcard())
-        );
+        assert_eq!(None, extract_full_name(&entity_without_fn_vcard()));
     }
 
     #[test]
@@ -2994,9 +2863,7 @@ mod extract_full_name_tests {
     fn extract_full_name_multiple_fn_values() {
         assert_eq!(
             Some("Reg One".into()),
-            extract_full_name(
-                &build_entity(None, vec![("fn", &["Reg One", "Reg Two"])])
-            )
+            extract_full_name(&build_entity(None, vec![("fn", &["Reg One", "Reg Two"])]))
         );
     }
 
@@ -3006,12 +2873,13 @@ mod extract_full_name_tests {
 
     fn build_entity(
         roles: Option<Vec<parser::Role>>,
-        additional_items: Vec<(&str, &[&str])>
+        additional_items: Vec<(&str, &[&str])>,
     ) -> parser::Entity {
         let mut vcard_items = vec![build_jcard_item("foo", &["bar"])];
-        let mut additional_vcard_items = additional_items.iter().map(|(c_type, c_values)| {
-            build_jcard_item(c_type, c_values)
-        }).collect();
+        let mut additional_vcard_items = additional_items
+            .iter()
+            .map(|(c_type, c_values)| build_jcard_item(c_type, c_values))
+            .collect();
         let mut trailing_vcard_items = vec![build_jcard_item("baz", &["biz"])];
 
         vcard_items.append(&mut additional_vcard_items);
@@ -3034,19 +2902,19 @@ mod extract_full_name_tests {
             status: None,
             port43: None,
             lang: None,
-            object_class_name: "entity".into()
+            object_class_name: "entity".into(),
         }
     }
 
     fn build_jcard_item(property_name: &str, values: &[&str]) -> parser::JCardItem {
-        use serde_json::map::Map;
         use serde_json::json;
+        use serde_json::map::Map;
 
         parser::JCardItem {
             property_name: property_name.into(),
             parameters: Map::new(),
             type_identifier: parser::JCardItemDataType::Text,
-            values: values.iter().map(|v| json!(v)).collect()
+            values: values.iter().map(|v| json!(v)).collect(),
         }
     }
 
@@ -3066,7 +2934,7 @@ mod extract_full_name_tests {
             status: None,
             port43: None,
             lang: None,
-            object_class_name: "entity".into()
+            object_class_name: "entity".into(),
         }
     }
 
@@ -3085,9 +2953,7 @@ fn extract_full_name(entity: &parser::Entity) -> Option<String> {
 
         full_name_items
             .first()
-            .map(|item| {
-                item.values.first().unwrap().as_str().unwrap().into()
-            })
+            .map(|item| item.values.first().unwrap().as_str().unwrap().into())
     } else {
         None
     }
@@ -3137,13 +3003,14 @@ mod extract_abuse_email_tests {
         roles: &[parser::Role],
         entities: Option<Vec<parser::Entity>>,
         additional_items: Option<&[(&str, &[&str])]>,
-        last_changed: Option<DateTime<FixedOffset>>
+        last_changed: Option<DateTime<FixedOffset>>,
     ) -> parser::Entity {
         let vcard_array = if let Some(additional) = additional_items {
             let mut vcard_items = vec![build_jcard_item("foo", &["bar"])];
-            let mut additional_vcard_items = additional.iter().map(|(c_type, c_values)| {
-                build_jcard_item(c_type, c_values)
-            }).collect();
+            let mut additional_vcard_items = additional
+                .iter()
+                .map(|(c_type, c_values)| build_jcard_item(c_type, c_values))
+                .collect();
             let mut trailing_vcard_items = vec![build_jcard_item("baz", &["biz"])];
 
             vcard_items.append(&mut additional_vcard_items);
@@ -3167,7 +3034,7 @@ mod extract_abuse_email_tests {
             status: None,
             port43: None,
             lang: None,
-            object_class_name: "entity".into()
+            object_class_name: "entity".into(),
         }
     }
 
@@ -3176,21 +3043,21 @@ mod extract_abuse_email_tests {
             event_actor: None,
             event_action: parser::EventAction::LastChanged,
             event_date,
-            links: None
+            links: None,
         };
 
         parser::Events(vec![event])
     }
 
     fn build_jcard_item(property_name: &str, values: &[&str]) -> parser::JCardItem {
-        use serde_json::map::Map;
         use serde_json::json;
+        use serde_json::map::Map;
 
         parser::JCardItem {
             property_name: property_name.into(),
             parameters: Map::new(),
             type_identifier: parser::JCardItemDataType::Text,
-            values: values.iter().map(|v| json!(v)).collect()
+            values: values.iter().map(|v| json!(v)).collect(),
         }
     }
 }
@@ -3207,7 +3074,9 @@ mod extract_registration_date_tests {
     #[test]
     fn returns_registration_date() {
         let events = parser::Events(vec![
-            non_registration_event(), registration_event(), non_registration_event()
+            non_registration_event(),
+            registration_event(),
+            non_registration_event(),
         ]);
         let expected_registration_date = chrono::Utc
             .with_ymd_and_hms(2022, 12, 11, 12, 5, 30)
@@ -3222,9 +3091,7 @@ mod extract_registration_date_tests {
 
     #[test]
     fn returns_none_if_no_registration_event() {
-        let events = parser::Events(vec![
-            non_registration_event(), non_registration_event()
-        ]);
+        let events = parser::Events(vec![non_registration_event(), non_registration_event()]);
 
         assert!(extract_registration_date(&events).is_none());
     }
@@ -3244,7 +3111,6 @@ mod extract_registration_date_tests {
     }
 
     fn non_registration_event() -> parser::Event {
-
         let event_date = time_zone()
             .with_ymd_and_hms(2022, 12, 25, 16, 5, 30)
             .single()
@@ -3281,7 +3147,10 @@ mod find_registrar_entity_tests {
             non_registrar_entity(),
         ];
 
-        compare(&registrar_entity_1(), find_registrar_entity(&entities).unwrap());
+        compare(
+            &registrar_entity_1(),
+            find_registrar_entity(&entities).unwrap(),
+        );
     }
 
     #[test]
@@ -3293,44 +3162,36 @@ mod find_registrar_entity_tests {
             non_registrar_entity(),
         ];
 
-        compare(&registrar_entity_2(), find_registrar_entity(&entities).unwrap());
+        compare(
+            &registrar_entity_2(),
+            find_registrar_entity(&entities).unwrap(),
+        );
     }
 
     #[test]
     fn no_registrar_role() {
-        let entities = vec![
-            non_registrar_entity(),
-            non_registrar_entity(),
-        ];
+        let entities = vec![non_registrar_entity(), non_registrar_entity()];
 
         assert!(find_registrar_entity(&entities).is_none());
     }
 
     fn non_registrar_entity() -> parser::Entity {
-        build_entity(&[
-            parser::Role::Noc,
-            parser::Role::Sponsor
-        ])
+        build_entity(&[parser::Role::Noc, parser::Role::Sponsor])
     }
 
     fn registrar_entity_1() -> parser::Entity {
         build_entity(&[
             parser::Role::Noc,
             parser::Role::Registrar,
-            parser::Role::Sponsor
+            parser::Role::Sponsor,
         ])
     }
 
     fn registrar_entity_2() -> parser::Entity {
-        build_entity(&[
-            parser::Role::Noc,
-            parser::Role::Registrar,
-        ])
+        build_entity(&[parser::Role::Noc, parser::Role::Registrar])
     }
 
-    fn build_entity(
-        roles: &[parser::Role],
-    ) -> parser::Entity {
+    fn build_entity(roles: &[parser::Role]) -> parser::Entity {
         parser::Entity {
             roles: Some(roles.to_vec()),
             vcard_array: None,
@@ -3344,7 +3205,7 @@ mod find_registrar_entity_tests {
             status: None,
             port43: None,
             lang: None,
-            object_class_name: "entity".into()
+            object_class_name: "entity".into(),
         }
     }
 
@@ -3364,16 +3225,16 @@ fn find_registrar_entity(entities: &[parser::Entity]) -> Option<&parser::Entity>
                 false
             }
         })
-    .collect();
+        .collect();
 
     registrar_entities.pop()
 }
 
 #[cfg(test)]
 mod extract_eligible_abuse_entities_tests {
-    use parser::{JCard, JCardItem, JCardItemDataType, JCardType, Role};
-    use parser::Role::{Abuse, Administrative, Registrant};
     use super::*;
+    use parser::Role::{Abuse, Administrative, Registrant};
+    use parser::{JCard, JCardItem, JCardItemDataType, JCardType, Role};
 
     #[test]
     fn returns_flattened_collection_of_all_abuse_entities_with_email_addresses() {
@@ -3385,7 +3246,7 @@ mod extract_eligible_abuse_entities_tests {
                     ("h-3", vec![Administrative, Registrant], true),
                     ("h-4", vec![Abuse], true),
                 ],
-                true
+                true,
             ),
             build_entity_set(
                 ("h-5", vec![Administrative, Abuse, Registrant]),
@@ -3394,19 +3255,21 @@ mod extract_eligible_abuse_entities_tests {
                     ("h-7", vec![Administrative, Abuse, Registrant], false),
                     ("h-8", vec![Administrative, Abuse, Registrant], true),
                 ],
-                true
+                true,
             ),
             build_entity_set(
                 ("h-9", vec![Administrative, Abuse, Registrant]),
-                vec![
-                    ("h-10", vec![Administrative, Abuse, Registrant], true),
-                ],
-                false
+                vec![("h-10", vec![Administrative, Abuse, Registrant], true)],
+                false,
             ),
         ];
 
         let expected_entity_handles: Vec<String> = vec![
-            "h-2".into(), "h-4".into(), "h-5".into(), "h-8".into(), "h-10".into()
+            "h-2".into(),
+            "h-4".into(),
+            "h-5".into(),
+            "h-8".into(),
+            "h-10".into(),
         ];
 
         let actual_entity_handles: Vec<String> = extract_eligible_abuse_entities(entities)
@@ -3420,7 +3283,7 @@ mod extract_eligible_abuse_entities_tests {
     fn build_entity_set(
         top_level: (&str, Vec<Role>),
         lower_level: Vec<(&str, Vec<Role>, bool)>,
-        has_email: bool
+        has_email: bool,
     ) -> parser::Entity {
         let lower_level_entities = lower_level
             .into_iter()
@@ -3436,19 +3299,18 @@ mod extract_eligible_abuse_entities_tests {
         handle: &str,
         roles: Vec<parser::Role>,
         entities: Vec<parser::Entity>,
-        has_email: bool
-        ) -> parser::Entity {
+        has_email: bool,
+    ) -> parser::Entity {
         let mut vcard_items = vec![build_jcard_item("foo", &["bar"])];
 
         if has_email {
-            vcard_items.append(
-                &mut vec![build_jcard_item("email", &[&format!("{handle}@test.zzz")])]
-            )
+            vcard_items.append(&mut vec![build_jcard_item(
+                "email",
+                &[&format!("{handle}@test.zzz")],
+            )])
         }
 
-        vcard_items.append(
-            &mut vec![build_jcard_item("baz", &["biz"])]
-        );
+        vcard_items.append(&mut vec![build_jcard_item("baz", &["biz"])]);
 
         parser::Entity {
             roles: Some(roles),
@@ -3463,29 +3325,27 @@ mod extract_eligible_abuse_entities_tests {
             status: None,
             port43: None,
             lang: None,
-            object_class_name: "entity".into()
+            object_class_name: "entity".into(),
         }
     }
 
     fn build_jcard_item(property_name: &str, values: &[&str]) -> JCardItem {
-        use serde_json::map::Map;
         use serde_json::json;
+        use serde_json::map::Map;
 
         JCardItem {
             property_name: property_name.into(),
             parameters: Map::new(),
             type_identifier: JCardItemDataType::Text,
-            values: values.iter().map(|v| json!(v)).collect()
+            values: values.iter().map(|v| json!(v)).collect(),
         }
     }
 }
 
 fn extract_eligible_abuse_entities(entities: &[parser::Entity]) -> Vec<&parser::Entity> {
-    let all_entities: Vec<&parser::Entity> = entities.
-        iter()
-        .flat_map(|entity| {
-            all_entities_from(entity)
-        })
+    let all_entities: Vec<&parser::Entity> = entities
+        .iter()
+        .flat_map(|entity| all_entities_from(entity))
         .collect();
 
     all_entities
@@ -3539,11 +3399,7 @@ mod all_entities_from_tests {
         assert_eq!(expected_handles, actual_handles);
     }
 
-    fn build_entity(
-        handle: &str,
-        entities: Option<Vec<parser::Entity>>,
-    ) -> parser::Entity {
-
+    fn build_entity(handle: &str, entities: Option<Vec<parser::Entity>>) -> parser::Entity {
         parser::Entity {
             roles: None,
             vcard_array: None,
@@ -3557,7 +3413,7 @@ mod all_entities_from_tests {
             status: None,
             port43: None,
             lang: None,
-            object_class_name: "entity".into()
+            object_class_name: "entity".into(),
         }
     }
 
@@ -3567,15 +3423,12 @@ mod all_entities_from_tests {
             .map(|entity| entity.handle.clone().unwrap())
             .collect()
     }
-
 }
 
 fn all_entities_from(entity: &parser::Entity) -> Vec<&parser::Entity> {
     let mut output = vec![entity];
     if let Some(entities) = &entity.entities {
-        let mut child_entities = entities
-            .iter()
-            .collect();
+        let mut child_entities = entities.iter().collect();
 
         output.append(&mut child_entities);
     }
@@ -3641,11 +3494,11 @@ mod find_most_recent_email_address_tests {
             status: None,
             port43: None,
             lang: None,
-            object_class_name: "entity".into()
+            object_class_name: "entity".into(),
         }
     }
 
-    fn build_entity_without_last_changed_event(email_addresses: &[&str]) -> parser::Entity{
+    fn build_entity_without_last_changed_event(email_addresses: &[&str]) -> parser::Entity {
         parser::Entity {
             roles: None,
             vcard_array: build_vcard_array(email_addresses),
@@ -3659,7 +3512,7 @@ mod find_most_recent_email_address_tests {
             status: None,
             port43: None,
             lang: None,
-            object_class_name: "entity".into()
+            object_class_name: "entity".into(),
         }
     }
 
@@ -3668,7 +3521,7 @@ mod find_most_recent_email_address_tests {
             event_actor: None,
             event_action: parser::EventAction::LastChanged,
             event_date,
-            links: None
+            links: None,
         };
 
         parser::Events(vec![event])
@@ -3685,14 +3538,14 @@ mod find_most_recent_email_address_tests {
     }
 
     fn build_jcard_item(property_name: &str, values: &[&str]) -> parser::JCardItem {
-        use serde_json::map::Map;
         use serde_json::json;
+        use serde_json::map::Map;
 
         parser::JCardItem {
             property_name: property_name.into(),
             parameters: Map::new(),
             type_identifier: parser::JCardItemDataType::Text,
-            values: values.iter().map(|v| json!(v)).collect()
+            values: values.iter().map(|v| json!(v)).collect(),
         }
     }
 }
@@ -3743,7 +3596,7 @@ mod last_changed_date_tests {
             status: None,
             port43: None,
             lang: None,
-            object_class_name: "entity".into()
+            object_class_name: "entity".into(),
         }
     }
 
@@ -3761,14 +3614,12 @@ mod last_changed_date_tests {
             status: None,
             port43: None,
             lang: None,
-            object_class_name: "entity".into()
+            object_class_name: "entity".into(),
         }
     }
 
     fn build_events() -> parser::Events {
-        parser::Events(vec![
-            build_last_changed_event(),
-        ])
+        parser::Events(vec![build_last_changed_event()])
     }
 
     fn build_last_changed_event() -> parser::Event {
@@ -3776,7 +3627,7 @@ mod last_changed_date_tests {
             event_actor: None,
             event_action: parser::EventAction::LastChanged,
             event_date: build_date(10),
-            links: None
+            links: None,
         }
     }
 
@@ -3839,21 +3690,30 @@ mod get_email_address_tests {
     fn returns_email_address_if_single_email_card() {
         let entity = build_entity_with_single_email_card();
 
-        assert_eq!(Some(String::from("abuse@regtest.zzz")), get_email_address(&entity));
+        assert_eq!(
+            Some(String::from("abuse@regtest.zzz")),
+            get_email_address(&entity)
+        );
     }
 
     #[test]
     fn returns_first_email_address_if_multiple_values() {
         let entity = build_entity_with_single_email_card_multiple_values();
 
-        assert_eq!(Some(String::from("abuse@regtest.zzz")), get_email_address(&entity));
+        assert_eq!(
+            Some(String::from("abuse@regtest.zzz")),
+            get_email_address(&entity)
+        );
     }
 
     #[test]
     fn returns_first_email_address_if_multiple_email_cards() {
         let entity = build_entity_with_multiple_email_cards();
 
-        assert_eq!(Some(String::from("abuse@regtest.zzz")), get_email_address(&entity));
+        assert_eq!(
+            Some(String::from("abuse@regtest.zzz")),
+            get_email_address(&entity)
+        );
     }
 
     fn build_entity_with_no_vcard_array() -> parser::Entity {
@@ -3938,19 +3798,19 @@ mod get_email_address_tests {
             status: None,
             port43: None,
             lang: None,
-            object_class_name: "entity".into()
+            object_class_name: "entity".into(),
         }
     }
 
     fn build_jcard_item(property_name: &str, values: &[&str]) -> parser::JCardItem {
-        use serde_json::map::Map;
         use serde_json::json;
+        use serde_json::map::Map;
 
         parser::JCardItem {
             property_name: property_name.into(),
             parameters: Map::new(),
             type_identifier: parser::JCardItemDataType::Text,
-            values: values.iter().map(|v| json!(v)).collect()
+            values: values.iter().map(|v| json!(v)).collect(),
         }
     }
 }
@@ -3962,8 +3822,7 @@ fn get_email_address(entity: &parser::Entity) -> Option<String> {
             .items_by_name("email")
             .into_iter()
             .flat_map(|item| {
-                item
-                    .values
+                item.values
                     .iter()
                     .flat_map(|v| v.as_str())
                     .collect::<Vec<&str>>()
@@ -4025,7 +3884,7 @@ mod is_abuse_entity_tests {
             status: None,
             port43: None,
             lang: None,
-            object_class_name: "entity".into()
+            object_class_name: "entity".into(),
         }
     }
 }
@@ -4064,7 +3923,9 @@ mod has_email_address_tests {
 
     #[test]
     fn it_returns_false_if_email_card_values_are_empty_strings() {
-        assert!(!has_email_address(&entity_with_emails_vcards_empty_strings()));
+        assert!(!has_email_address(
+            &entity_with_emails_vcards_empty_strings()
+        ));
     }
 
     #[test]
@@ -4072,16 +3933,12 @@ mod has_email_address_tests {
         assert!(has_email_address(&entity_with_email_vcard()))
     }
 
-
     fn entity_without_vcard_array() -> parser::Entity {
         build_entity(None)
     }
 
     fn entity_with_empty_vcard_array() -> parser::Entity {
-        let vcard_array = parser::JCard(
-            parser::JCardType::Vcard,
-            vec![]
-        );
+        let vcard_array = parser::JCard(parser::JCardType::Vcard, vec![]);
 
         build_entity(Some(vcard_array))
     }
@@ -4092,7 +3949,7 @@ mod has_email_address_tests {
             vec![
                 build_jcard_item("foo", "bar"),
                 build_jcard_item("baz", "biz"),
-            ]
+            ],
         );
 
         build_entity(Some(vcard_array))
@@ -4101,9 +3958,7 @@ mod has_email_address_tests {
     fn entity_with_email_vcards_no_values() -> parser::Entity {
         let vcard_array = parser::JCard(
             parser::JCardType::Vcard,
-            vec![
-                build_jcard_item_with_no_values("email"),
-            ]
+            vec![build_jcard_item_with_no_values("email")],
         );
 
         build_entity(Some(vcard_array))
@@ -4112,9 +3967,7 @@ mod has_email_address_tests {
     fn entity_with_emails_vcards_empty_strings() -> parser::Entity {
         let vcard_array = parser::JCard(
             parser::JCardType::Vcard,
-            vec![
-                build_jcard_item("email", ""),
-            ]
+            vec![build_jcard_item("email", "")],
         );
 
         build_entity(Some(vcard_array))
@@ -4127,7 +3980,7 @@ mod has_email_address_tests {
                 build_jcard_item("foo", "bar"),
                 build_jcard_item("email", "abuse@test.zzz"),
                 build_jcard_item("baz", "biz"),
-            ]
+            ],
         );
 
         build_entity(Some(vcard_array))
@@ -4147,20 +4000,19 @@ mod has_email_address_tests {
             status: None,
             port43: None,
             lang: None,
-            object_class_name: "entity".into()
+            object_class_name: "entity".into(),
         }
     }
 
     fn build_jcard_item(property_name: &str, value: &str) -> parser::JCardItem {
-        use serde_json::map::Map;
         use serde_json::json;
+        use serde_json::map::Map;
 
         parser::JCardItem {
             property_name: property_name.into(),
             parameters: Map::new(),
             type_identifier: parser::JCardItemDataType::Text,
-            values: vec![json!(value)]
-
+            values: vec![json!(value)],
         }
     }
 
@@ -4171,7 +4023,7 @@ mod has_email_address_tests {
             property_name: property_name.into(),
             parameters: Map::new(),
             type_identifier: parser::JCardItemDataType::Text,
-            values: vec![]
+            values: vec![],
         }
     }
 }
@@ -4183,8 +4035,7 @@ fn has_email_address(entity: &parser::Entity) -> bool {
             .iter()
             .filter(|item| item.property_name == "email")
             .flat_map(|item| {
-                item
-                    .values
+                item.values
                     .iter()
                     .flat_map(|value| value.as_str())
                     .filter(|value| !value.is_empty())
@@ -4202,37 +4053,32 @@ fn has_email_address(entity: &parser::Entity) -> bool {
 mod test_support {
     use super::*;
 
-    use crate::mountebank::{
-        setup_dns_server,
-        DnsServerConfig,
-    };
+    use crate::mountebank::{setup_dns_server, DnsServerConfig};
 
     pub fn setup_impostors() {
-        setup_dns_server(
-            vec![
-                DnsServerConfig::response_200(
-                    "fake.net",
-                    None,
-                    "Reg One",
-                    "abuse@regone.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()
-                ),
-                DnsServerConfig::response_200(
-                    "possiblynotfake.com",
-                    None,
-                    "Reg Two",
-                    "abuse@regtwo.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap()
-                ),
-                DnsServerConfig::response_200(
-                    "morethanlikelyfake.net",
-                    None,
-                    "Reg Three",
-                    "abuse@regthree.zzz",
-                    Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap()
-                ),
-            ]
-        );
+        setup_dns_server(vec![
+            DnsServerConfig::response_200(
+                "fake.net",
+                None,
+                "Reg One",
+                "abuse@regone.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap(),
+            ),
+            DnsServerConfig::response_200(
+                "possiblynotfake.com",
+                None,
+                "Reg Two",
+                "abuse@regtwo.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 13).unwrap(),
+            ),
+            DnsServerConfig::response_200(
+                "morethanlikelyfake.net",
+                None,
+                "Reg Three",
+                "abuse@regthree.zzz",
+                Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap(),
+            ),
+        ]);
     }
 
     pub async fn get_bootstrap() -> Bootstrap {

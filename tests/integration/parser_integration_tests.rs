@@ -3,28 +3,21 @@ use assert_json_diff::assert_json_eq;
 use predicates::prelude::*;
 use serde_json::json;
 
-
 #[test]
 fn test_display_human_parse_results() {
     let mut cmd = Command::cargo_bin("pp-parser").unwrap();
 
-    cmd
-        .args(["--human"])
+    cmd.args(["--human"])
         .write_stdin(input())
         .assert()
         .success()
         .stdout(
-            predicates::str::contains("info@xxx.fr").and(
-                predicates::str::contains("touch base")
-            ).and(
-                predicates::str::contains("https://foo.bar/baz")
-            ).and(
-                predicates::str::contains("gp13mtaq123")
-            ).and(
-                predicates::str::contains("JPh8bpEm")
-            ).and(
-                predicates::str::contains("Trusted")
-            )
+            predicates::str::contains("info@xxx.fr")
+                .and(predicates::str::contains("touch base"))
+                .and(predicates::str::contains("https://foo.bar/baz"))
+                .and(predicates::str::contains("gp13mtaq123"))
+                .and(predicates::str::contains("JPh8bpEm"))
+                .and(predicates::str::contains("Trusted")),
         );
 }
 
@@ -32,12 +25,10 @@ fn test_display_human_parse_results() {
 fn test_display_json_parse_results() {
     let mut cmd = Command::cargo_bin("pp-parser").unwrap();
 
-    cmd
-        .write_stdin(input())
+    cmd.write_stdin(input())
         .assert()
         .success()
         .stdout(json_output_as_string(input()));
-
 
     // TODO Figure out what I am doing wrong with `assert_json_eq!`
     // let assert = cmd
@@ -232,7 +223,6 @@ fn json_output_as_value(raw_mail: String) -> serde_json::Value {
         "reportable_entities": null,
     })
 }
-
 
 //     let input = r#"Delivered-To: victim@gmail.com\r
 // Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\r

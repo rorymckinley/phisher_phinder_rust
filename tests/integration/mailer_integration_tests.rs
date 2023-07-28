@@ -9,8 +9,7 @@ fn send_mail_to_abuse_contacts() {
 
     let mut cmd = Command::cargo_bin("pp-mailer").unwrap();
 
-    cmd
-        .write_stdin(json_input())
+    cmd.write_stdin(json_input())
         .args(["--human"])
         .env("PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS", from_address())
         .env("PP_SMTP_HOST_URI", uri())
@@ -19,10 +18,7 @@ fn send_mail_to_abuse_contacts() {
         .assert()
         .success();
 
-    assert_eq!(
-        1,
-        mail_trap.get_inbox().emails_count
-    );
+    assert_eq!(1, mail_trap.get_inbox().emails_count);
 
     assert_eq!(from_address(), mail_trap.get_last_email().from.unwrap());
 }
@@ -97,5 +93,6 @@ fn json_input() -> String {
             },
             "fulfillment_nodes": [],
         }
-    }).to_string()
+    })
+    .to_string()
 }

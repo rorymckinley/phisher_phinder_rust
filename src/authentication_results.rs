@@ -1,31 +1,36 @@
 use crate::data::EmailAddressData;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 use std::fmt;
+use std::str::FromStr;
 
 #[cfg(test)]
 mod parse_header_tests {
     use super::*;
 
     #[test]
-    fn generates_authentication_results_from_input()  {
+    fn generates_authentication_results_from_input() {
         let input = authentication_header(dkim_portion(), spf_portion(), dmarc_portion());
 
-        assert_eq!(expected_result(), AuthenticationResults::parse_header(input));
+        assert_eq!(
+            expected_result(),
+            AuthenticationResults::parse_header(input)
+        );
     }
 
     #[test]
     fn generates_authentication_results_from_empty_string() {
-        assert_eq!(expected_result_empty(), AuthenticationResults::parse_header(String::from("")));
+        assert_eq!(
+            expected_result_empty(),
+            AuthenticationResults::parse_header(String::from(""))
+        );
     }
 
     fn authentication_header(
         dkim_portion: String,
         spf_portion: String,
-        dmarc_portion: String
+        dmarc_portion: String,
     ) -> String {
-
         let provider = "mx.google.com";
 
         format!("{provider};\r  {dkim_portion};\r  {spf_portion};\r {dmarc_portion}")
@@ -62,16 +67,20 @@ mod parse_header_tests {
                 user_identifier_snippet: Some("@compromised.zzz".into()),
             }),
             service_identifier: Some("mx.google.com".into()),
-            spf: Some(Spf{
+            spf: Some(Spf {
                 ip_address: Some("10.10.10.10".into()),
                 result: Some(SpfResult::Pass),
                 smtp_mailfrom: Some("info@xxx.fr".into()),
-            })
+            }),
         }
     }
 
     fn expected_result_empty() -> AuthenticationResults {
-        AuthenticationResults { dkim: None, service_identifier: None, spf: None }
+        AuthenticationResults {
+            dkim: None,
+            service_identifier: None,
+            spf: None,
+        }
     }
 }
 
@@ -115,7 +124,7 @@ mod authentication_results_valid_tests {
         EmailAddressData {
             address: "from@test.com".into(),
             domain: None,
-            registrar: None
+            registrar: None,
         }
     }
 
@@ -123,7 +132,7 @@ mod authentication_results_valid_tests {
         EmailAddressData {
             address: "from@test.xxx".into(),
             domain: None,
-            registrar: None
+            registrar: None,
         }
     }
 
@@ -131,7 +140,7 @@ mod authentication_results_valid_tests {
         AuthenticationResults {
             dkim: None,
             service_identifier: None,
-            spf: None
+            spf: None,
         }
     }
 
@@ -142,8 +151,8 @@ mod authentication_results_valid_tests {
             spf: Some(Spf {
                 ip_address: None,
                 result: Some(SpfResult::Pass),
-                smtp_mailfrom: Some("from@test.com".into())
-            })
+                smtp_mailfrom: Some("from@test.com".into()),
+            }),
         }
     }
 
@@ -153,7 +162,7 @@ mod authentication_results_valid_tests {
                 result: Some(DkimResult::Pass),
                 selector: None,
                 signature_snippet: None,
-                user_identifier_snippet: Some("@test.xxx".into())
+                user_identifier_snippet: Some("@test.xxx".into()),
             }),
             service_identifier: None,
             spf: None,
@@ -166,14 +175,14 @@ mod authentication_results_valid_tests {
                 result: Some(DkimResult::Pass),
                 selector: None,
                 signature_snippet: None,
-                user_identifier_snippet: Some("@not.xxx".into())
+                user_identifier_snippet: Some("@not.xxx".into()),
             }),
             service_identifier: None,
             spf: Some(Spf {
                 ip_address: None,
                 result: Some(SpfResult::Pass),
-                smtp_mailfrom: Some("recipient@not.com".into())
-            })
+                smtp_mailfrom: Some("recipient@not.com".into()),
+            }),
         }
     }
 }
@@ -202,17 +211,15 @@ impl AuthenticationResults {
 
     fn valid_spf(&self, email_address_data: &EmailAddressData) -> bool {
         match self.spf.as_ref() {
-            Some(spf) => {
-                spf.valid(&email_address_data.address)
-            },
-            None => false
+            Some(spf) => spf.valid(&email_address_data.address),
+            None => false,
         }
     }
 
     fn valid_dkim(&self, email_address_data: &EmailAddressData) -> bool {
         match self.dkim.as_ref() {
             Some(dkim) => dkim.valid(&email_address_data.address),
-            None => false
+            None => false,
         }
     }
 }
@@ -232,7 +239,7 @@ mod text_snippets_tests {
             dkim: Some(&dkim),
             dmarc: Some(&dmarc),
             service_identifier: Some("mx.google.com"),
-            spf: Some(&spf)
+            spf: Some(&spf),
         };
 
         assert_eq!(expected, TextSnippets::new(&input));
@@ -248,7 +255,7 @@ mod text_snippets_tests {
             dkim: Some(&dkim),
             dmarc: None,
             service_identifier: Some("mx.google.com"),
-            spf: Some(&spf)
+            spf: Some(&spf),
         };
 
         assert_eq!(expected, TextSnippets::new(&input));
@@ -264,7 +271,7 @@ mod text_snippets_tests {
             dkim: Some(&dkim),
             dmarc: Some(&dmarc),
             service_identifier: Some("mx.google.com"),
-            spf: None
+            spf: None,
         };
 
         assert_eq!(expected, TextSnippets::new(&input));
@@ -375,9 +382,7 @@ impl<'a> TextSnippets<'a> {
     }
 
     fn extract_snippets(header: &str) -> Vec<&str> {
-        header
-            .split(';')
-            .collect()
+        header.split(';').collect()
     }
 
     fn extract_service_identifier(snippets: &[&'a str]) -> Option<&'a str> {
@@ -416,7 +421,7 @@ mod dkim_new_tests {
             result: Some(DkimResult::Pass),
             selector: Some("ymy".into()),
             signature_snippet: Some("JPh8bpEm".into()),
-            user_identifier_snippet: Some("@compromised.zzz".into())
+            user_identifier_snippet: Some("@compromised.zzz".into()),
         };
 
         assert_eq!(expected, Dkim::new(input))
@@ -457,7 +462,10 @@ mod dkim_extract_value_tests {
     fn returns_the_value_if_the_key_is_present() {
         let input = "dkim=pass header.i=@compromised.zzz header.s=ymy header.b=JPh8bpEm";
 
-        assert_eq!(Some(String::from("ymy")), Dkim::extract_value(input, "header.s"))
+        assert_eq!(
+            Some(String::from("ymy")),
+            Dkim::extract_value(input, "header.s")
+        )
     }
 
     #[test]
@@ -507,12 +515,12 @@ mod dkim_valid_tests {
         assert!(!dkim.valid("from@test.com"))
     }
 
-    fn no_result_dkim() ->  Dkim {
+    fn no_result_dkim() -> Dkim {
         Dkim {
             result: None,
             selector: None,
             signature_snippet: None,
-            user_identifier_snippet: Some("@test.com".into())
+            user_identifier_snippet: Some("@test.com".into()),
         }
     }
 
@@ -521,7 +529,7 @@ mod dkim_valid_tests {
             result: Some(DkimResult::Pass),
             selector: None,
             signature_snippet: None,
-            user_identifier_snippet: Some("@test.com".into())
+            user_identifier_snippet: Some("@test.com".into()),
         }
     }
 
@@ -530,7 +538,7 @@ mod dkim_valid_tests {
             result: Some(DkimResult::Pass),
             selector: None,
             signature_snippet: None,
-            user_identifier_snippet: None
+            user_identifier_snippet: None,
         }
     }
 
@@ -539,7 +547,7 @@ mod dkim_valid_tests {
             result: Some(DkimResult::None),
             selector: None,
             signature_snippet: None,
-            user_identifier_snippet: Some("@test.com".into())
+            user_identifier_snippet: Some("@test.com".into()),
         }
     }
 
@@ -548,7 +556,7 @@ mod dkim_valid_tests {
             result: Some(DkimResult::Pass),
             selector: None,
             signature_snippet: None,
-            user_identifier_snippet: Some("@not-test.com".into())
+            user_identifier_snippet: Some("@not-test.com".into()),
         }
     }
 }
@@ -574,7 +582,9 @@ impl Dkim {
     fn extract_value(header: &str, key: &str) -> Option<String> {
         let pattern = Regex::new(&format!(r"\s{key}=(\S+)")).unwrap();
 
-        pattern.captures(header).map(|captures| String::from(&captures[1]))
+        pattern
+            .captures(header)
+            .map(|captures| String::from(&captures[1]))
     }
 
     fn map_to_result(snippet: &str) -> Option<DkimResult> {
@@ -589,8 +599,8 @@ impl Dkim {
     }
 
     fn valid(&self, email_address: &str) -> bool {
-        matches!(self.result, Some(DkimResult::Pass)) &&
-            self.email_matches_identifier(email_address)
+        matches!(self.result, Some(DkimResult::Pass))
+            && self.email_matches_identifier(email_address)
     }
 
     fn email_matches_identifier(&self, email_address: &str) -> bool {
@@ -598,8 +608,8 @@ impl Dkim {
             Some(snippet) => {
                 let re = Regex::new(&format!(r"{}\z", &snippet)).unwrap();
                 re.is_match(email_address)
-            },
-            None => false
+            }
+            None => false,
         }
     }
 }
@@ -611,12 +621,21 @@ mod test_dkim_result_from_str {
     #[test]
     fn converts_string_to_enum_instance() {
         assert_eq!(DkimResult::Fail, DkimResult::from_str("fail").unwrap());
-        assert_eq!(DkimResult::Neutral, DkimResult::from_str("neutral").unwrap());
+        assert_eq!(
+            DkimResult::Neutral,
+            DkimResult::from_str("neutral").unwrap()
+        );
         assert_eq!(DkimResult::None, DkimResult::from_str("none").unwrap());
         assert_eq!(DkimResult::Pass, DkimResult::from_str("pass").unwrap());
-        assert_eq!(DkimResult::PermError, DkimResult::from_str("permerror").unwrap());
+        assert_eq!(
+            DkimResult::PermError,
+            DkimResult::from_str("permerror").unwrap()
+        );
         assert_eq!(DkimResult::Policy, DkimResult::from_str("policy").unwrap());
-        assert_eq!(DkimResult::TempError, DkimResult::from_str("temperror").unwrap());
+        assert_eq!(
+            DkimResult::TempError,
+            DkimResult::from_str("temperror").unwrap()
+        );
     }
 
     #[test]
@@ -648,10 +667,9 @@ impl fmt::Display for DkimResult {
                 Self::Pass => "Pass",
                 Self::PermError => "PermError",
                 Self::Policy => "Policy",
-                Self::TempError => "TempError"
+                Self::TempError => "TempError",
             }
         )
-
     }
 }
 
@@ -670,7 +688,7 @@ impl FromStr for DkimResult {
             "permerror" => Ok(Self::PermError),
             "policy" => Ok(Self::Policy),
             "temperror" => Ok(Self::TempError),
-            _ => Err(ParseDkimResultError)
+            _ => Err(ParseDkimResultError),
         }
     }
 }
@@ -754,7 +772,10 @@ mod spf_extract_mailfrom_tests {
     fn returns_mailfrom() {
         let input = header();
 
-        assert_eq!(Some(String::from("info@xxx.fr")), Spf::extract_mailfrom(&input))
+        assert_eq!(
+            Some(String::from("info@xxx.fr")),
+            Spf::extract_mailfrom(&input)
+        )
     }
 
     #[test]
@@ -785,7 +806,10 @@ mod spf_extract_ip_address_tests {
     fn returns_ip_address() {
         let input = header();
 
-        assert_eq!(Some(String::from("10.10.10.10")), Spf::extract_ip_address(&input));
+        assert_eq!(
+            Some(String::from("10.10.10.10")),
+            Spf::extract_ip_address(&input)
+        );
     }
 
     #[test]
@@ -825,7 +849,7 @@ mod spf_valid_tests {
 
         assert!(!spf.valid("recipient@test.com"));
     }
-    
+
     #[test]
     fn returns_true_if_pass_with_matching_mailfrom() {
         let spf = spf_pass_matching_mailfrom();
@@ -851,7 +875,7 @@ mod spf_valid_tests {
         Spf {
             ip_address: None,
             result: None,
-            smtp_mailfrom: Some("recipient@test.com".into())
+            smtp_mailfrom: Some("recipient@test.com".into()),
         }
     }
 
@@ -859,7 +883,7 @@ mod spf_valid_tests {
         Spf {
             ip_address: None,
             result: Some(SpfResult::Pass),
-            smtp_mailfrom: None
+            smtp_mailfrom: None,
         }
     }
 
@@ -867,7 +891,7 @@ mod spf_valid_tests {
         Spf {
             ip_address: None,
             result: Some(SpfResult::Pass),
-            smtp_mailfrom: Some("recipient@test.com".into())
+            smtp_mailfrom: Some("recipient@test.com".into()),
         }
     }
 
@@ -875,7 +899,7 @@ mod spf_valid_tests {
         Spf {
             ip_address: None,
             result: Some(SpfResult::Policy),
-            smtp_mailfrom: Some("recipient@test.com".into())
+            smtp_mailfrom: Some("recipient@test.com".into()),
         }
     }
 
@@ -883,7 +907,7 @@ mod spf_valid_tests {
         Spf {
             ip_address: None,
             result: Some(SpfResult::Pass),
-            smtp_mailfrom: Some("not-recipient@test.com".into())
+            smtp_mailfrom: Some("not-recipient@test.com".into()),
         }
     }
 }
@@ -892,7 +916,7 @@ mod spf_valid_tests {
 pub struct Spf {
     pub ip_address: Option<String>,
     pub result: Option<SpfResult>,
-    pub smtp_mailfrom: Option<String>
+    pub smtp_mailfrom: Option<String>,
 }
 
 impl Spf {
@@ -900,7 +924,7 @@ impl Spf {
         Self {
             ip_address: Self::extract_ip_address(header),
             result: Self::map_to_result(header),
-            smtp_mailfrom: Self::extract_mailfrom(header)
+            smtp_mailfrom: Self::extract_mailfrom(header),
         }
     }
 
@@ -909,20 +933,24 @@ impl Spf {
 
         match pattern.captures(header) {
             Some(captures) => SpfResult::from_str(&captures[1]).ok(),
-            _ => None
+            _ => None,
         }
     }
 
     fn extract_mailfrom(header: &str) -> Option<String> {
         let pattern = Regex::new(r"smtp.mailfrom=(.+)\z").unwrap();
 
-        pattern.captures(header).map(|captures| String::from(&captures[1]))
+        pattern
+            .captures(header)
+            .map(|captures| String::from(&captures[1]))
     }
 
     fn extract_ip_address(header: &str) -> Option<String> {
         let pattern = Regex::new(r"designates\s(\S+)\s").unwrap();
 
-        pattern.captures(header).map(|captures| String::from(&captures[1]))
+        pattern
+            .captures(header)
+            .map(|captures| String::from(&captures[1]))
     }
 
     fn valid(&self, email_address: &str) -> bool {
@@ -932,7 +960,7 @@ impl Spf {
     fn valid_mailfrom(&self, email_address: &str) -> bool {
         match self.smtp_mailfrom.as_ref() {
             Some(address) => address == email_address,
-            None => false
+            None => false,
         }
     }
 }
@@ -962,7 +990,7 @@ impl fmt::Display for SpfResult {
                 Self::PermError => "PermError",
                 Self::Policy => "Policy",
                 Self::SoftFail => "SoftFail",
-                Self::TempError => "TempError"
+                Self::TempError => "TempError",
             }
         )
     }
@@ -974,14 +1002,26 @@ mod spf_result_from_str_tests {
 
     #[test]
     fn converts_string_to_enum_instance() {
-        assert_eq!(SpfResult::HardFail, SpfResult::from_str("hardfail").unwrap());
+        assert_eq!(
+            SpfResult::HardFail,
+            SpfResult::from_str("hardfail").unwrap()
+        );
         assert_eq!(SpfResult::Neutral, SpfResult::from_str("neutral").unwrap());
         assert_eq!(SpfResult::None, SpfResult::from_str("none").unwrap());
         assert_eq!(SpfResult::Pass, SpfResult::from_str("pass").unwrap());
-        assert_eq!(SpfResult::PermError, SpfResult::from_str("permerror").unwrap());
+        assert_eq!(
+            SpfResult::PermError,
+            SpfResult::from_str("permerror").unwrap()
+        );
         assert_eq!(SpfResult::Policy, SpfResult::from_str("policy").unwrap());
-        assert_eq!(SpfResult::SoftFail, SpfResult::from_str("softfail").unwrap());
-        assert_eq!(SpfResult::TempError, SpfResult::from_str("temperror").unwrap());
+        assert_eq!(
+            SpfResult::SoftFail,
+            SpfResult::from_str("softfail").unwrap()
+        );
+        assert_eq!(
+            SpfResult::TempError,
+            SpfResult::from_str("temperror").unwrap()
+        );
     }
 
     #[test]
@@ -1006,7 +1046,7 @@ impl FromStr for SpfResult {
             "policy" => Ok(Self::Policy),
             "softfail" => Ok(Self::SoftFail),
             "temperror" => Ok(Self::TempError),
-            _ => Err(ParseSpfResultError)
+            _ => Err(ParseSpfResultError),
         }
     }
 }

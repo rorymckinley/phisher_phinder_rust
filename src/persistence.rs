@@ -1,14 +1,14 @@
 use chrono::Utc;
 use rusqlite::Connection;
-use std::path::Path;
 use sha2::{Digest, Sha256};
+use std::path::Path;
 
 use crate::result::AppResult;
 
 #[cfg(test)]
 mod connect_tests {
-    use assert_fs::fixture::TempDir;
     use super::*;
+    use assert_fs::fixture::TempDir;
 
     #[test]
     fn returns_connection_to_db_instance() {
@@ -33,9 +33,9 @@ pub fn connect(path: &Path) -> AppResult<Connection> {
 
 #[cfg(test)]
 mod persist_message_source_tests {
+    use super::*;
     use chrono::prelude::*;
     use chrono::{Duration, Utc};
-    use super::*;
 
     #[test]
     fn creates_the_messages_sources_table() {
@@ -71,11 +71,11 @@ mod persist_message_source_tests {
 
         let (_, _, _, created_at_string) = table_contents(&conn).pop().unwrap();
 
-        let created_at = Utc.datetime_from_str(&created_at_string, "%Y-%m-%d %H:%M:%S").unwrap();
+        let created_at = Utc
+            .datetime_from_str(&created_at_string, "%Y-%m-%d %H:%M:%S")
+            .unwrap();
 
-        assert!(
-            created_at.signed_duration_since(now) <= Duration::seconds(1)
-        );
+        assert!(created_at.signed_duration_since(now) <= Duration::seconds(1));
     }
 
     #[test]
@@ -86,9 +86,7 @@ mod persist_message_source_tests {
         persist_message_source(&conn, &message_source_1());
 
         assert_eq!(
-            vec![
-                (1, message_source_1(), message_1_hash()),
-            ],
+            vec![(1, message_source_1(), message_1_hash()),],
             everything_except_created_at(table_contents(&conn))
         );
     }
@@ -121,23 +119,22 @@ mod persist_message_source_tests {
         let mut stmt = conn
             .prepare("SELECT id, contents, hash, created_at FROM message_sources")
             .unwrap();
-        let rows = stmt.query_map(
-            [],
-            |row| {
+        let rows = stmt
+            .query_map([], |row| {
                 Ok((
-                        row.get::<usize, u32>(0).unwrap(),
-                        row.get::<usize, String>(1).unwrap(),
-                        row.get::<usize, String>(2).unwrap(),
-                        row.get::<usize, String>(3).unwrap()
+                    row.get::<usize, u32>(0).unwrap(),
+                    row.get::<usize, String>(1).unwrap(),
+                    row.get::<usize, String>(2).unwrap(),
+                    row.get::<usize, String>(3).unwrap(),
                 ))
-            }
-        ).unwrap();
+            })
+            .unwrap();
 
         rows.flatten().collect()
     }
 
     fn everything_except_created_at(
-        records: Vec<(u32, String, String, String)>
+        records: Vec<(u32, String, String, String)>,
     ) -> Vec<(u32, String, String)> {
         records
             .into_iter()
@@ -156,16 +153,22 @@ pub fn persist_message_source(conn: &Connection, source: &str) {
             hash TEXT NOT NULL, \
             created_at TEXT NOT NULL
         )",
-        []
-    ).unwrap();
+        [],
+    )
+    .unwrap();
     let hash = sha256(source);
     let created_at = Utc::now();
 
     if new_record(conn, &hash) {
         conn.execute(
             "INSERT INTO message_sources (contents, hash, created_at) VALUES (?1, ?2, ?3)",
-            (source, hash, created_at.format("%Y-%m-%d %H:%M:%S").to_string())
-        ).unwrap();
+            (
+                source,
+                hash,
+                created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            ),
+        )
+        .unwrap();
     }
 }
 
@@ -174,15 +177,16 @@ fn sha256(text: &str) -> String {
     hasher.update(text);
     let sha = hasher.finalize();
 
-    sha
-        .iter()
+    sha.iter()
         .map(|byte| format!("{byte:02x}"))
         .collect::<Vec<String>>()
         .join("")
 }
 
 fn new_record(conn: &Connection, hash: &str) -> bool {
-    let mut stmt = conn.prepare("SELECT id FROM message_sources WHERE hash = ?").unwrap();
+    let mut stmt = conn
+        .prepare("SELECT id FROM message_sources WHERE hash = ?")
+        .unwrap();
 
     let result = stmt.query_row([hash], |row| row.get::<usize, u32>(0));
 

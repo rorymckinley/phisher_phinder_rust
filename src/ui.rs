@@ -1,13 +1,7 @@
 use crate::authentication_results::AuthenticationResults;
 use crate::data::{
-    Domain,
-    EmailAddressData,
-    FulfillmentNode,
-    HostNode,
-    InfrastructureProvider,
-    Node,
-    OutputData,
-    Registrar
+    Domain, EmailAddressData, FulfillmentNode, HostNode, InfrastructureProvider, Node, OutputData,
+    Registrar,
 };
 use crate::result::AppResult;
 
@@ -19,12 +13,7 @@ mod display_sender_addresses_extended_tests {
     use super::*;
     use crate::authentication_results::{AuthenticationResults, Dkim, DkimResult, Spf, SpfResult};
     use crate::data::{
-        Domain,
-        DomainCategory,
-        EmailAddressData,
-        ParsedMail,
-        Registrar,
-        EmailAddresses
+        Domain, DomainCategory, EmailAddressData, EmailAddresses, ParsedMail, Registrar,
     };
     use chrono::prelude::*;
 
@@ -37,117 +26,89 @@ mod display_sender_addresses_extended_tests {
                 fulfillment_nodes: vec![],
                 subject: Some("Send me money now! Please?".into()),
                 email_addresses: EmailAddresses {
-                    from: vec![
-                        EmailAddressData {
-                            address: "fr@test.www".into(),
-                            domain: Some(
-                                Domain {
-                                    category: DomainCategory::Other,
-                                    name: "test.www".into(),
-                                    registration_date: Some(datetime(2022, 12, 1, 2, 3, 4)),
-                                    abuse_email_address: None,
-                                }
-                            ),
-                            registrar: Some(
-                                Registrar {
-                                    abuse_email_address: Some("abuse@regone.zzz".into()),
-                                    name: Some("Reg One".into()),
-                                }
-                            ),
-                        }
-                    ],
+                    from: vec![EmailAddressData {
+                        address: "fr@test.www".into(),
+                        domain: Some(Domain {
+                            category: DomainCategory::Other,
+                            name: "test.www".into(),
+                            registration_date: Some(datetime(2022, 12, 1, 2, 3, 4)),
+                            abuse_email_address: None,
+                        }),
+                        registrar: Some(Registrar {
+                            abuse_email_address: Some("abuse@regone.zzz".into()),
+                            name: Some("Reg One".into()),
+                        }),
+                    }],
                     reply_to: vec![
                         EmailAddressData {
                             address: "rt@test.xxx".into(),
-                            domain: Some(
-                                Domain {
-                                    category: DomainCategory::Other,
-                                    name: "test.xxx".into(),
-                                    registration_date: Some(datetime(2022, 12, 2, 3, 4, 5)),
-                                    abuse_email_address: None,
-                                }
-                            ),
-                            registrar: Some(
-                                Registrar {
-                                    abuse_email_address: Some("abuse@regtwo.zzz".into()),
-                                    name: Some("Reg Two".into()),
-                                }
-                            ),
+                            domain: Some(Domain {
+                                category: DomainCategory::Other,
+                                name: "test.xxx".into(),
+                                registration_date: Some(datetime(2022, 12, 2, 3, 4, 5)),
+                                abuse_email_address: None,
+                            }),
+                            registrar: Some(Registrar {
+                                abuse_email_address: Some("abuse@regtwo.zzz".into()),
+                                name: Some("Reg Two".into()),
+                            }),
                         },
                         EmailAddressData {
                             address: "rt@test.yyy".into(),
-                            domain: Some(
-                                Domain {
-                                    category: DomainCategory::Other,
-                                    name: "test.yyy".into(),
-                                    registration_date: Some(datetime(2022, 12, 2, 3, 4, 6)),
-                                    abuse_email_address: None,
-                                }
-                            ),
-                            registrar: Some(
-                                Registrar {
-                                    abuse_email_address: Some("abuse@regthree.zzz".into()),
-                                    name: Some("Reg Three".into()),
-                                }
-                            ),
+                            domain: Some(Domain {
+                                category: DomainCategory::Other,
+                                name: "test.yyy".into(),
+                                registration_date: Some(datetime(2022, 12, 2, 3, 4, 6)),
+                                abuse_email_address: None,
+                            }),
+                            registrar: Some(Registrar {
+                                abuse_email_address: Some("abuse@regthree.zzz".into()),
+                                name: Some("Reg Three".into()),
+                            }),
                         },
                     ],
-                    return_path: vec![
-                        EmailAddressData {
-                            address: "rp@test.zzz".into(),
-                            domain: Some(
-                                Domain {
-                                    category: DomainCategory::Other,
-                                    name: "test.zzz".into(),
-                                    registration_date: Some(datetime(2022, 12, 3, 4, 5, 7)),
-                                    abuse_email_address: None,
-                                }
-                            ),
-                            registrar: Some(
-                                Registrar {
-                                    abuse_email_address: Some("abuse@regfour.zzz".into()),
-                                    name: Some("Reg Four".into()),
-                                }
-                            ),
-                        }
-                    ],
+                    return_path: vec![EmailAddressData {
+                        address: "rp@test.zzz".into(),
+                        domain: Some(Domain {
+                            category: DomainCategory::Other,
+                            name: "test.zzz".into(),
+                            registration_date: Some(datetime(2022, 12, 3, 4, 5, 7)),
+                            abuse_email_address: None,
+                        }),
+                        registrar: Some(Registrar {
+                            abuse_email_address: Some("abuse@regfour.zzz".into()),
+                            name: Some("Reg Four".into()),
+                        }),
+                    }],
                     links: vec![
                         EmailAddressData {
                             address: "l1@test.aaa".into(),
-                            domain: Some(
-                                Domain {
-                                    category: DomainCategory::Other,
-                                    name: "test.aaa".into(),
-                                    registration_date: Some(datetime(2022, 12, 4, 5, 6, 8)),
-                                    abuse_email_address: None,
-                                }
-                            ),
-                            registrar: Some(
-                                Registrar {
-                                    abuse_email_address: Some("abuse@regfive.zzz".into()),
-                                    name: Some("Reg Five".into()),
-                                }
-                            ),
+                            domain: Some(Domain {
+                                category: DomainCategory::Other,
+                                name: "test.aaa".into(),
+                                registration_date: Some(datetime(2022, 12, 4, 5, 6, 8)),
+                                abuse_email_address: None,
+                            }),
+                            registrar: Some(Registrar {
+                                abuse_email_address: Some("abuse@regfive.zzz".into()),
+                                name: Some("Reg Five".into()),
+                            }),
                         },
                         EmailAddressData {
                             address: "l2@test.bbb".into(),
-                            domain: Some(
-                                Domain {
-                                    category: DomainCategory::Other,
-                                    name: "test.bbb".into(),
-                                    registration_date: Some(datetime(2022, 12, 4, 5, 6, 9)),
-                                    abuse_email_address: None,
-                                }
-                            ),
-                            registrar: Some(
-                                Registrar {
-                                    abuse_email_address: Some("abuse@regsix.zzz".into()),
-                                    name: Some("Reg Six".into()),
-                                }
-                            ),
+                            domain: Some(Domain {
+                                category: DomainCategory::Other,
+                                name: "test.bbb".into(),
+                                registration_date: Some(datetime(2022, 12, 4, 5, 6, 9)),
+                                abuse_email_address: None,
+                            }),
+                            registrar: Some(Registrar {
+                                abuse_email_address: Some("abuse@regsix.zzz".into()),
+                                name: Some("Reg Six".into()),
+                            }),
                         },
                     ],
-                }
+                },
             },
             raw_mail: "".into(),
             reportable_entities: None,
@@ -184,53 +145,39 @@ mod display_sender_addresses_extended_tests {
                 fulfillment_nodes: vec![],
                 subject: Some("Send me money now! Please?".into()),
                 email_addresses: EmailAddresses {
-                    from: vec![
-                        EmailAddressData {
-                            address: "fr@test.xxx".into(),
-                            domain: Some(
-                                Domain {
-                                    category: DomainCategory::Other,
-                                    name: "test.xxx".into(),
-                                    registration_date: Some(datetime(2022, 12, 1, 2, 3, 4)),
-                                    abuse_email_address: None,
-                                }
-                            ),
-                            registrar: Some(
-                                Registrar {
-                                    abuse_email_address: Some("abuse@regone.zzz".into()),
-                                    name: Some("Reg One".into()),
-                                }
-                            ),
-                        }
-                    ],
-                    reply_to: vec![
-                        EmailAddressData {
-                            address: "rt@test.yyy".into(),
-                            domain: None,
-                            registrar: None,
-                        }
-                    ],
-                    return_path: vec![
-                        EmailAddressData {
-                            address: "rp@test.zzz".into(),
-                            domain: Some(
-                                Domain {
-                                    category: DomainCategory::Other,
-                                    name: "test.zzz".into(),
-                                    registration_date: Some(datetime(2022, 12, 3, 4, 5, 6)),
-                                    abuse_email_address: None,
-                                }
-                            ),
-                            registrar: Some(
-                                Registrar {
-                                    abuse_email_address: Some("abuse@regthree.zzz".into()),
-                                    name: Some("Reg Three".into()),
-                                }
-                            ),
-                        }
-                    ],
+                    from: vec![EmailAddressData {
+                        address: "fr@test.xxx".into(),
+                        domain: Some(Domain {
+                            category: DomainCategory::Other,
+                            name: "test.xxx".into(),
+                            registration_date: Some(datetime(2022, 12, 1, 2, 3, 4)),
+                            abuse_email_address: None,
+                        }),
+                        registrar: Some(Registrar {
+                            abuse_email_address: Some("abuse@regone.zzz".into()),
+                            name: Some("Reg One".into()),
+                        }),
+                    }],
+                    reply_to: vec![EmailAddressData {
+                        address: "rt@test.yyy".into(),
+                        domain: None,
+                        registrar: None,
+                    }],
+                    return_path: vec![EmailAddressData {
+                        address: "rp@test.zzz".into(),
+                        domain: Some(Domain {
+                            category: DomainCategory::Other,
+                            name: "test.zzz".into(),
+                            registration_date: Some(datetime(2022, 12, 3, 4, 5, 6)),
+                            abuse_email_address: None,
+                        }),
+                        registrar: Some(Registrar {
+                            abuse_email_address: Some("abuse@regthree.zzz".into()),
+                            name: Some("Reg Three".into()),
+                        }),
+                    }],
                     links: vec![],
-                }
+                },
             },
             raw_mail: "".into(),
             reportable_entities: None,
@@ -253,42 +200,41 @@ mod display_sender_addresses_extended_tests {
     }
 
     fn datetime(y: i32, m: u32, d: u32, h: u32, min: u32, s: u32) -> chrono::DateTime<Utc> {
-        chrono::Utc.with_ymd_and_hms(y, m, d, h, min, s).single().unwrap()
+        chrono::Utc
+            .with_ymd_and_hms(y, m, d, h, min, s)
+            .single()
+            .unwrap()
     }
 
     fn authentication_results() -> Option<AuthenticationResults> {
-        Some(
-            AuthenticationResults {
-                dkim: Some(Dkim {
-                    result: Some(DkimResult::Fail),
-                    selector: Some("".into()),
-                    signature_snippet: Some("".into()),
-                    user_identifier_snippet: Some("".into()),
-                }),
-                service_identifier: Some("does.not.matter".into()),
-                spf: Some(Spf {
-                    ip_address: Some("".into()),
-                    result: Some(SpfResult::SoftFail),
-                    smtp_mailfrom: Some("".into())
-                })
-            }
-        )
+        Some(AuthenticationResults {
+            dkim: Some(Dkim {
+                result: Some(DkimResult::Fail),
+                selector: Some("".into()),
+                signature_snippet: Some("".into()),
+                user_identifier_snippet: Some("".into()),
+            }),
+            service_identifier: Some("does.not.matter".into()),
+            spf: Some(Spf {
+                ip_address: Some("".into()),
+                result: Some(SpfResult::SoftFail),
+                smtp_mailfrom: Some("".into()),
+            }),
+        })
     }
 }
 
 pub fn display_sender_addresses_extended(data: &OutputData) -> AppResult<String> {
     let mut table = Table::new();
 
-    table.add_row(
-        Row::new(vec![
-            Cell::new("Address Source"),
-            Cell::new("Address"),
-            Cell::new("Category"),
-            Cell::new("Registrar"),
-            Cell::new("Registration Date"),
-            Cell::new("Abuse Email Address"),
-        ])
-    );
+    table.add_row(Row::new(vec![
+        Cell::new("Address Source"),
+        Cell::new("Address"),
+        Cell::new("Category"),
+        Cell::new("Registrar"),
+        Cell::new("Registration Date"),
+        Cell::new("Abuse Email Address"),
+    ]));
 
     let addresses = &data.parsed_mail.email_addresses;
 
@@ -308,31 +254,26 @@ fn table_to_string(table: &Table) -> AppResult<String> {
     Ok(String::from_utf8(buffer)?)
 }
 
-fn sender_address_row(
-    table: &mut Table, label: &str, email_address_data: &[EmailAddressData]
-) {
+fn sender_address_row(table: &mut Table, label: &str, email_address_data: &[EmailAddressData]) {
     for (
         pos,
-        EmailAddressData {address, domain, registrar}
-    ) in email_address_data.iter().enumerate() {
-        let actual_label = if pos == 0 {
-            label
-        } else {
-            ""
-        };
+        EmailAddressData {
+            address,
+            domain,
+            registrar,
+        },
+    ) in email_address_data.iter().enumerate()
+    {
+        let actual_label = if pos == 0 { label } else { "" };
 
-        table.add_row(
-            Row::new(
-                vec![
-                    Cell::new(actual_label),
-                    Cell::new(address),
-                    domain_category_cell(domain.as_ref()),
-                    registrar_name_cell(registrar.as_ref()),
-                    registration_date_cell(domain.as_ref()),
-                    registrar_abuse_email_cell(registrar.as_ref())
-                ]
-            )
-        );
+        table.add_row(Row::new(vec![
+            Cell::new(actual_label),
+            Cell::new(address),
+            domain_category_cell(domain.as_ref()),
+            registrar_name_cell(registrar.as_ref()),
+            registration_date_cell(domain.as_ref()),
+            registrar_abuse_email_cell(registrar.as_ref()),
+        ]));
     }
 }
 
@@ -340,12 +281,7 @@ fn sender_address_row(
 mod display_fulfillment_nodes_tests {
     use super::*;
     use crate::authentication_results::{AuthenticationResults, Dkim, DkimResult, Spf, SpfResult};
-    use crate::data::{
-        DomainCategory,
-        FulfillmentNode,
-        ParsedMail,
-        EmailAddresses
-    };
+    use crate::data::{DomainCategory, EmailAddresses, FulfillmentNode, ParsedMail};
     use chrono::prelude::*;
 
     #[test]
@@ -366,7 +302,7 @@ mod display_fulfillment_nodes_tests {
                     reply_to: vec![],
                     return_path: vec![],
                     links: vec![],
-                }
+                },
             },
             raw_mail: "".into(),
             reportable_entities: None,
@@ -392,16 +328,14 @@ mod display_fulfillment_nodes_tests {
 
     fn fulfillment_node_with_rdap_data() -> FulfillmentNode {
         FulfillmentNode {
-            hidden: Some(
-                Node {
-                    domain: domain_object(
-                        "redirect.bar",
-                        Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap()),
-                    ),
-                    registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
-                    url: "https://redirect.bar".into(),
-                }
-            ),
+            hidden: Some(Node {
+                domain: domain_object(
+                    "redirect.bar",
+                    Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 14).unwrap()),
+                ),
+                registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
+                url: "https://redirect.bar".into(),
+            }),
             visible: Node {
                 domain: domain_object(
                     "foo.bar",
@@ -413,72 +347,59 @@ mod display_fulfillment_nodes_tests {
         }
     }
 
-    fn domain_object(
-        name: &str,
-        registration_date: Option<DateTime<Utc>>,
-    ) ->  Option<Domain> {
-        Some(
-            Domain {
-                category: DomainCategory::Other,
-                name: name.into(),
-                registration_date,
-                abuse_email_address: None
-            }
-        )
+    fn domain_object(name: &str, registration_date: Option<DateTime<Utc>>) -> Option<Domain> {
+        Some(Domain {
+            category: DomainCategory::Other,
+            name: name.into(),
+            registration_date,
+            abuse_email_address: None,
+        })
     }
 
     fn registrar_object(name: &str, abuse_email_address: Option<&str>) -> Option<Registrar> {
-        Some(
-            Registrar {
-                name: Some(name.into()),
-                abuse_email_address: abuse_email_address.map(String::from)
-            }
-        )
+        Some(Registrar {
+            name: Some(name.into()),
+            abuse_email_address: abuse_email_address.map(String::from),
+        })
     }
 
     fn authentication_results() -> Option<AuthenticationResults> {
-        Some(
-            AuthenticationResults {
-                dkim: Some(Dkim {
-                    result: Some(DkimResult::Fail),
-                    selector: Some("".into()),
-                    signature_snippet: Some("".into()),
-                    user_identifier_snippet: Some("".into()),
-                }),
-                service_identifier: Some("does.not.matter".into()),
-                spf: Some(Spf {
-                    ip_address: Some("".into()),
-                    result: Some(SpfResult::SoftFail),
-                    smtp_mailfrom: Some("".into())
-                })
-            }
-        )
+        Some(AuthenticationResults {
+            dkim: Some(Dkim {
+                result: Some(DkimResult::Fail),
+                selector: Some("".into()),
+                signature_snippet: Some("".into()),
+                user_identifier_snippet: Some("".into()),
+            }),
+            service_identifier: Some("does.not.matter".into()),
+            spf: Some(Spf {
+                ip_address: Some("".into()),
+                result: Some(SpfResult::SoftFail),
+                smtp_mailfrom: Some("".into()),
+            }),
+        })
     }
 }
 
 pub fn display_fulfillment_nodes(data: &OutputData) -> AppResult<String> {
     let mut table = Table::new();
 
-    table.add_row(
-        Row::new(vec![
-            Cell::new("Visible").with_hspan(5),
-            Cell::new("Hidden").with_hspan(5),
-        ]),
-    );
-    table.add_row(
-        Row::new(vec![
-            Cell::new("Url"),
-            Cell::new("Category"),
-            Cell::new("Registrar"),
-            Cell::new("Registration Date"),
-            Cell::new("Abuse Email Address"),
-            Cell::new("Url"),
-            Cell::new("Category"),
-            Cell::new("Registrar"),
-            Cell::new("Registration Date"),
-            Cell::new("Abuse Email Address"),
-        ])
-    );
+    table.add_row(Row::new(vec![
+        Cell::new("Visible").with_hspan(5),
+        Cell::new("Hidden").with_hspan(5),
+    ]));
+    table.add_row(Row::new(vec![
+        Cell::new("Url"),
+        Cell::new("Category"),
+        Cell::new("Registrar"),
+        Cell::new("Registration Date"),
+        Cell::new("Abuse Email Address"),
+        Cell::new("Url"),
+        Cell::new("Category"),
+        Cell::new("Registrar"),
+        Cell::new("Registration Date"),
+        Cell::new("Abuse Email Address"),
+    ]));
 
     for node in data.parsed_mail.fulfillment_nodes.iter() {
         fulfillment_node_row(&mut table, node);
@@ -494,32 +415,38 @@ fn fulfillment_node_row(table: &mut Table, node: &FulfillmentNode) {
         "N/A".into()
     };
 
-    let hidden_domain = if let Some(Node { domain: Some(domain), .. }) = &node.hidden {
+    let hidden_domain = if let Some(Node {
+        domain: Some(domain),
+        ..
+    }) = &node.hidden
+    {
         Some(domain)
     } else {
         None
     };
 
-    let hidden_registrar = if let Some(Node { registrar: Some(registrar), .. }) = &node.hidden {
+    let hidden_registrar = if let Some(Node {
+        registrar: Some(registrar),
+        ..
+    }) = &node.hidden
+    {
         Some(registrar)
     } else {
         None
     };
 
-    table.add_row(
-        Row::new(vec![
-            url_cell(node.visible_url()),
-            domain_category_cell(node.visible.domain.as_ref()),
-            registrar_name_cell(node.visible.registrar.as_ref()),
-            registration_date_cell(node.visible.domain.as_ref()),
-            registrar_abuse_email_cell(node.visible.registrar.as_ref()),
-            url_cell(&hidden_url),
-            domain_category_cell(hidden_domain),
-            registrar_name_cell(hidden_registrar),
-            registration_date_cell(hidden_domain),
-            registrar_abuse_email_cell(hidden_registrar),
-        ])
-    );
+    table.add_row(Row::new(vec![
+        url_cell(node.visible_url()),
+        domain_category_cell(node.visible.domain.as_ref()),
+        registrar_name_cell(node.visible.registrar.as_ref()),
+        registration_date_cell(node.visible.domain.as_ref()),
+        registrar_abuse_email_cell(node.visible.registrar.as_ref()),
+        url_cell(&hidden_url),
+        domain_category_cell(hidden_domain),
+        registrar_name_cell(hidden_registrar),
+        registration_date_cell(hidden_domain),
+        registrar_abuse_email_cell(hidden_registrar),
+    ]));
 }
 
 #[cfg(test)]
@@ -538,7 +465,7 @@ mod domain_category_cell_tests {
             abuse_email_address: None,
             category: DomainCategory::Other,
             name: "doesnotmatter".into(),
-            registration_date: None
+            registration_date: None,
         };
 
         assert_eq!(Cell::new("Other"), domain_category_cell(Some(&domain)));
@@ -556,8 +483,8 @@ fn domain_category_cell(domain_opt: Option<&Domain>) -> Cell {
 #[cfg(test)]
 mod registration_date_cell_tests {
     use super::*;
-    use chrono::prelude::*;
     use crate::data::DomainCategory;
+    use chrono::prelude::*;
 
     #[test]
     fn returns_n_a_cell_if_domain_is_none() {
@@ -570,10 +497,13 @@ mod registration_date_cell_tests {
             abuse_email_address: None,
             category: DomainCategory::Other,
             name: "doesnotmatter".into(),
-            registration_date: Some(datetime(2022, 12, 25, 10, 11, 12))
+            registration_date: Some(datetime(2022, 12, 25, 10, 11, 12)),
         };
 
-        assert_eq!(Cell::new("2022-12-25 10:11:12"), registration_date_cell(Some(&domain)));
+        assert_eq!(
+            Cell::new("2022-12-25 10:11:12"),
+            registration_date_cell(Some(&domain))
+        );
     }
 
     #[test]
@@ -589,12 +519,19 @@ mod registration_date_cell_tests {
     }
 
     fn datetime(y: i32, m: u32, d: u32, h: u32, min: u32, s: u32) -> chrono::DateTime<Utc> {
-        chrono::Utc.with_ymd_and_hms(y, m, d, h, min, s).single().unwrap()
+        chrono::Utc
+            .with_ymd_and_hms(y, m, d, h, min, s)
+            .single()
+            .unwrap()
     }
 }
 
 fn registration_date_cell(domain_opt: Option<&Domain>) -> Cell {
-    if let Some(Domain { registration_date: Some(registration_date), .. }) = domain_opt {
+    if let Some(Domain {
+        registration_date: Some(registration_date),
+        ..
+    }) = domain_opt
+    {
         Cell::new(&registration_date.format("%Y-%m-%d %H:%M:%S").to_string())
     } else {
         Cell::new("N/A")
@@ -632,7 +569,10 @@ mod registrar_name_cell_tests {
 }
 
 fn registrar_name_cell(registrar_opt: Option<&Registrar>) -> Cell {
-    if let Some(Registrar {name: Some(name), ..}) = registrar_opt {
+    if let Some(Registrar {
+        name: Some(name), ..
+    }) = registrar_opt
+    {
         Cell::new(name)
     } else {
         Cell::new("N/A")
@@ -655,7 +595,10 @@ mod registrar_abuse_email_cell_tests {
             name: None,
         };
 
-        assert_eq!(Cell::new("abuse@regone.co.za"), registrar_abuse_email_cell(Some(&registrar)));
+        assert_eq!(
+            Cell::new("abuse@regone.co.za"),
+            registrar_abuse_email_cell(Some(&registrar))
+        );
     }
 
     #[test]
@@ -665,12 +608,19 @@ mod registrar_abuse_email_cell_tests {
             name: None,
         };
 
-        assert_eq!(Cell::new("N/A"), registrar_abuse_email_cell(Some(&registrar)));
+        assert_eq!(
+            Cell::new("N/A"),
+            registrar_abuse_email_cell(Some(&registrar))
+        );
     }
 }
 
 fn registrar_abuse_email_cell(registrar_opt: Option<&Registrar>) -> Cell {
-    if let Some(Registrar {abuse_email_address: Some(abuse_email_address), ..}) = registrar_opt {
+    if let Some(Registrar {
+        abuse_email_address: Some(abuse_email_address),
+        ..
+    }) = registrar_opt
+    {
         Cell::new(abuse_email_address)
     } else {
         Cell::new("N/A")
@@ -688,7 +638,10 @@ mod ip_provider_name_cell_tests {
 
     #[test]
     fn returns_cell_with_na_if_no_name() {
-        let provider = InfrastructureProvider { abuse_email_address: None, name: None };
+        let provider = InfrastructureProvider {
+            abuse_email_address: None,
+            name: None,
+        };
 
         assert_eq!(Cell::new("N/A"), ip_provider_name_cell(Some(&provider)))
     }
@@ -696,7 +649,8 @@ mod ip_provider_name_cell_tests {
     #[test]
     fn returns_cell_with_provider_name() {
         let provider = InfrastructureProvider {
-            abuse_email_address: None, name: Some("Acme".into())
+            abuse_email_address: None,
+            name: Some("Acme".into()),
         };
 
         assert_eq!(Cell::new("Acme"), ip_provider_name_cell(Some(&provider)))
@@ -726,18 +680,28 @@ mod ip_provider_abuse_email_cell_tests {
 
     #[test]
     fn returns_na_cell_if_no_abuse_email() {
-        let provider = InfrastructureProvider { abuse_email_address: None, name: None };
+        let provider = InfrastructureProvider {
+            abuse_email_address: None,
+            name: None,
+        };
 
-        assert_eq!(Cell::new("N/A"), ip_provider_abuse_email_cell(Some(&provider)));
+        assert_eq!(
+            Cell::new("N/A"),
+            ip_provider_abuse_email_cell(Some(&provider))
+        );
     }
 
     #[test]
     fn returns_cell_with_name() {
         let provider = InfrastructureProvider {
-            abuse_email_address: Some("abuse@acme.zzz".into()), name: None
+            abuse_email_address: Some("abuse@acme.zzz".into()),
+            name: None,
         };
 
-        assert_eq!(Cell::new("abuse@acme.zzz"), ip_provider_abuse_email_cell(Some(&provider)));
+        assert_eq!(
+            Cell::new("abuse@acme.zzz"),
+            ip_provider_abuse_email_cell(Some(&provider))
+        );
     }
 }
 
@@ -759,10 +723,7 @@ mod display_url_tests {
 
     #[test]
     fn it_displays_the_url() {
-        assert_eq!(
-            Cell::new("https://foo.bar"),
-            url_cell("https://foo.bar"),
-        )
+        assert_eq!(Cell::new("https://foo.bar"), url_cell("https://foo.bar"),)
     }
 
     #[test]
@@ -782,17 +743,12 @@ fn url_cell(url: &str) -> Cell {
 
 #[cfg(test)]
 mod display_delivery_nodes_tests {
-    use chrono::prelude::*;
+    use super::*;
     use crate::authentication_results::{AuthenticationResults, Dkim, DkimResult, Spf, SpfResult};
     use crate::data::{
-        DeliveryNode,
-        DomainCategory,
-        EmailAddresses,
-        HostNode,
-        InfrastructureProvider,
-        ParsedMail
+        DeliveryNode, DomainCategory, EmailAddresses, HostNode, InfrastructureProvider, ParsedMail,
     };
-    use super::*;
+    use chrono::prelude::*;
 
     #[test]
     fn displays_delivery_nodes_without_rdap_data() {
@@ -854,19 +810,17 @@ mod display_delivery_nodes_tests {
 
     #[test]
     fn displays_delivery_nodes_with_rdap_data() {
-        let data = build_output_data(vec![
-            delivery_node_with_rdap_data(
-                advertised_sender("a.bar.com"),
-                observed_sender(
-                    "b.bar.com",
-                    "10.10.10.10",
-                    registration_date(2022, 11, 18, 10, 11, 15),
-                    registrar("Acme", "abuse@acme.zzz"),
-                    provider("HackMe", "abuse@hackme.zzz")
-                ),
-                Some("a.foo.com"),
+        let data = build_output_data(vec![delivery_node_with_rdap_data(
+            advertised_sender("a.bar.com"),
+            observed_sender(
+                "b.bar.com",
+                "10.10.10.10",
+                registration_date(2022, 11, 18, 10, 11, 15),
+                registrar("Acme", "abuse@acme.zzz"),
+                provider("HackMe", "abuse@hackme.zzz"),
             ),
-        ]);
+            Some("a.foo.com"),
+        )]);
 
         assert_eq!(
             String::from("\
@@ -884,9 +838,11 @@ mod display_delivery_nodes_tests {
 
     #[test]
     fn displays_delivery_nodes_without_observed_sender() {
-        let data = build_output_data(vec![
-            delivery_node_with_rdap_data(advertised_sender("a.bar.com"), None, Some("a.foo.com")),
-        ]);
+        let data = build_output_data(vec![delivery_node_with_rdap_data(
+            advertised_sender("a.bar.com"),
+            None,
+            Some("a.foo.com"),
+        )]);
 
         assert_eq!(
             String::from("\
@@ -902,7 +858,6 @@ mod display_delivery_nodes_tests {
         )
     }
 
-
     fn build_output_data(delivery_nodes: Vec<DeliveryNode>) -> OutputData {
         OutputData {
             parsed_mail: ParsedMail {
@@ -915,7 +870,7 @@ mod display_delivery_nodes_tests {
                     reply_to: vec![],
                     return_path: vec![],
                     links: vec![],
-                }
+                },
             },
             raw_mail: "".into(),
             reportable_entities: None,
@@ -927,7 +882,7 @@ mod display_delivery_nodes_tests {
         observed_host: Option<&str>,
         observed_ip: Option<&str>,
         position: usize,
-        recipient: Option<&str>
+        recipient: Option<&str>,
     ) -> DeliveryNode {
         DeliveryNode {
             advertised_sender: host_node(advertised_host, None),
@@ -944,7 +899,7 @@ mod display_delivery_nodes_tests {
         observed_host: Option<&str>,
         observed_ip: Option<&str>,
         position: usize,
-        recipient: Option<&str>
+        recipient: Option<&str>,
     ) -> DeliveryNode {
         DeliveryNode {
             advertised_sender: host_node(advertised_host, None),
@@ -982,7 +937,7 @@ mod display_delivery_nodes_tests {
         registrar: Option<Registrar>,
         infrastructure_provider: Option<InfrastructureProvider>,
     ) -> Option<HostNode> {
-        Some(HostNode{
+        Some(HostNode {
             domain: Some(Domain {
                 abuse_email_address: None,
                 category: DomainCategory::Other,
@@ -992,7 +947,7 @@ mod display_delivery_nodes_tests {
             host: Some(host.into()),
             ip_address: Some(ip_address.into()),
             registrar,
-            infrastructure_provider
+            infrastructure_provider,
         })
     }
 
@@ -1002,22 +957,25 @@ mod display_delivery_nodes_tests {
         day: u32,
         hour: u32,
         min: u32,
-        sec: u32
+        sec: u32,
     ) -> Option<DateTime<Utc>> {
-        Some(Utc.with_ymd_and_hms(year, month, day, hour, min, sec).unwrap())
+        Some(
+            Utc.with_ymd_and_hms(year, month, day, hour, min, sec)
+                .unwrap(),
+        )
     }
 
     fn registrar(name: &str, abuse_email_address: &str) -> Option<Registrar> {
         Some(Registrar {
             abuse_email_address: Some(abuse_email_address.into()),
-            name: Some(name.into())
+            name: Some(name.into()),
         })
     }
 
     fn provider(name: &str, abuse_email_address: &str) -> Option<InfrastructureProvider> {
         Some(InfrastructureProvider {
             abuse_email_address: Some(abuse_email_address.into()),
-            name: Some(name.into())
+            name: Some(name.into()),
         })
     }
 
@@ -1026,22 +984,20 @@ mod display_delivery_nodes_tests {
     }
 
     fn authentication_results() -> Option<AuthenticationResults> {
-        Some(
-            AuthenticationResults {
-                dkim: Some(Dkim {
-                    result: Some(DkimResult::Fail),
-                    selector: Some("".into()),
-                    signature_snippet: Some("".into()),
-                    user_identifier_snippet: Some("".into()),
-                }),
-                service_identifier: Some("does.not.matter".into()),
-                spf: Some(Spf {
-                    ip_address: Some("".into()),
-                    result: Some(SpfResult::SoftFail),
-                    smtp_mailfrom: Some("".into())
-                })
-            }
-        )
+        Some(AuthenticationResults {
+            dkim: Some(Dkim {
+                result: Some(DkimResult::Fail),
+                selector: Some("".into()),
+                signature_snippet: Some("".into()),
+                user_identifier_snippet: Some("".into()),
+            }),
+            service_identifier: Some("does.not.matter".into()),
+            spf: Some(Spf {
+                ip_address: Some("".into()),
+                result: Some(SpfResult::SoftFail),
+                smtp_mailfrom: Some("".into()),
+            }),
+        })
     }
 }
 
@@ -1049,28 +1005,24 @@ pub fn display_delivery_nodes(data: &OutputData) -> AppResult<String> {
     // TODO look for reuse between this and display_fulfillment_nodes
     let mut table = Table::new();
 
-    table.add_row(
-        Row::new(vec![
-            Cell::new("Recipient"),
-            Cell::new("Advertised"),
-            Cell::new("Observed").with_hspan(7),
-            Cell::new("Trusted")
-        ]),
-    );
-    table.add_row(
-        Row::new(vec![
-            Cell::new(""),
-            Cell::new("Host"),
-            Cell::new("Host"),
-            Cell::new("Registrar"),
-            Cell::new("Host Registration Date"),
-            Cell::new("Registrar Abuse Address"),
-            Cell::new("IP"),
-            Cell::new("IP Provider"),
-            Cell::new("Provider Abuse Address"),
-            Cell::new("")
-        ]),
-    );
+    table.add_row(Row::new(vec![
+        Cell::new("Recipient"),
+        Cell::new("Advertised"),
+        Cell::new("Observed").with_hspan(7),
+        Cell::new("Trusted"),
+    ]));
+    table.add_row(Row::new(vec![
+        Cell::new(""),
+        Cell::new("Host"),
+        Cell::new("Host"),
+        Cell::new("Registrar"),
+        Cell::new("Host Registration Date"),
+        Cell::new("Registrar Abuse Address"),
+        Cell::new("IP"),
+        Cell::new("IP Provider"),
+        Cell::new("Provider Abuse Address"),
+        Cell::new(""),
+    ]));
 
     let mut nodes_as_rows: Vec<(usize, Vec<Cell>)> = data
         .parsed_mail
@@ -1107,13 +1059,7 @@ pub fn display_delivery_nodes(data: &OutputData) -> AppResult<String> {
                 Cell::new("N/A")
             };
 
-            let trusted_cell = Cell::new(
-                if node.trusted {
-                    "Yes"
-                } else {
-                    "No"
-                }
-            );
+            let trusted_cell = Cell::new(if node.trusted { "Yes" } else { "No" });
 
             (
                 node.position,
@@ -1127,10 +1073,9 @@ pub fn display_delivery_nodes(data: &OutputData) -> AppResult<String> {
                     Cell::new(&display_ip(node.observed_sender.as_ref())),
                     ip_provider_cell,
                     ip_abuse_cell,
-                    trusted_cell
-                ]
+                    trusted_cell,
+                ],
             )
-
         })
         .collect();
 
@@ -1145,16 +1090,17 @@ pub fn display_delivery_nodes(data: &OutputData) -> AppResult<String> {
 
 #[cfg(test)]
 mod display_authentication_results_tests {
+    use super::*;
     use crate::authentication_results::{AuthenticationResults, Dkim, DkimResult, Spf, SpfResult};
     use crate::data::{EmailAddresses, ParsedMail};
-    use super::*;
 
     #[test]
     fn displays_authentication_results_with_no_authentication_results() {
         let data = build_output_data(None);
 
         assert_eq!(
-            String::from("\
+            String::from(
+                "\
             +--------------------+------------+-----------+-----------------+\n\
             | Service Identifier | N/A                                      |\n\
             +--------------------+------------+-----------+-----------------+\n\
@@ -1170,7 +1116,8 @@ mod display_authentication_results_tests {
             +--------------------+------------+-----------+-----------------+\n\
             | N/A                | N/A        | N/A                         |\n\
             +--------------------+------------+-----------+-----------------+\n\
-            "),
+            "
+            ),
             display_authentication_results(&data).unwrap()
         );
     }
@@ -1180,7 +1127,8 @@ mod display_authentication_results_tests {
         let data = build_output_data(authentication_results());
 
         assert_eq!(
-            String::from("\
+            String::from(
+                "\
             +--------------------+---------------+----------------+-----------------+\n\
             | Service Identifier | mx.google.com                                    |\n\
             +--------------------+---------------+----------------+-----------------+\n\
@@ -1196,14 +1144,13 @@ mod display_authentication_results_tests {
             +--------------------+---------------+----------------+-----------------+\n\
             | SoftFail           | 10.10.10.10   | mailfrom                         |\n\
             +--------------------+---------------+----------------+-----------------+\n\
-            "),
+            "
+            ),
             display_authentication_results(&data).unwrap()
         );
     }
 
-    fn build_output_data(
-        authentication_results: Option<AuthenticationResults>
-    ) -> OutputData {
+    fn build_output_data(authentication_results: Option<AuthenticationResults>) -> OutputData {
         OutputData {
             parsed_mail: ParsedMail {
                 authentication_results,
@@ -1215,7 +1162,7 @@ mod display_authentication_results_tests {
                     reply_to: vec![],
                     return_path: vec![],
                     links: vec![],
-                }
+                },
             },
             raw_mail: "".into(),
             reportable_entities: None,
@@ -1223,73 +1170,67 @@ mod display_authentication_results_tests {
     }
 
     fn authentication_results() -> Option<AuthenticationResults> {
-        Some(
-            AuthenticationResults {
-                dkim: Some(Dkim {
-                    result: Some(DkimResult::Pass),
-                    selector: Some("dkim_selector".into()),
-                    signature_snippet: Some("dkim_signature".into()),
-                    user_identifier_snippet: Some("dkim_user".into())
-                }),
-                service_identifier: Some("mx.google.com".into()),
-                spf: Some(Spf {
-                    ip_address: Some("10.10.10.10".into()),
-                    result: Some(SpfResult::SoftFail),
-                    smtp_mailfrom: Some("mailfrom".into())
-                })
-            }
-        )
+        Some(AuthenticationResults {
+            dkim: Some(Dkim {
+                result: Some(DkimResult::Pass),
+                selector: Some("dkim_selector".into()),
+                signature_snippet: Some("dkim_signature".into()),
+                user_identifier_snippet: Some("dkim_user".into()),
+            }),
+            service_identifier: Some("mx.google.com".into()),
+            spf: Some(Spf {
+                ip_address: Some("10.10.10.10".into()),
+                result: Some(SpfResult::SoftFail),
+                smtp_mailfrom: Some("mailfrom".into()),
+            }),
+        })
     }
 }
 
-pub fn display_authentication_results(data: &OutputData) -> AppResult<String>{
+pub fn display_authentication_results(data: &OutputData) -> AppResult<String> {
     let mut table = Table::new();
     let auth_results = data.parsed_mail.authentication_results.as_ref();
 
-    table.add_row(
-        Row::new(vec![
-            Cell::new("Service Identifier"),
-            authentication_results_service_identifier(auth_results).with_hspan(3)
-        ])
-    );
+    table.add_row(Row::new(vec![
+        Cell::new("Service Identifier"),
+        authentication_results_service_identifier(auth_results).with_hspan(3),
+    ]));
 
     table.add_row(Row::new(vec![Cell::new("DKIM").with_hspan(4)]));
-    table.add_row(
-        Row::new(vec![
-            Cell::new("Result"),
-            Cell::new("Selector"),
-            Cell::new("Signature"),
-            Cell::new("User Identifier")
-        ])
-    );
+    table.add_row(Row::new(vec![
+        Cell::new("Result"),
+        Cell::new("Selector"),
+        Cell::new("Signature"),
+        Cell::new("User Identifier"),
+    ]));
 
-    table.add_row(
-        Row::new(vec![
-            authentication_results_dkim_result(auth_results),
-            authentication_results_dkim_selector(auth_results),
-            authentication_results_dkim_signature(auth_results),
-            authentication_results_dkim_user(auth_results),
-        ])
-    );
+    table.add_row(Row::new(vec![
+        authentication_results_dkim_result(auth_results),
+        authentication_results_dkim_selector(auth_results),
+        authentication_results_dkim_signature(auth_results),
+        authentication_results_dkim_user(auth_results),
+    ]));
     // table.add_row(Row::new(vec![Cell::new("N/A"), Cell::new("N/A"), Cell::new("N/A"), Cell::new("N/A")]));
     table.add_row(Row::new(vec![Cell::new("SPF").with_hspan(4)]));
-    table.add_row(Row::new(vec![Cell::new("Result"), Cell::new("IP Address"), Cell::new("Mail From").with_hspan(2)]));
+    table.add_row(Row::new(vec![
+        Cell::new("Result"),
+        Cell::new("IP Address"),
+        Cell::new("Mail From").with_hspan(2),
+    ]));
 
-    table.add_row(
-        Row::new(vec![
-            authentication_results_spf_result(auth_results),
-            authentication_results_spf_ip_address(auth_results),
-            authentication_results_spf_mailfrom(auth_results).with_hspan(2),
-        ])
-    );
+    table.add_row(Row::new(vec![
+        authentication_results_spf_result(auth_results),
+        authentication_results_spf_ip_address(auth_results),
+        authentication_results_spf_mailfrom(auth_results).with_hspan(2),
+    ]));
 
     table_to_string(&table)
 }
 
 #[cfg(test)]
 mod display_host_tests {
-    use crate::data::HostNode;
     use super::*;
+    use crate::data::HostNode;
 
     #[test]
     fn returns_the_host() {
@@ -1312,7 +1253,11 @@ mod display_host_tests {
 }
 
 fn display_host(node_option: Option<&HostNode>) -> String {
-    if let Some(HostNode { host: Some(host_val), .. }) = node_option {
+    if let Some(HostNode {
+        host: Some(host_val),
+        ..
+    }) = node_option
+    {
         String::from(host_val)
     } else {
         String::from("N/A")
@@ -1321,8 +1266,8 @@ fn display_host(node_option: Option<&HostNode>) -> String {
 
 #[cfg(test)]
 mod display_ip_tests {
-    use crate::data::HostNode;
     use super::*;
+    use crate::data::HostNode;
 
     #[test]
     fn returns_the_ip() {
@@ -1345,7 +1290,11 @@ mod display_ip_tests {
 }
 
 fn display_ip(node_option: Option<&HostNode>) -> String {
-    if let Some(HostNode { ip_address: Some(ip_val), .. }) = node_option {
+    if let Some(HostNode {
+        ip_address: Some(ip_val),
+        ..
+    }) = node_option
+    {
         String::from(ip_val)
     } else {
         String::from("N/A")
@@ -1376,18 +1325,23 @@ fn display_recipient(recipient_opt: Option<&String>) -> String {
 }
 
 #[cfg(test)]
-mod  authentication_results_service_identifier_tests {
+mod authentication_results_service_identifier_tests {
     use super::*;
 
     #[test]
     fn returns_na_if_no_authentication_results() {
-        assert_eq!(Cell::new("N/A"), authentication_results_service_identifier(None));
+        assert_eq!(
+            Cell::new("N/A"),
+            authentication_results_service_identifier(None)
+        );
     }
 
     #[test]
     fn returns_na_if_no_service_identifier() {
         let results = AuthenticationResults {
-            dkim: None, service_identifier: None, spf: None
+            dkim: None,
+            service_identifier: None,
+            spf: None,
         };
 
         assert_eq!(
@@ -1399,7 +1353,9 @@ mod  authentication_results_service_identifier_tests {
     #[test]
     fn returns_cell_containing_service_identifier() {
         let results = AuthenticationResults {
-            dkim: None, service_identifier: Some(String::from("mx.google.com")), spf: None
+            dkim: None,
+            service_identifier: Some(String::from("mx.google.com")),
+            spf: None,
         };
 
         assert_eq!(
@@ -1410,20 +1366,20 @@ mod  authentication_results_service_identifier_tests {
 }
 
 fn authentication_results_service_identifier(
-    results_option: Option<&AuthenticationResults>
+    results_option: Option<&AuthenticationResults>,
 ) -> Cell {
     match results_option {
-        Some(AuthenticationResults {service_identifier, ..}) => {
-            optional_cell(service_identifier.as_deref())
-        },
-        None => Cell::new("N/A")
+        Some(AuthenticationResults {
+            service_identifier, ..
+        }) => optional_cell(service_identifier.as_deref()),
+        None => Cell::new("N/A"),
     }
 }
 
 #[cfg(test)]
 mod authentication_results_dkim_result_tests {
-    use crate::authentication_results::{Dkim, DkimResult};
     use super::*;
+    use crate::authentication_results::{Dkim, DkimResult};
 
     #[test]
     fn returns_na_if_no_authentication_results() {
@@ -1433,7 +1389,9 @@ mod authentication_results_dkim_result_tests {
     #[test]
     fn returns_na_if_no_dkim() {
         let results = AuthenticationResults {
-            dkim: None, service_identifier: None, spf: None
+            dkim: None,
+            service_identifier: None,
+            spf: None,
         };
 
         assert_eq!(
@@ -1454,7 +1412,7 @@ mod authentication_results_dkim_result_tests {
         let results = AuthenticationResults {
             dkim: Some(dkim),
             service_identifier: None,
-            spf: None
+            spf: None,
         };
 
         assert_eq!(
@@ -1464,26 +1422,20 @@ mod authentication_results_dkim_result_tests {
     }
 }
 
-fn authentication_results_dkim_result(
-    results_option: Option<&AuthenticationResults>
-) -> Cell {
+fn authentication_results_dkim_result(results_option: Option<&AuthenticationResults>) -> Cell {
     match results_option {
-        Some(results) => {
-            match results.dkim.as_ref() {
-                Some(dkim) => {
-                    optional_cell(dkim.result.as_ref().map(|r| r.to_string()).as_deref())
-                },
-                None => optional_cell(None)
-            }
+        Some(results) => match results.dkim.as_ref() {
+            Some(dkim) => optional_cell(dkim.result.as_ref().map(|r| r.to_string()).as_deref()),
+            None => optional_cell(None),
         },
-        None => optional_cell(None)
+        None => optional_cell(None),
     }
 }
 
 #[cfg(test)]
 mod authentication_results_dkim_selector_tests {
-    use crate::authentication_results::Dkim;
     use super::*;
+    use crate::authentication_results::Dkim;
 
     #[test]
     fn returns_na_if_no_results() {
@@ -1493,10 +1445,15 @@ mod authentication_results_dkim_selector_tests {
     #[test]
     fn returns_na_if_no_dkim() {
         let results = AuthenticationResults {
-            dkim: None, service_identifier: None, spf: None
+            dkim: None,
+            service_identifier: None,
+            spf: None,
         };
 
-        assert_eq!(Cell::new("N/A"), authentication_results_dkim_selector(Some(&results)));
+        assert_eq!(
+            Cell::new("N/A"),
+            authentication_results_dkim_selector(Some(&results))
+        );
     }
 
     #[test]
@@ -1511,46 +1468,51 @@ mod authentication_results_dkim_selector_tests {
         let results = AuthenticationResults {
             dkim: Some(dkim),
             service_identifier: None,
-            spf: None
+            spf: None,
         };
 
-        assert_eq!(Cell::new("foo"), authentication_results_dkim_selector(Some(&results)));
+        assert_eq!(
+            Cell::new("foo"),
+            authentication_results_dkim_selector(Some(&results))
+        );
     }
 }
 
-fn authentication_results_dkim_selector(
-    results_option: Option<&AuthenticationResults>
-) -> Cell {
+fn authentication_results_dkim_selector(results_option: Option<&AuthenticationResults>) -> Cell {
     match results_option {
-        Some(results) => {
-            match results.dkim.as_ref() {
-                Some(dkim) => {
-                    optional_cell(dkim.selector.as_deref())
-                },
-                None => optional_cell(None)
-            }
+        Some(results) => match results.dkim.as_ref() {
+            Some(dkim) => optional_cell(dkim.selector.as_deref()),
+            None => optional_cell(None),
         },
-        None => optional_cell(None)
+        None => optional_cell(None),
     }
 }
 
 #[cfg(test)]
 mod authentication_results_dkim_signature_tests {
-    use crate::authentication_results::Dkim;
     use super::*;
+    use crate::authentication_results::Dkim;
 
     #[test]
     fn returns_na_if_no_results() {
-        assert_eq!(Cell::new("N/A"), authentication_results_dkim_signature(None));
+        assert_eq!(
+            Cell::new("N/A"),
+            authentication_results_dkim_signature(None)
+        );
     }
 
     #[test]
     fn returns_na_if_no_dkim() {
         let results = AuthenticationResults {
-            dkim: None, service_identifier: None, spf: None
+            dkim: None,
+            service_identifier: None,
+            spf: None,
         };
 
-        assert_eq!(Cell::new("N/A"), authentication_results_dkim_signature(Some(&results)));
+        assert_eq!(
+            Cell::new("N/A"),
+            authentication_results_dkim_signature(Some(&results))
+        );
     }
 
     #[test]
@@ -1565,31 +1527,30 @@ mod authentication_results_dkim_signature_tests {
         let results = AuthenticationResults {
             dkim: Some(dkim),
             service_identifier: None,
-            spf: None
+            spf: None,
         };
 
-        assert_eq!(Cell::new("foo"), authentication_results_dkim_signature(Some(&results)));
+        assert_eq!(
+            Cell::new("foo"),
+            authentication_results_dkim_signature(Some(&results))
+        );
     }
 }
 
 fn authentication_results_dkim_signature(results_option: Option<&AuthenticationResults>) -> Cell {
     match results_option {
-        Some(results) => {
-            match results.dkim.as_ref() {
-                Some(dkim) => {
-                    optional_cell(dkim.signature_snippet.as_deref())
-                },
-                None => optional_cell(None)
-            }
+        Some(results) => match results.dkim.as_ref() {
+            Some(dkim) => optional_cell(dkim.signature_snippet.as_deref()),
+            None => optional_cell(None),
         },
-        None => optional_cell(None)
+        None => optional_cell(None),
     }
 }
 
 #[cfg(test)]
 mod authentication_results_dkim_user_tests {
-    use crate::authentication_results::Dkim;
     use super::*;
+    use crate::authentication_results::Dkim;
 
     #[test]
     fn returns_na_if_no_results() {
@@ -1599,10 +1560,15 @@ mod authentication_results_dkim_user_tests {
     #[test]
     fn returns_na_if_no_dkim() {
         let results = AuthenticationResults {
-            dkim: None, service_identifier: None, spf: None
+            dkim: None,
+            service_identifier: None,
+            spf: None,
         };
 
-        assert_eq!(Cell::new("N/A"), authentication_results_dkim_user(Some(&results)));
+        assert_eq!(
+            Cell::new("N/A"),
+            authentication_results_dkim_user(Some(&results))
+        );
     }
 
     #[test]
@@ -1617,31 +1583,30 @@ mod authentication_results_dkim_user_tests {
         let results = AuthenticationResults {
             dkim: Some(dkim),
             service_identifier: None,
-            spf: None
+            spf: None,
         };
 
-        assert_eq!(Cell::new("foo"), authentication_results_dkim_user(Some(&results)));
+        assert_eq!(
+            Cell::new("foo"),
+            authentication_results_dkim_user(Some(&results))
+        );
     }
 }
 
 fn authentication_results_dkim_user(results_option: Option<&AuthenticationResults>) -> Cell {
     match results_option {
-        Some(results) => {
-            match results.dkim.as_ref() {
-                Some(dkim) => {
-                    optional_cell(dkim.user_identifier_snippet.as_deref())
-                },
-                None => optional_cell(None)
-            }
+        Some(results) => match results.dkim.as_ref() {
+            Some(dkim) => optional_cell(dkim.user_identifier_snippet.as_deref()),
+            None => optional_cell(None),
         },
-        None => optional_cell(None)
+        None => optional_cell(None),
     }
 }
 
 #[cfg(test)]
 mod authentication_results_spf_result_tests {
-    use crate::authentication_results::{Spf, SpfResult};
     use super::*;
+    use crate::authentication_results::{Spf, SpfResult};
 
     #[test]
     fn returns_na_if_no_authentication_results() {
@@ -1651,10 +1616,15 @@ mod authentication_results_spf_result_tests {
     #[test]
     fn returns_na_if_no_spf() {
         let results = AuthenticationResults {
-            dkim: None, service_identifier: None, spf: None
+            dkim: None,
+            service_identifier: None,
+            spf: None,
         };
 
-        assert_eq!( Cell::new("N/A"), authentication_results_spf_result(Some(&results)));
+        assert_eq!(
+            Cell::new("N/A"),
+            authentication_results_spf_result(Some(&results))
+        );
     }
 
     #[test]
@@ -1668,7 +1638,7 @@ mod authentication_results_spf_result_tests {
         let results = AuthenticationResults {
             dkim: None,
             service_identifier: None,
-            spf: Some(spf)
+            spf: Some(spf),
         };
 
         assert_eq!(
@@ -1680,35 +1650,39 @@ mod authentication_results_spf_result_tests {
 
 fn authentication_results_spf_result(results_option: Option<&AuthenticationResults>) -> Cell {
     match results_option {
-        Some(results) => {
-            match results.spf.as_ref() {
-                Some(spf) => {
-                    optional_cell(spf.result.as_ref().map(|r| r.to_string()).as_deref())
-                },
-                None => optional_cell(None)
-            }
-        }
-        None => optional_cell(None)
+        Some(results) => match results.spf.as_ref() {
+            Some(spf) => optional_cell(spf.result.as_ref().map(|r| r.to_string()).as_deref()),
+            None => optional_cell(None),
+        },
+        None => optional_cell(None),
     }
 }
 
 #[cfg(test)]
 mod authentication_results_spf_ip_address_tests {
-    use crate::authentication_results::Spf;
     use super::*;
+    use crate::authentication_results::Spf;
 
     #[test]
     fn returns_na_if_no_results() {
-        assert_eq!(Cell::new("N/A"), authentication_results_spf_ip_address(None));
+        assert_eq!(
+            Cell::new("N/A"),
+            authentication_results_spf_ip_address(None)
+        );
     }
 
     #[test]
     fn returns_na_if_no_spf() {
         let results = AuthenticationResults {
-            dkim: None, service_identifier: None, spf: None
+            dkim: None,
+            service_identifier: None,
+            spf: None,
         };
 
-        assert_eq!(Cell::new("N/A"), authentication_results_spf_ip_address(Some(&results)));
+        assert_eq!(
+            Cell::new("N/A"),
+            authentication_results_spf_ip_address(Some(&results))
+        );
     }
 
     #[test]
@@ -1722,31 +1696,30 @@ mod authentication_results_spf_ip_address_tests {
         let results = AuthenticationResults {
             dkim: None,
             service_identifier: None,
-            spf: Some(spf)
+            spf: Some(spf),
         };
 
-        assert_eq!(Cell::new("10.10.10.10"), authentication_results_spf_ip_address(Some(&results)));
+        assert_eq!(
+            Cell::new("10.10.10.10"),
+            authentication_results_spf_ip_address(Some(&results))
+        );
     }
 }
 
 fn authentication_results_spf_ip_address(results_option: Option<&AuthenticationResults>) -> Cell {
     match results_option {
-        Some(results) => {
-            match results.spf.as_ref() {
-                Some(spf) => {
-                    optional_cell(spf.ip_address.as_deref())
-                },
-                None => optional_cell(None)
-            }
-        }
+        Some(results) => match results.spf.as_ref() {
+            Some(spf) => optional_cell(spf.ip_address.as_deref()),
+            None => optional_cell(None),
+        },
         None => optional_cell(None),
     }
 }
 
 #[cfg(test)]
 mod authentication_results_spf_mailfrom_tests {
-    use crate::authentication_results::Spf;
     use super::*;
+    use crate::authentication_results::Spf;
 
     #[test]
     fn returns_na_if_no_authentication_results() {
@@ -1756,10 +1729,15 @@ mod authentication_results_spf_mailfrom_tests {
     #[test]
     fn returns_na_if_no_spf() {
         let results = AuthenticationResults {
-            dkim: None, service_identifier: None, spf: None
+            dkim: None,
+            service_identifier: None,
+            spf: None,
         };
 
-        assert_eq!( Cell::new("N/A"), authentication_results_spf_mailfrom(Some(&results)));
+        assert_eq!(
+            Cell::new("N/A"),
+            authentication_results_spf_mailfrom(Some(&results))
+        );
     }
 
     #[test]
@@ -1773,22 +1751,22 @@ mod authentication_results_spf_mailfrom_tests {
         let results = AuthenticationResults {
             dkim: None,
             service_identifier: None,
-            spf: Some(spf)
+            spf: Some(spf),
         };
 
-        assert_eq!(Cell::new("foo"), authentication_results_spf_mailfrom(Some(&results)));
+        assert_eq!(
+            Cell::new("foo"),
+            authentication_results_spf_mailfrom(Some(&results))
+        );
     }
-
 }
 
 fn authentication_results_spf_mailfrom(results_option: Option<&AuthenticationResults>) -> Cell {
     match results_option {
-        Some(results) => {
-            match results.spf.as_ref() {
-                Some(spf) => optional_cell(spf.smtp_mailfrom.as_deref()),
-                None => optional_cell(None),
-            }
-        }
+        Some(results) => match results.spf.as_ref() {
+            Some(spf) => optional_cell(spf.smtp_mailfrom.as_deref()),
+            None => optional_cell(None),
+        },
         None => optional_cell(None),
     }
 }
@@ -1811,7 +1789,6 @@ mod optional_cell_tests {
 fn optional_cell(value_option: Option<&str>) -> Cell {
     match value_option {
         Some(value) => Cell::new(value),
-        None => Cell::new("N/A")
+        None => Cell::new("N/A"),
     }
 }
-

@@ -92,7 +92,10 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
 
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
 
-        assert_eq!(vec![String::from("scammer@evildomain.zzz")], parsed_mail.get_reply_to())
+        assert_eq!(
+            vec![String::from("scammer@evildomain.zzz")],
+            parsed_mail.get_reply_to()
+        )
     }
 
     #[test]
@@ -197,7 +200,9 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
 
         assert_eq!(
-            Some(String::from("We’re sorry that we didn’t touch base with you earlier. f309")),
+            Some(String::from(
+                "We’re sorry that we didn’t touch base with you earlier. f309"
+            )),
             parsed_mail.get_subject()
         );
     }
@@ -311,17 +316,14 @@ Content-Type: text/html\r\n\r
             ])
         ];
 
-        assert_eq!(
-            expected,
-            parsed_mail.get_received_headers()
-        )
+        assert_eq!(expected, parsed_mail.get_received_headers())
     }
 
     fn header_value(lines: Vec<&str>) -> String {
         let mut output: Vec<String> = vec![];
 
         for (pos, s) in lines.into_iter().enumerate() {
-            if pos >  0 {
+            if pos > 0 {
                 output.push("        ".into());
             }
 
@@ -383,14 +385,14 @@ impl AnalysableMessage for Message<'_> {
     fn get_from(&self) -> Vec<String> {
         // TODO Cover other options
         match self.from() {
-            HeaderValue::Address(Addr {name: _, address}) => {
+            HeaderValue::Address(Addr { name: _, address }) => {
                 if let Some(addr) = address.as_deref() {
                     vec![String::from(addr)]
                 } else {
                     // TODO can this branch be tested?
                     vec![]
                 }
-            },
+            }
             _ => {
                 vec![]
             }
@@ -400,23 +402,21 @@ impl AnalysableMessage for Message<'_> {
     fn get_reply_to(&self) -> Vec<String> {
         // TODO Cover other options
         match self.reply_to() {
-            HeaderValue::Address(Addr {name: _, address}) => {
+            HeaderValue::Address(Addr { name: _, address }) => {
                 if let Some(addr) = address.as_deref() {
                     vec![String::from(addr)]
                 } else {
                     // TODO can this branch be tested?
                     vec![]
                 }
-            },
+            }
             HeaderValue::GroupList(groups) => {
                 groups
                     .iter()
-                    .fold(vec![], |mut acc, mail_parser::Group {addresses, ..}| {
-                        addresses
-                            .iter()
-                            .for_each(|Addr {address, ..}| {
-                                acc.push(address.as_deref().unwrap().into())
-                            });
+                    .fold(vec![], |mut acc, mail_parser::Group { addresses, .. }| {
+                        addresses.iter().for_each(|Addr { address, .. }| {
+                            acc.push(address.as_deref().unwrap().into())
+                        });
 
                         acc
                     })
@@ -432,7 +432,7 @@ impl AnalysableMessage for Message<'_> {
         match self.return_path() {
             HeaderValue::Text(address) => {
                 vec![address.to_string()]
-            },
+            }
             _ => {
                 vec![]
             }
@@ -447,70 +447,58 @@ impl AnalysableMessage for Message<'_> {
         let collector: Vec<String> = vec![];
         let selector = Selector::parse("a").unwrap();
 
-        self
-            .html_bodies()
-            .fold(collector, |mut memo, part| {
-                if let mail_parser::PartType::Html(body) = &part.body {
+        self.html_bodies().fold(collector, |mut memo, part| {
+            if let mail_parser::PartType::Html(body) = &part.body {
+                let parsed_body = Html::parse_document(body);
 
-                    let parsed_body = Html::parse_document(body);
-
-                    for element in parsed_body.select(&selector) {
-                        for (key, value) in element.value().attrs() {
-                            if key == "href" {
-                                memo.push(value.into());
-                            }
+                for element in parsed_body.select(&selector) {
+                    for (key, value) in element.value().attrs() {
+                        if key == "href" {
+                            memo.push(value.into());
                         }
                     }
                 }
+            }
 
-                memo
-            })
+            memo
+        })
     }
 
     fn get_received_headers(&self) -> Vec<String> {
         use std::borrow::Cow;
 
-        self
-            .headers()
+        self.headers()
             .iter()
             .filter(|header| {
                 matches!(
-                    header.name, mail_parser::HeaderName::Rfc(mail_parser::RfcHeader::Received)
+                    header.name,
+                    mail_parser::HeaderName::Rfc(mail_parser::RfcHeader::Received)
                 )
             })
             .map(|header| {
                 match &header.value {
                     //TODO Should cater for other values, just not sure how to test
-                    mail_parser::HeaderValue::Text(val) => {
-                        match val {
-                            Cow::Borrowed(header) => String::from(*header),
-                            Cow::Owned(header) => header.clone()
-                        }
+                    mail_parser::HeaderValue::Text(val) => match val {
+                        Cow::Borrowed(header) => String::from(*header),
+                        Cow::Owned(header) => header.clone(),
                     },
-                    _ => String::from("not_supported")
+                    _ => String::from("not_supported"),
                 }
             })
             .collect()
     }
 
     fn get_authentication_results_header(&self) -> Option<String> {
-        self
-            .headers()
+        self.headers()
             .iter()
-            .filter(|header| {
-                matches!(
-                    header.name(), "Authentication-Results"
-                )
-            })
+            .filter(|header| matches!(header.name(), "Authentication-Results"))
             .collect::<Vec<&mail_parser::Header>>()
             .first()
             .map(|header| {
                 match header.value() {
                     //TODO Should cater for other values, just not sure how to test
-                    mail_parser::HeaderValue::Text(val) => {
-                        val.clone().into_owned()
-                    }
-                    _ => String::from("not_supported")
+                    mail_parser::HeaderValue::Text(val) => val.clone().into_owned(),
+                    _ => String::from("not_supported"),
                 }
             })
     }

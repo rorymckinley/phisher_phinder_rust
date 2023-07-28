@@ -1,8 +1,8 @@
-use std::io;
 use mail_parser::*;
+use std::io;
 
-use phisher_phinder_rust::cli::Cli;
 use phisher_phinder_rust::analyser::Analyser;
+use phisher_phinder_rust::cli::Cli;
 use phisher_phinder_rust::data::{OutputData, ParsedMail};
 use phisher_phinder_rust::ui;
 
@@ -18,7 +18,7 @@ fn main() {
 
     loop {
         if let Ok(0) = io::stdin().read_line(&mut mail) {
-            break
+            break;
         }
     }
 
@@ -41,7 +41,10 @@ fn main() {
         println!("{}", parsed_mail.subject().unwrap());
         println!();
         println!("Sender Addresses");
-        println!("{}", ui::display_sender_addresses_extended(&output).unwrap());
+        println!(
+            "{}",
+            ui::display_sender_addresses_extended(&output).unwrap()
+        );
         println!();
         println!("Fulfillment Nodes");
         println!("{}", ui::display_fulfillment_nodes(&output).unwrap());
@@ -51,7 +54,6 @@ fn main() {
         println!();
         println!("Authentication Results");
         println!("{}", ui::display_authentication_results(&output).unwrap())
-
     } else {
         print!("{}", serde_json::to_string(&output).unwrap());
     }

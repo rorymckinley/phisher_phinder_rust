@@ -16,7 +16,7 @@ pub fn setup_bootstrap_server() {
             create_dns_bootstrap_stub(),
             create_ip_v4_bootstrap_stub(),
             create_ip_v6_bootstrap_stub(),
-            create_object_tags_bootstrap_stub()
+            create_object_tags_bootstrap_stub(),
         ],
     };
 
@@ -26,7 +26,8 @@ pub fn setup_bootstrap_server() {
 
     let client = Client::new();
 
-    client.post("http://localhost:2525/imposters")
+    client
+        .post("http://localhost:2525/imposters")
         .headers(headers)
         .body(serde_json::to_string(&stub_data).unwrap())
         .send()
@@ -39,9 +40,10 @@ pub fn setup_dns_server(stub_configs: Vec<DnsServerConfig>) {
         protocol: "http".into(),
         record_requests: false,
         requests: vec![],
-        stubs: stub_configs.iter().map(|config| {
-            create_dns_service_stub(config)
-        }).collect(),
+        stubs: stub_configs
+            .iter()
+            .map(|config| create_dns_service_stub(config))
+            .collect(),
     };
 
     upload_stub(stub_data);
@@ -53,9 +55,10 @@ pub fn setup_ip_v4_server(stub_configs: Vec<IpServerConfig>) {
         protocol: "http".into(),
         record_requests: false,
         requests: vec![],
-        stubs: stub_configs.iter().map(|config| {
-            create_ip_service_stub(config)
-        }).collect(),
+        stubs: stub_configs
+            .iter()
+            .map(|config| create_ip_service_stub(config))
+            .collect(),
     };
 
     upload_stub(stub_data);
@@ -67,9 +70,10 @@ pub fn setup_ip_v6_server(stub_configs: Vec<IpServerConfig>) {
         protocol: "http".into(),
         record_requests: false,
         requests: vec![],
-        stubs: stub_configs.iter().map(|config| {
-            create_ip_service_stub(config)
-        }).collect(),
+        stubs: stub_configs
+            .iter()
+            .map(|config| create_ip_service_stub(config))
+            .collect(),
     };
 
     upload_stub(stub_data);
@@ -90,7 +94,7 @@ impl<'a> DnsServerConfig<'a> {
         handle: Option<&'a str>,
         registrar: &'a str,
         abuse_email: &'a str,
-        registration_date: DateTime<Utc>
+        registration_date: DateTime<Utc>,
     ) -> Self {
         Self {
             domain_name,
@@ -98,7 +102,7 @@ impl<'a> DnsServerConfig<'a> {
             registrar: Some(registrar),
             abuse_email: Some(abuse_email),
             registration_date: Some(registration_date),
-            response_code: 200
+            response_code: 200,
         }
     }
 
@@ -109,7 +113,7 @@ impl<'a> DnsServerConfig<'a> {
             registrar: None,
             abuse_email: None,
             registration_date: None,
-            response_code: 404
+            response_code: 404,
         }
     }
 }
@@ -128,17 +132,20 @@ impl<'a> IpServerConfig<'a> {
         ip_address: &'a str,
         handle: Option<&'a str>,
         address_range: (&'a str, &'a str),
-        entities_option: Option<&[(&'a str, &'a str, &'a str)]>
+        entities_option: Option<&[(&'a str, &'a str, &'a str)]>,
     ) -> Self {
         let (start_address, end_address) = address_range;
 
-        let entity_configs = entities_option
-            .map(|entities| {
-                entities
-                    .iter()
-                    .map(|(name, role, abuse_email)| EntityConfig {name ,role, abuse_email})
-                    .collect()
-            });
+        let entity_configs = entities_option.map(|entities| {
+            entities
+                .iter()
+                .map(|(name, role, abuse_email)| EntityConfig {
+                    name,
+                    role,
+                    abuse_email,
+                })
+                .collect()
+        });
 
         Self {
             ip_address,
@@ -146,7 +153,7 @@ impl<'a> IpServerConfig<'a> {
             start_address: Some(start_address),
             end_address: Some(end_address),
             entity_configs,
-            response_code: 200
+            response_code: 200,
         }
     }
 
@@ -157,7 +164,7 @@ impl<'a> IpServerConfig<'a> {
             start_address: None,
             end_address: None,
             entity_configs: Some(vec![]),
-            response_code: 404
+            response_code: 404,
         }
     }
 }
@@ -169,25 +176,16 @@ pub struct EntityConfig<'a> {
 }
 
 pub fn setup_head_impostor(port: u16, redirect: bool, location: Option<&str>) {
-    let headers = location.map(|loc_str| {
-        HashMap::from([
-            (String::from("Location"), String::from(loc_str))
-        ])
-    });
-    let response_code = if redirect {
-        301
-    } else {
-        200
-    };
+    let headers =
+        location.map(|loc_str| HashMap::from([(String::from("Location"), String::from(loc_str))]));
+    let response_code = if redirect { 301 } else { 200 };
 
     let stub_data = Mountebank {
         port,
         protocol: "http".into(),
         record_requests: false,
         requests: vec![],
-        stubs: vec![
-            create_stub("/", None, response_code, headers)
-        ]
+        stubs: vec![create_stub("/", None, response_code, headers)],
     };
 
     upload_stub(stub_data);
@@ -196,7 +194,8 @@ pub fn setup_head_impostor(port: u16, redirect: bool, location: Option<&str>) {
 pub fn lookup_impostor(port: u16) -> Mountebank {
     let client = Client::new();
 
-    let response = client.get(format!("http://localhost:2525/imposters/{port}"))
+    let response = client
+        .get(format!("http://localhost:2525/imposters/{port}"))
         .send()
         .unwrap();
 
@@ -212,7 +211,8 @@ fn upload_stub(stub: Mountebank) {
 
     let client = Client::new();
 
-    client.post("http://localhost:2525/imposters")
+    client
+        .post("http://localhost:2525/imposters")
         .headers(headers)
         .body(serde_json::to_string(&stub).unwrap())
         .send()
@@ -243,12 +243,7 @@ fn create_dns_bootstrap_stub() -> MountebankStub {
         "version": "1.0"
     });
 
-    create_stub(
-        "/dns.json",
-       Some(body.to_string()),
-       200,
-       None
-    )
+    create_stub("/dns.json", Some(body.to_string()), 200, None)
 }
 
 fn create_asn_bootstrap_stub() -> MountebankStub {
@@ -279,13 +274,7 @@ fn create_asn_bootstrap_stub() -> MountebankStub {
         "version": "1.0"
     });
 
-    create_stub(
-        "/asn.json",
-        Some(body.to_string()),
-        200,
-        None
-    )
-
+    create_stub("/asn.json", Some(body.to_string()), 200, None)
 }
 
 fn create_ip_v4_bootstrap_stub() -> MountebankStub {
@@ -323,12 +312,7 @@ fn create_ip_v4_bootstrap_stub() -> MountebankStub {
         "version": "1.0"
     });
 
-    create_stub(
-        "/ipv4.json",
-        Some(body.to_string()),
-        200,
-        None
-    )
+    create_stub("/ipv4.json", Some(body.to_string()), 200, None)
 }
 
 fn create_ip_v6_bootstrap_stub() -> MountebankStub {
@@ -363,12 +347,7 @@ fn create_ip_v6_bootstrap_stub() -> MountebankStub {
         "version": "1.0"
     });
 
-    create_stub(
-        "/ipv6.json",
-        Some(body.to_string()),
-        200,
-        None
-    )
+    create_stub("/ipv6.json", Some(body.to_string()), 200, None)
 }
 
 fn create_object_tags_bootstrap_stub() -> MountebankStub {
@@ -402,12 +381,7 @@ fn create_object_tags_bootstrap_stub() -> MountebankStub {
         "version": "1.0"
     });
 
-    create_stub(
-        "/object-tags.json",
-        Some(body.to_string()),
-        200,
-        None
-    )
+    create_stub("/object-tags.json", Some(body.to_string()), 200, None)
 }
 
 fn create_dns_service_stub(config: &DnsServerConfig) -> MountebankStub {
@@ -417,14 +391,19 @@ fn create_dns_service_stub(config: &DnsServerConfig) -> MountebankStub {
             config.handle,
             config.registrar.unwrap(),
             config.abuse_email.unwrap(),
-            config.registration_date.unwrap()
+            config.registration_date.unwrap(),
         );
         serde_json::to_string(&response).ok()
     } else {
         None
     };
 
-    create_stub(&format!("/domain/{}", config.domain_name), body, config.response_code, None)
+    create_stub(
+        &format!("/domain/{}", config.domain_name),
+        body,
+        config.response_code,
+        None,
+    )
 }
 
 fn create_ip_service_stub(config: &IpServerConfig) -> MountebankStub {
@@ -433,14 +412,19 @@ fn create_ip_service_stub(config: &IpServerConfig) -> MountebankStub {
             config.handle,
             config.start_address.unwrap(),
             config.end_address.unwrap(),
-            config.entity_configs.as_ref().map(|configs| configs)
+            config.entity_configs.as_ref().map(|configs| configs),
         );
         serde_json::to_string(&response).ok()
     } else {
         None
     };
 
-    create_stub(&format!("/ip/{}", config.ip_address), body, config.response_code, None)
+    create_stub(
+        &format!("/ip/{}", config.ip_address),
+        body,
+        config.response_code,
+        None,
+    )
 }
 
 fn create_stub(
@@ -450,34 +434,32 @@ fn create_stub(
     optional_headers: Option<HashMap<String, String>>,
 ) -> MountebankStub {
     let headers = optional_headers.unwrap_or_else(|| {
-        HashMap::from([
-            (String::from("Content-Type"), String::from("application/json"))
-        ])
+        HashMap::from([(
+            String::from("Content-Type"),
+            String::from("application/json"),
+        )])
     });
     MountebankStub {
-        predicates: vec![
-            MountebankPredicate {
-                equals:  Some(MountebankEquals { path: Some(path.into()) })
-            }
-        ],
-        responses: vec![
-            MountebankResponse {
-                is: Some(
-                    MountebankIs {
-                        status_code,
-                        headers,
-                        body: wrapped_body
-                    }
-                )
-            }
-        ],
+        predicates: vec![MountebankPredicate {
+            equals: Some(MountebankEquals {
+                path: Some(path.into()),
+            }),
+        }],
+        responses: vec![MountebankResponse {
+            is: Some(MountebankIs {
+                status_code,
+                headers,
+                body: wrapped_body,
+            }),
+        }],
     }
 }
 
 pub fn clear_all_impostors() {
     let client = Client::new();
 
-    client.delete("http://localhost:2525/imposters")
+    client
+        .delete("http://localhost:2525/imposters")
         .send()
         .unwrap();
 }
@@ -485,14 +467,14 @@ pub fn clear_all_impostors() {
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
-#[serde(rename_all(deserialize="snake_case", serialize="camelCase"))]
+#[serde(rename_all(deserialize = "snake_case", serialize = "camelCase"))]
 pub struct Mountebank {
     port: u16,
     protocol: String,
-    #[serde(alias="recordRequests")]
+    #[serde(alias = "recordRequests")]
     record_requests: bool,
     pub requests: Vec<MountebankRequest>,
-    stubs: Vec<MountebankStub>
+    stubs: Vec<MountebankStub>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -505,28 +487,28 @@ pub struct MountebankRequest {
 #[derive(Deserialize, Serialize)]
 pub struct MountebankEmailAddress {
     pub address: String,
-    name: String
+    name: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 struct MountebankStub {
     predicates: Vec<MountebankPredicate>,
-    responses: Vec<MountebankResponse>
+    responses: Vec<MountebankResponse>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 struct MountebankPredicate {
-    equals: Option<MountebankEquals>
+    equals: Option<MountebankEquals>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 struct MountebankResponse {
-    is: Option<MountebankIs>
+    is: Option<MountebankIs>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 struct MountebankEquals {
-    path: Option<String>
+    path: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -534,19 +516,19 @@ struct MountebankIs {
     #[serde(rename = "statusCode")]
     status_code: u16,
     headers: HashMap<String, String>,
-    body: Option<String>
+    body: Option<String>,
 }
 
 #[derive(Serialize)]
 struct MountebankHeaders {
     #[serde(rename = "Content-Type")]
-    content_type: String
+    content_type: String,
 }
 
 mod rdap {
-    use serde::Serialize;
-    use chrono::{DateTime, Utc};
     use super::EntityConfig;
+    use chrono::{DateTime, Utc};
+    use serde::Serialize;
 
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
@@ -561,7 +543,7 @@ mod rdap {
         secure_dns: SecureDns,
         nameservers: Vec<Nameserver>,
         rdap_conformance: Vec<String>,
-        notices: Vec<Notice>
+        notices: Vec<Notice>,
     }
 
     impl DomainResponse {
@@ -570,7 +552,7 @@ mod rdap {
             handle_option: Option<&str>,
             registrar: &str,
             abuse_email: &str,
-            registration_date: DateTime<Utc>
+            registration_date: DateTime<Utc>,
         ) -> Self {
             let handle = handle_option.unwrap_or("DOM-XXX").into();
 
@@ -580,16 +562,14 @@ mod rdap {
                 ldh_name: String::from(domain_name).to_uppercase(),
                 links: vec![],
                 status: Self::status(),
-                entities: vec![
-                    Entity::registrar(registrar, abuse_email)
-                ],
-                events: vec![
-                    Event::registration(registration_date)
-                ],
-                secure_dns: SecureDns{delegation_signed: false},
+                entities: vec![Entity::registrar(registrar, abuse_email)],
+                events: vec![Event::registration(registration_date)],
+                secure_dns: SecureDns {
+                    delegation_signed: false,
+                },
                 nameservers: vec![],
                 rdap_conformance: vec![],
-                notices: vec![]
+                notices: vec![],
             }
         }
 
@@ -598,7 +578,7 @@ mod rdap {
                 "client transfer prohibited".into(),
                 "server delete prohibited".into(),
                 "server transfer prohibited".into(),
-                "server update prohibited".into()
+                "server update prohibited".into(),
             ]
         }
     }
@@ -611,7 +591,7 @@ mod rdap {
         object_class_name: String,
         start_address: String,
         end_address: String,
-        entities: Option<Vec<Entity>>
+        entities: Option<Vec<Entity>>,
     }
 
     impl IpResponse {
@@ -621,19 +601,24 @@ mod rdap {
             end_address: &str,
             entity_configs_option: Option<&Vec<EntityConfig>>,
         ) -> Self {
-            let entities = entity_configs_option
-                .map(|entity_configs| {
-                    entity_configs
-                        .iter()
-                        .map(|EntityConfig {name, role, abuse_email}| {
+            let entities = entity_configs_option.map(|entity_configs| {
+                entity_configs
+                    .iter()
+                    .map(
+                        |EntityConfig {
+                             name,
+                             role,
+                             abuse_email,
+                         }| {
                             match *role {
-                                "abuse" =>  Entity::abuse(name, abuse_email),
-                                "registrant" =>  Entity::registrant(name, abuse_email),
-                                _ => panic!("Unexpected entity role")
+                                "abuse" => Entity::abuse(name, abuse_email),
+                                "registrant" => Entity::registrant(name, abuse_email),
+                                _ => panic!("Unexpected entity role"),
                             }
-                        })
-                        .collect()
-                });
+                        },
+                    )
+                    .collect()
+            });
 
             Self {
                 handle: handle.unwrap_or("NET-XXX").into(),
@@ -641,7 +626,7 @@ mod rdap {
                 object_class_name: "ip network".into(),
                 start_address: start_address.into(),
                 end_address: end_address.into(),
-                entities
+                entities,
             }
         }
     }
@@ -658,7 +643,7 @@ mod rdap {
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
     struct Entity {
-        object_class_name:  String,
+        object_class_name: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         handle: Option<String>,
         roles: Vec<String>,
@@ -681,21 +666,23 @@ mod rdap {
                     vec![
                         VcardProperty(
                             "version".into(),
-                            VcardPropertyParameters { property_type: None },
+                            VcardPropertyParameters {
+                                property_type: None,
+                            },
                             "text".into(),
-                            "4.0".into()
+                            "4.0".into(),
                         ),
                         VcardProperty(
                             "fn".into(),
-                            VcardPropertyParameters { property_type: None },
+                            VcardPropertyParameters {
+                                property_type: None,
+                            },
                             "text".into(),
-                            registrant_name.into()
+                            registrant_name.into(),
                         ),
-                    ]
+                    ],
                 ),
-                entities: Some(vec![
-                    Self::abuse("", abuse_email)
-                ])
+                entities: Some(vec![Self::abuse("", abuse_email)]),
             }
         }
         // TODO Generalise with registrant
@@ -710,21 +697,23 @@ mod rdap {
                     vec![
                         VcardProperty(
                             "version".into(),
-                            VcardPropertyParameters { property_type: None },
+                            VcardPropertyParameters {
+                                property_type: None,
+                            },
                             "text".into(),
-                            "4.0".into()
+                            "4.0".into(),
                         ),
                         VcardProperty(
                             "fn".into(),
-                            VcardPropertyParameters { property_type: None },
+                            VcardPropertyParameters {
+                                property_type: None,
+                            },
                             "text".into(),
-                            registrar_name.into()
+                            registrar_name.into(),
                         ),
-                    ]
+                    ],
                 ),
-                entities: Some(vec![
-                    Self::abuse("", abuse_email)
-                ])
+                entities: Some(vec![Self::abuse("", abuse_email)]),
             }
         }
 
@@ -740,10 +729,10 @@ mod rdap {
                         VcardProperty::version(),
                         VcardProperty::full_name(name),
                         VcardProperty::telephone(),
-                        VcardProperty::email(abuse_email)
-                    ]
+                        VcardProperty::email(abuse_email),
+                    ],
                 ),
-                entities: None
+                entities: None,
             }
         }
     }
@@ -765,12 +754,7 @@ mod rdap {
     }
 
     #[derive(Serialize)]
-    struct VcardProperty(
-        String,
-        VcardPropertyParameters,
-        String,
-        String,
-    );
+    struct VcardProperty(String, VcardPropertyParameters, String, String);
 
     impl VcardProperty {
         fn version() -> Self {
@@ -778,7 +762,7 @@ mod rdap {
                 "version".into(),
                 VcardPropertyParameters::empty(),
                 "text".into(),
-                "4.0".into()
+                "4.0".into(),
             )
         }
         fn full_name(name: &str) -> Self {
@@ -786,7 +770,7 @@ mod rdap {
                 "fn".into(),
                 VcardPropertyParameters::empty(),
                 "text".into(),
-                name.into()
+                name.into(),
             )
         }
         fn telephone() -> Self {
@@ -794,7 +778,7 @@ mod rdap {
                 "tel".into(),
                 VcardPropertyParameters::voice(),
                 "uri".into(),
-                "tel:1234567890".into()
+                "tel:1234567890".into(),
             )
         }
         fn email(email_address: &str) -> Self {
@@ -802,7 +786,7 @@ mod rdap {
                 "email".into(),
                 VcardPropertyParameters::empty(),
                 "text".into(),
-                email_address.into()
+                email_address.into(),
             )
         }
     }
@@ -810,16 +794,20 @@ mod rdap {
     #[derive(Serialize)]
     struct VcardPropertyParameters {
         #[serde(skip_serializing_if = "Option::is_none", rename(serialize = "type"))]
-        property_type: Option<String>
+        property_type: Option<String>,
     }
 
     impl VcardPropertyParameters {
         fn empty() -> Self {
-            Self { property_type: None }
+            Self {
+                property_type: None,
+            }
         }
 
         fn voice() -> Self {
-            Self { property_type: Some("voice".into()) }
+            Self {
+                property_type: Some("voice".into()),
+            }
         }
     }
 
@@ -834,7 +822,7 @@ mod rdap {
         fn registration(event_date: DateTime<Utc>) -> Self {
             Self {
                 event_action: "registration".into(),
-                event_date
+                event_date,
             }
         }
     }
@@ -857,7 +845,6 @@ mod rdap {
     struct Notice {
         title: String,
         description: Vec<String>,
-        links: Vec<Link>
+        links: Vec<Link>,
     }
 }
-

@@ -1,25 +1,14 @@
 use crate::authentication_results::AuthenticationResults;
 use crate::data::{
-    DeliveryNode,
-    EmailAddresses,
-    EmailAddressData,
-    FulfillmentNode,
-    OutputData,
-    ParsedMail,
-    ReportableEntities
+    DeliveryNode, EmailAddressData, EmailAddresses, FulfillmentNode, OutputData, ParsedMail,
+    ReportableEntities,
 };
 
 #[cfg(test)]
 mod add_reportable_entities_tests {
-    use crate::authentication_results::{AuthenticationResults, Spf, SpfResult};
-    use crate::data::{
-        EmailAddressData,
-        FulfillmentNode,
-        Node,
-        ParsedMail,
-        ReportableEntities,
-    };
     use super::*;
+    use crate::authentication_results::{AuthenticationResults, Spf, SpfResult};
+    use crate::data::{EmailAddressData, FulfillmentNode, Node, ParsedMail, ReportableEntities};
 
     #[test]
     fn adds_reportable_entities_to_output_data() {
@@ -38,7 +27,7 @@ mod add_reportable_entities_tests {
             delivery_nodes(),
             email_addresses(),
             fulfillment_nodes(),
-            None
+            None,
         )
     }
 
@@ -49,7 +38,7 @@ mod add_reportable_entities_tests {
             spf: Some(Spf {
                 ip_address: None,
                 result: Some(SpfResult::Pass),
-                smtp_mailfrom: Some("from@test.com".into())
+                smtp_mailfrom: Some("from@test.com".into()),
             }),
         }
     }
@@ -62,7 +51,7 @@ mod add_reportable_entities_tests {
                 position: 0,
                 recipient: None,
                 time: None,
-                trusted: true
+                trusted: true,
             },
             DeliveryNode {
                 advertised_sender: None,
@@ -70,7 +59,7 @@ mod add_reportable_entities_tests {
                 position: 1,
                 recipient: None,
                 time: None,
-                trusted: false
+                trusted: false,
             },
         ]
     }
@@ -79,22 +68,22 @@ mod add_reportable_entities_tests {
         EmailAddresses {
             from: vec![EmailAddressData::from_email_address("from@test.com")],
             links: vec![],
-            reply_to: vec![EmailAddressData::from_email_address("reply-to@not-test.com")],
-            return_path: vec![]
+            reply_to: vec![EmailAddressData::from_email_address(
+                "reply-to@not-test.com",
+            )],
+            return_path: vec![],
         }
     }
 
     fn fulfillment_nodes() -> Vec<FulfillmentNode> {
-        vec![
-            FulfillmentNode {
-                hidden: None,
-                visible: Node {
-                    domain: None,
-                    registrar: None,
-                    url: "https://dodgy-node.com".into()
-                }
-            }
-        ]
+        vec![FulfillmentNode {
+            hidden: None,
+            visible: Node {
+                domain: None,
+                registrar: None,
+                url: "https://dodgy-node.com".into(),
+            },
+        }]
     }
 
     fn expected_output() -> OutputData {
@@ -107,14 +96,14 @@ mod add_reportable_entities_tests {
             raw_mail: "".into(),
             reportable_entities: Some(ReportableEntities {
                 delivery_nodes: vec![delivery_node],
-                email_addresses:EmailAddresses {
+                email_addresses: EmailAddresses {
                     from: vec![email_address],
                     links: vec![],
                     reply_to: vec![],
-                    return_path: vec![]
+                    return_path: vec![],
                 },
-                fulfillment_nodes: vec![fulfillment_node]
-            })
+                fulfillment_nodes: vec![fulfillment_node],
+            }),
         }
     }
 
@@ -125,7 +114,7 @@ mod add_reportable_entities_tests {
             position: 0,
             recipient: None,
             time: None,
-            trusted: true
+            trusted: true,
         }
     }
 
@@ -139,8 +128,8 @@ mod add_reportable_entities_tests {
             visible: Node {
                 domain: None,
                 registrar: None,
-                url: "https://dodgy-node.com".into()
-            }
+                url: "https://dodgy-node.com".into(),
+            },
         }
     }
 }
@@ -151,7 +140,7 @@ pub fn add_reportable_entities(data: OutputData) -> OutputData {
             delivery_nodes: extract_reportable_delivery_nodes(&data.parsed_mail),
             email_addresses: extract_reportable_email_addresses(
                 &data.parsed_mail.email_addresses,
-                data.parsed_mail.authentication_results.as_ref()
+                data.parsed_mail.authentication_results.as_ref(),
             ),
             fulfillment_nodes: extract_reportable_fulfillment_nodes(&data.parsed_mail),
         }),
@@ -170,16 +159,17 @@ fn extract_reportable_delivery_nodes(parsed_mail: &ParsedMail) -> Vec<DeliveryNo
 
 #[cfg(test)]
 mod extract_reportable_email_addresses_tests {
+    use super::*;
     use crate::authentication_results::{AuthenticationResults, Dkim, DkimResult};
     use crate::data::EmailAddressData;
-    use super::*;
 
     #[test]
     fn includes_link_email_addresses() {
         let parsed_mail = parsed_mail(authentication_results());
 
         let output = extract_reportable_email_addresses(
-            &parsed_mail.email_addresses, parsed_mail.authentication_results.as_ref(),
+            &parsed_mail.email_addresses,
+            parsed_mail.authentication_results.as_ref(),
         );
 
         assert_eq!(link_email_addresses(), output.links);
@@ -190,7 +180,8 @@ mod extract_reportable_email_addresses_tests {
         let parsed_mail = parsed_mail(authentication_results_from_address());
 
         let output = extract_reportable_email_addresses(
-            &parsed_mail.email_addresses, parsed_mail.authentication_results.as_ref()
+            &parsed_mail.email_addresses,
+            parsed_mail.authentication_results.as_ref(),
         );
 
         assert_eq!(
@@ -207,7 +198,8 @@ mod extract_reportable_email_addresses_tests {
         let parsed_mail = parsed_mail(authentication_results_from_address());
 
         let output = extract_reportable_email_addresses(
-            &parsed_mail.email_addresses, parsed_mail.authentication_results.as_ref()
+            &parsed_mail.email_addresses,
+            parsed_mail.authentication_results.as_ref(),
         );
 
         assert_eq!(
@@ -224,7 +216,8 @@ mod extract_reportable_email_addresses_tests {
         let parsed_mail = parsed_mail(authentication_results_from_address());
 
         let output = extract_reportable_email_addresses(
-            &parsed_mail.email_addresses, parsed_mail.authentication_results.as_ref()
+            &parsed_mail.email_addresses,
+            parsed_mail.authentication_results.as_ref(),
         );
 
         assert_eq!(
@@ -240,9 +233,7 @@ mod extract_reportable_email_addresses_tests {
     fn does_not_return_from_reply_to_return_path_if_no_authentication_results() {
         let parsed_mail = parsed_mail(authentication_results_from_address());
 
-        let output = extract_reportable_email_addresses(
-            &parsed_mail.email_addresses, None
-        );
+        let output = extract_reportable_email_addresses(&parsed_mail.email_addresses, None);
 
         let expected = EmailAddresses {
             from: vec![],
@@ -260,21 +251,25 @@ mod extract_reportable_email_addresses_tests {
             vec![],
             email_addresses(),
             vec![],
-            None
+            None,
         )
     }
 
     fn authentication_results() -> AuthenticationResults {
-        AuthenticationResults { dkim: None, service_identifier: None, spf: None }
+        AuthenticationResults {
+            dkim: None,
+            service_identifier: None,
+            spf: None,
+        }
     }
 
     fn authentication_results_from_address() -> AuthenticationResults {
         AuthenticationResults {
-            dkim: Some( Dkim {
+            dkim: Some(Dkim {
                 result: Some(DkimResult::Pass),
                 selector: None,
                 signature_snippet: None,
-                user_identifier_snippet: Some("@test-1.com".into())
+                user_identifier_snippet: Some("@test-1.com".into()),
             }),
             service_identifier: None,
             spf: None,
@@ -290,7 +285,7 @@ mod extract_reportable_email_addresses_tests {
             ],
             links: vec![
                 EmailAddressData::from_email_address("link-1@foo.bar"),
-                EmailAddressData::from_email_address("link-2@foo.bar")
+                EmailAddressData::from_email_address("link-2@foo.bar"),
             ],
             reply_to: vec![
                 EmailAddressData::from_email_address("replyto@test-1.com"),
@@ -308,47 +303,37 @@ mod extract_reportable_email_addresses_tests {
     fn link_email_addresses() -> Vec<EmailAddressData> {
         vec![
             EmailAddressData::from_email_address("link-1@foo.bar"),
-            EmailAddressData::from_email_address("link-2@foo.bar")
+            EmailAddressData::from_email_address("link-2@foo.bar"),
         ]
     }
 }
 
 fn extract_reportable_email_addresses(
     email_addresses: &EmailAddresses,
-    authentication_results_option: Option<&AuthenticationResults>
+    authentication_results_option: Option<&AuthenticationResults>,
 ) -> EmailAddresses {
     match authentication_results_option {
-        Some(auth_results) => {
-            EmailAddresses {
-                from: filter_valid_email_addresses(
-                          email_addresses.from.clone(),
-                          auth_results
-                      ),
-                links: email_addresses.links.clone(),
-                reply_to: filter_valid_email_addresses(
-                    email_addresses.reply_to.clone(),
-                    auth_results
-                ),
-                return_path: filter_valid_email_addresses(
-                    email_addresses.return_path.clone(),
-                    auth_results
-                )
-            }
+        Some(auth_results) => EmailAddresses {
+            from: filter_valid_email_addresses(email_addresses.from.clone(), auth_results),
+            links: email_addresses.links.clone(),
+            reply_to: filter_valid_email_addresses(email_addresses.reply_to.clone(), auth_results),
+            return_path: filter_valid_email_addresses(
+                email_addresses.return_path.clone(),
+                auth_results,
+            ),
         },
-        None => {
-            EmailAddresses {
-                from: vec![],
-                links: email_addresses.links.clone(),
-                reply_to: vec![],
-                return_path: vec![]
-            }
-        }
+        None => EmailAddresses {
+            from: vec![],
+            links: email_addresses.links.clone(),
+            reply_to: vec![],
+            return_path: vec![],
+        },
     }
 }
 
 fn filter_valid_email_addresses(
     email_addresses: Vec<EmailAddressData>,
-    authentication_results: &AuthenticationResults
+    authentication_results: &AuthenticationResults,
 ) -> Vec<EmailAddressData> {
     email_addresses
         .into_iter()
@@ -356,10 +341,6 @@ fn filter_valid_email_addresses(
         .collect()
 }
 
-fn extract_reportable_fulfillment_nodes(
-    parsed_mail: &ParsedMail
-) -> Vec<FulfillmentNode> {
-    parsed_mail
-        .fulfillment_nodes
-        .clone()
+fn extract_reportable_fulfillment_nodes(parsed_mail: &ParsedMail) -> Vec<FulfillmentNode> {
+    parsed_mail.fulfillment_nodes.clone()
 }

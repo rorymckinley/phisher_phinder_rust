@@ -3,17 +3,16 @@ use phisher_phinder_rust::cli::Cli;
 use phisher_phinder_rust::data::OutputData;
 use phisher_phinder_rust::populator::populate;
 use phisher_phinder_rust::ui;
-use test_friendly_rdap_client::Client;
 use std::io;
+use test_friendly_rdap_client::Client;
 
 #[tokio::main]
 async fn main() {
-
     let mut raw_input = String::new();
 
     loop {
         if let Ok(0) = io::stdin().read_line(&mut raw_input) {
-            break
+            break;
         }
     }
 
@@ -32,7 +31,10 @@ async fn main() {
     let cli = Cli::parse();
 
     if cli.human {
-        println!("{}", ui::display_sender_addresses_extended(&output).unwrap());
+        println!(
+            "{}",
+            ui::display_sender_addresses_extended(&output).unwrap()
+        );
         println!();
         println!("{}", ui::display_fulfillment_nodes(&output).unwrap());
         println!();
