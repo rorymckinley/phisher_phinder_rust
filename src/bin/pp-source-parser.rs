@@ -1,4 +1,4 @@
-use phisher_phinder_rust::message_source::parse;
+use phisher_phinder_rust::sources::create_from_str;
 use std::io;
 
 fn main() {
@@ -10,7 +10,7 @@ fn main() {
         }
     }
 
-    let mails = parse(&message_source);
+    let sources = create_from_str(&message_source);
 
-    print!("{}", serde_json::to_string(&mails).unwrap());
+    print!("{}", serde_json::to_string(&sources).unwrap());
 }

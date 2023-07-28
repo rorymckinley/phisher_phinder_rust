@@ -65,11 +65,16 @@ Subject: Dodgy Subject 2"
 }
 
 fn expected_multiple_source_json() -> Value {
-    json!([mail_body_1(), mail_body_2()])
+    json!([
+        {"id": null, "data": mail_body_1()},
+        {"id": null, "data": mail_body_2()},
+    ])
 }
 
 fn expected_single_source_json() -> Value {
-    json!([mail_body_1()])
+    json!([
+        {"id": null, "data": mail_body_1()}
+    ])
 }
 
 fn command(binary_name: &str) -> Command {
