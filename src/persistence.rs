@@ -152,7 +152,7 @@ mod persist_message_source_tests {
 
     fn table_contents(conn: &Connection) -> Vec<(u32, String, String, String)> {
         let mut stmt = conn
-            .prepare("SELECT id, contents, hash, created_at FROM message_sources")
+            .prepare("SELECT id, data, hash, created_at FROM message_sources")
             .unwrap();
         let rows = stmt
             .query_map([], |row| {
@@ -173,7 +173,7 @@ mod persist_message_source_tests {
     ) -> Vec<(u32, String, String)> {
         records
             .into_iter()
-            .map(|(id, contents, hash, _created_at)| (id, contents, hash))
+            .map(|(id, data, hash, _created_at)| (id, data, hash))
             .collect()
     }
 }
@@ -184,7 +184,7 @@ pub fn persist_message_source(conn: &Connection, source: MessageSource) -> Messa
         "CREATE TABLE IF NOT EXISTS message_sources \
         ( \
             id INTEGER PRIMARY KEY, \
-            contents TEXT NOT NULL, \
+            data TEXT NOT NULL, \
             hash TEXT NOT NULL, \
             created_at TEXT NOT NULL
         )",
@@ -198,7 +198,7 @@ pub fn persist_message_source(conn: &Connection, source: MessageSource) -> Messa
         message_source
     }  else {
         conn.execute(
-            "INSERT INTO message_sources (contents, hash, created_at) VALUES (?1, ?2, ?3)",
+            "INSERT INTO message_sources (data, hash, created_at) VALUES (?1, ?2, ?3)",
             (
                 &source.data,
                 &hash,
@@ -235,6 +235,6 @@ fn get_record(conn: &Connection, hash: &str) -> Option<MessageSource> {
 }
 
 fn get_record_by_hash_statement(conn: &Connection) -> Statement {
-    conn.prepare("SELECT id, contents FROM message_sources WHERE hash = ?")
+    conn.prepare("SELECT id, data FROM message_sources WHERE hash = ?")
         .unwrap()
 }
