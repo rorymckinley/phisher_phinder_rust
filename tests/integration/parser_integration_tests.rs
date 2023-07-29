@@ -31,10 +31,10 @@ fn test_display_json_parse_results() {
     let json_data: serde_json::Value =
         serde_json::from_str(std::str::from_utf8(json_data).unwrap()).unwrap();
 
-    assert_json_eq!(json_output_as_value(input()), json_data);
+    assert_json_eq!(json_output_as_value(input_data()), json_data);
 }
 
-fn input() -> String {
+fn input_data() -> String {
     "\
 Delivered-To: victim@gmail.com\r
 Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp;\r
@@ -68,6 +68,16 @@ Content-Type: text/html\r\n\r
 <a href=\"https://foo.bar/baz\">Click Me</a>
 </div>\r
 ".into()
+}
+
+fn input() -> String {
+    json!(
+        {
+            "id": 9909,
+            "data": input_data()
+        }
+    )
+    .to_string()
 }
 
 fn json_output_as_string(raw_mail: String) -> String {

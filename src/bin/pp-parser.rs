@@ -4,6 +4,7 @@ use std::io;
 use phisher_phinder_rust::analyser::Analyser;
 use phisher_phinder_rust::cli::Cli;
 use phisher_phinder_rust::data::{OutputData, ParsedMail};
+use phisher_phinder_rust::message_source::MessageSource;
 use phisher_phinder_rust::ui;
 
 use clap::Parser;
@@ -14,15 +15,17 @@ fn main() {
 
     let cli = Cli::parse();
 
-    let mut mail = String::new();
+    let mut input = String::new();
 
     loop {
-        if let Ok(0) = io::stdin().read_line(&mut mail) {
+        if let Ok(0) = io::stdin().read_line(&mut input) {
             break;
         }
     }
 
-    let parsed_mail = Message::parse(mail.as_bytes()).unwrap();
+    let message_source: MessageSource = serde_json::from_str(&input).unwrap();
+
+    let parsed_mail = Message::parse(message_source.data.as_bytes()).unwrap();
 
     let analyser = Analyser::new(&parsed_mail);
 
@@ -34,7 +37,7 @@ fn main() {
             analyser.fulfillment_nodes(),
             analyser.subject(),
         ),
-        &mail,
+        &message_source.data,
     );
 
     if cli.human {
