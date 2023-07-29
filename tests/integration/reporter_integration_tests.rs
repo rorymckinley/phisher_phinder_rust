@@ -1,5 +1,6 @@
 use assert_cmd::Command;
 use assert_json_diff::assert_json_eq;
+use serde_json::json;
 
 #[test]
 fn returns_reportable_entities_in_json() {
@@ -7,14 +8,15 @@ fn returns_reportable_entities_in_json() {
 
     let assert = cmd.write_stdin(json_input()).assert().success();
 
-    let std::process::Output { stdout, .. } = assert.get_output();
+    let json_data = &assert.get_output().stdout;
 
-    assert_json_eq!(json_output(), String::from_utf8(stdout.to_vec()).unwrap());
+    let json_data: serde_json::Value =
+        serde_json::from_str(std::str::from_utf8(json_data).unwrap()).unwrap();
+
+    assert_json_eq!(expected_json_output(), json_data);
 }
 
 fn json_input() -> String {
-    use serde_json::json;
-
     json!({
         "parsed_mail": {
             "email_addresses": {
@@ -155,14 +157,16 @@ fn json_input() -> String {
             ],
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
         },
+        "message_source": {
+            "id": 9909,
+            "data": "x"
+        },
         "raw_mail": ""
     })
     .to_string()
 }
 
-fn json_output() -> String {
-    use serde_json::json;
-
+fn expected_json_output() -> serde_json::Value {
     json!({
         "parsed_mail": {
             "email_addresses": {
@@ -354,7 +358,9 @@ fn json_output() -> String {
                 }
             ],
         },
-        "raw_mail": ""
+        "message_source": {
+            "id": 9909,
+            "data": "x"
+        },
     })
-    .to_string()
 }

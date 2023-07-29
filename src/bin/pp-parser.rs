@@ -25,7 +25,9 @@ fn main() {
 
     let message_source: MessageSource = serde_json::from_str(&input).unwrap();
 
-    let parsed_mail = Message::parse(message_source.data.as_bytes()).unwrap();
+    let raw_mail = message_source.data.clone();
+
+    let parsed_mail = Message::parse(raw_mail.as_bytes()).unwrap();
 
     let analyser = Analyser::new(&parsed_mail);
 
@@ -37,7 +39,7 @@ fn main() {
             analyser.fulfillment_nodes(),
             analyser.subject(),
         ),
-        &message_source.data,
+        message_source,
     );
 
     if cli.human {

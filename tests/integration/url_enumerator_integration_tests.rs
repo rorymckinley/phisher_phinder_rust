@@ -1,6 +1,7 @@
 use assert_cmd::Command;
-
+use assert_json_diff::assert_json_eq;
 use phisher_phinder_rust::mountebank::{clear_all_impostors, setup_head_impostor};
+use serde_json::json;
 
 #[test]
 fn test_enumerate_fulfillment_nodes() {
@@ -21,15 +22,19 @@ fn test_enumerate_fulfillment_nodes_json() {
     setup_head_impostor(4545, true, Some("https://re.direct.to"));
 
     let mut cmd = Command::cargo_bin("pp-url-enumerator").unwrap();
-    cmd.write_stdin(json_input())
+    let assert = cmd.write_stdin(json_input())
         .assert()
-        .success()
-        .stdout(json_output());
+        .success();
+
+    let json_data = &assert.get_output().stdout;
+
+    let json_data: serde_json::Value =
+        serde_json::from_str(std::str::from_utf8(json_data).unwrap()).unwrap();
+
+    assert_json_eq!(json_output(), json_data);
 }
 
 fn json_input() -> String {
-    use serde_json::json;
-
     json!({
         "parsed_mail": {
             "authentication_results": {
@@ -97,15 +102,16 @@ fn json_input() -> String {
                 }]
             }
         },
-        "raw_mail": "",
+        "message_source": {
+            "id": 9909,
+            "data": "x"
+        },
         "reportable_entities": null
     })
     .to_string()
 }
 
-fn json_output() -> String {
-    use serde_json::json;
-
+fn json_output() -> serde_json::Value {
     json!({
         "parsed_mail": {
             "authentication_results": {
@@ -182,8 +188,10 @@ fn json_output() -> String {
                 }]
             }
         },
-        "raw_mail": "",
+        "message_source": {
+            "id": 9909,
+            "data": "x"
+        },
         "reportable_entities": null
     })
-    .to_string()
 }

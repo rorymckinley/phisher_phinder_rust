@@ -15,6 +15,7 @@ mod display_sender_addresses_extended_tests {
     use crate::data::{
         Domain, DomainCategory, EmailAddressData, EmailAddresses, ParsedMail, Registrar,
     };
+    use crate::message_source::MessageSource;
     use chrono::prelude::*;
 
     #[test]
@@ -110,7 +111,7 @@ mod display_sender_addresses_extended_tests {
                     ],
                 },
             },
-            raw_mail: "".into(),
+            message_source: MessageSource::new(""),
             reportable_entities: None,
         };
 
@@ -179,7 +180,7 @@ mod display_sender_addresses_extended_tests {
                     links: vec![],
                 },
             },
-            raw_mail: "".into(),
+            message_source: MessageSource::new(""),
             reportable_entities: None,
         };
 
@@ -282,6 +283,7 @@ mod display_fulfillment_nodes_tests {
     use super::*;
     use crate::authentication_results::{AuthenticationResults, Dkim, DkimResult, Spf, SpfResult};
     use crate::data::{DomainCategory, EmailAddresses, FulfillmentNode, ParsedMail};
+    use crate::message_source::MessageSource;
     use chrono::prelude::*;
 
     #[test]
@@ -304,7 +306,7 @@ mod display_fulfillment_nodes_tests {
                     links: vec![],
                 },
             },
-            raw_mail: "".into(),
+            message_source: MessageSource::new(""),
             reportable_entities: None,
         };
 
@@ -748,6 +750,7 @@ mod display_delivery_nodes_tests {
     use crate::data::{
         DeliveryNode, DomainCategory, EmailAddresses, HostNode, InfrastructureProvider, ParsedMail,
     };
+    use crate::message_source::MessageSource;
     use chrono::prelude::*;
 
     #[test]
@@ -872,7 +875,7 @@ mod display_delivery_nodes_tests {
                     links: vec![],
                 },
             },
-            raw_mail: "".into(),
+            message_source: MessageSource::new(""),
             reportable_entities: None,
         }
     }
@@ -1093,6 +1096,7 @@ mod display_authentication_results_tests {
     use super::*;
     use crate::authentication_results::{AuthenticationResults, Dkim, DkimResult, Spf, SpfResult};
     use crate::data::{EmailAddresses, ParsedMail};
+    use crate::message_source::MessageSource;
 
     #[test]
     fn displays_authentication_results_with_no_authentication_results() {
@@ -1164,7 +1168,7 @@ mod display_authentication_results_tests {
                     links: vec![],
                 },
             },
-            raw_mail: "".into(),
+            message_source: MessageSource::new(""),
             reportable_entities: None,
         }
     }
@@ -1771,6 +1775,13 @@ fn authentication_results_spf_mailfrom(results_option: Option<&AuthenticationRes
     }
 }
 
+fn optional_cell(value_option: Option<&str>) -> Cell {
+    match value_option {
+        Some(value) => Cell::new(value),
+        None => Cell::new("N/A"),
+    }
+}
+
 #[cfg(test)]
 mod optional_cell_tests {
     use super::*;
@@ -1783,12 +1794,5 @@ mod optional_cell_tests {
     #[test]
     fn returns_value_if_some() {
         assert_eq!(Cell::new("foo"), optional_cell(Some("foo")));
-    }
-}
-
-fn optional_cell(value_option: Option<&str>) -> Cell {
-    match value_option {
-        Some(value) => Cell::new(value),
-        None => Cell::new("N/A"),
     }
 }

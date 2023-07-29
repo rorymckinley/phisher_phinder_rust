@@ -5,6 +5,7 @@ mod enumerate_tests {
     use super::*;
     use crate::authentication_results::{AuthenticationResults, Dkim, DkimResult, Spf, SpfResult};
     use crate::data::{EmailAddresses, FulfillmentNode, Node, OutputData};
+    use crate::message_source::MessageSource;
     use crate::mountebank::*;
 
     #[test]
@@ -32,7 +33,7 @@ mod enumerate_tests {
                 ],
                 None,
             ),
-            "raw mail text",
+            MessageSource::new("raw mail text"),
         )
     }
 
@@ -56,7 +57,7 @@ mod enumerate_tests {
                 f_nodes,
                 None,
             ),
-            "raw mail text",
+            MessageSource::new("raw mail text"),
         )
     }
 

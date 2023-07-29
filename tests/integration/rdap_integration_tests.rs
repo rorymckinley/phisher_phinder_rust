@@ -7,6 +7,8 @@ use phisher_phinder_rust::mountebank::{
     clear_all_impostors, setup_bootstrap_server, setup_dns_server, setup_ip_v4_server,
     DnsServerConfig, IpServerConfig,
 };
+use serde_json::json;
+
 
 #[test]
 fn test_fetching_rdap_details() {
@@ -39,14 +41,15 @@ fn test_fetching_rdap_details_json() {
         .assert()
         .success();
 
-    let std::process::Output { stdout, .. } = assert.get_output();
+    let json_data = &assert.get_output().stdout;
 
-    assert_json_eq!(json_output(), String::from_utf8(stdout.to_vec()).unwrap());
+    let json_data: serde_json::Value =
+        serde_json::from_str(std::str::from_utf8(json_data).unwrap()).unwrap();
+
+    assert_json_eq!(expected_json_output(), json_data);
 }
 
 fn json_input() -> String {
-    use serde_json::json;
-
     json!({
         "parsed_mail": {
             "authentication_results": {
@@ -161,15 +164,16 @@ fn json_input() -> String {
                 }]
             }
         },
-        "raw_mail": "",
+        "message_source": {
+            "id": 9909,
+            "data": "x"
+        },
         "reportable_entities": null,
     })
     .to_string()
 }
 
-fn json_output() -> String {
-    use serde_json::json;
-
+fn expected_json_output() -> serde_json::Value {
     json!({
         "parsed_mail": {
             "email_addresses": {
@@ -310,10 +314,12 @@ fn json_output() -> String {
             ],
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
         },
-        "raw_mail": "",
+        "message_source": {
+            "id": 9909,
+            "data": "x"
+        },
         "reportable_entities": null,
     })
-    .to_string()
 }
 
 fn setup_mountebank() {

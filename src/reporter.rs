@@ -9,6 +9,7 @@ mod add_reportable_entities_tests {
     use super::*;
     use crate::authentication_results::{AuthenticationResults, Spf, SpfResult};
     use crate::data::{EmailAddressData, FulfillmentNode, Node, ParsedMail, ReportableEntities};
+    use crate::message_source::MessageSource;
 
     #[test]
     fn adds_reportable_entities_to_output_data() {
@@ -18,7 +19,7 @@ mod add_reportable_entities_tests {
     }
 
     fn input() -> OutputData {
-        OutputData::new(parsed_mail(), "")
+        OutputData::new(parsed_mail(), MessageSource::new(""))
     }
 
     fn parsed_mail() -> ParsedMail {
@@ -93,7 +94,7 @@ mod add_reportable_entities_tests {
 
         OutputData {
             parsed_mail: parsed_mail(),
-            raw_mail: "".into(),
+            message_source: MessageSource::new(""),
             reportable_entities: Some(ReportableEntities {
                 delivery_nodes: vec![delivery_node],
                 email_addresses: EmailAddresses {

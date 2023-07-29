@@ -47,6 +47,10 @@ fn json_input() -> String {
     use serde_json::json;
 
     json!({
+        "message_source": {
+            "id": 9909,
+            "data": "x"
+        },
         "parsed_mail": {
             "delivery_nodes": [],
             "fulfillment_nodes": [],
@@ -70,7 +74,6 @@ fn json_input() -> String {
                 "return_path": []
             }
         },
-        "raw_mail": "",
         "reportable_entities": {
             "delivery_nodes": [],
             "email_addresses": {

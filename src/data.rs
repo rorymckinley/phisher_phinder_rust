@@ -7,19 +7,20 @@ use thiserror::Error;
 use url::Url;
 
 use crate::authentication_results::AuthenticationResults;
+use crate::message_source::MessageSource;
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct OutputData {
     pub parsed_mail: ParsedMail,
-    pub raw_mail: String,
+    pub message_source: MessageSource,
     pub reportable_entities: Option<ReportableEntities>,
 }
 
 impl OutputData {
-    pub fn new(parsed_mail: ParsedMail, raw_mail: &str) -> Self {
+    pub fn new(parsed_mail: ParsedMail, message_source: MessageSource) -> Self {
         Self {
             parsed_mail,
-            raw_mail: raw_mail.into(),
+            message_source,
             reportable_entities: None,
         }
     }

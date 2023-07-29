@@ -80,11 +80,7 @@ fn input() -> String {
     .to_string()
 }
 
-fn json_output_as_string(raw_mail: String) -> String {
-    json_output_as_value(raw_mail).to_string()
-}
-
-fn json_output_as_value(raw_mail: String) -> serde_json::Value {
+fn json_output_as_value(source_data: String) -> serde_json::Value {
     json!({
         "parsed_mail": {
             "authentication_results": {
@@ -216,7 +212,10 @@ fn json_output_as_value(raw_mail: String) -> serde_json::Value {
             ],
             "subject": "We’re sorry that we didn’t touch base with you earlier. f309",
         },
-        "raw_mail": raw_mail,
+        "message_source": {
+            "id": 9909,
+            "data": source_data
+        },
         "reportable_entities": null,
     })
 }

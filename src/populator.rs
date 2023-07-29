@@ -16,6 +16,7 @@ mod populate_tests {
     use crate::data::{
         Domain, EmailAddressData, EmailAddresses, InfrastructureProvider, ParsedMail, Registrar,
     };
+    use crate::message_source::MessageSource;
     use crate::mountebank::*;
 
     #[test]
@@ -224,7 +225,7 @@ mod populate_tests {
                     }],
                 },
             },
-            raw_mail: "raw mail text goes here".into(),
+            message_source: MessageSource::new("raw mail text goes here"),
             reportable_entities: None,
         }
     }
@@ -3345,7 +3346,7 @@ mod extract_eligible_abuse_entities_tests {
 fn extract_eligible_abuse_entities(entities: &[parser::Entity]) -> Vec<&parser::Entity> {
     let all_entities: Vec<&parser::Entity> = entities
         .iter()
-        .flat_map(|entity| all_entities_from(entity))
+        .flat_map(all_entities_from)
         .collect();
 
     all_entities
