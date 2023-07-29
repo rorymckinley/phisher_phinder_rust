@@ -17,9 +17,12 @@ fn main() {
     match &std::env::var("PP_DB_PATH") {
         Ok(db_path) => {
             if let Ok(connection) = connect(Path::new(db_path)) {
-                for message_source in message_sources {
-                    persist_message_source(&connection, message_source);
-                }
+                let results = message_sources
+                    .into_iter()
+                    .map(|message_source| persist_message_source(&connection, message_source))
+                    .collect::<Vec<MessageSource>>();
+
+                print!("{}", serde_json::to_string(&results).unwrap());
             } else {
                 eprintln!("PP_DB_PATH ENV variable appears to be incorrect");
                 process::exit(2)

@@ -1,6 +1,6 @@
 use crate::message_source::MessageSource;
 use chrono::Utc;
-use rusqlite::Connection;
+use rusqlite::{Connection, Statement};
 use sha2::{Digest, Sha256};
 use std::path::Path;
 
@@ -80,6 +80,15 @@ mod persist_message_source_tests {
     }
 
     #[test]
+    fn returns_message_source_with_persisted_id() {
+        let conn = connection();
+
+        let message_source = persist_message_source(&conn, message_source_1());
+
+        assert_eq!(expected_message_source(), message_source);
+    }
+
+    #[test]
     fn does_not_store_duplicate_messages() {
         let conn = connection();
 
@@ -92,6 +101,16 @@ mod persist_message_source_tests {
         );
     }
 
+    #[test]
+    fn returns_message_source_if_record_already_exists() {
+        let conn = connection();
+
+        persist_message_source(&conn, message_source_1());
+        let message_source = persist_message_source(&conn, message_source_1());
+
+        assert_eq!(expected_message_source(), message_source);
+    }
+
     fn connection() -> Connection {
         Connection::open_in_memory().unwrap()
     }
@@ -102,6 +121,13 @@ mod persist_message_source_tests {
 
     fn message_source_1() -> MessageSource {
         MessageSource::new(&message_source_data_1())
+    }
+
+    fn expected_message_source() -> MessageSource {
+        MessageSource {
+            id: Some(1),
+            data: message_source_data_1(),
+        }
     }
 
     fn message_1_hash() -> String {
@@ -152,7 +178,7 @@ mod persist_message_source_tests {
     }
 }
 
-pub fn persist_message_source(conn: &Connection, source: MessageSource) {
+pub fn persist_message_source(conn: &Connection, source: MessageSource) -> MessageSource {
     // TODO Think about ways the below can actually fail and then replace the `.unwrap()` calls
     conn.execute(
         "CREATE TABLE IF NOT EXISTS message_sources \
@@ -168,16 +194,20 @@ pub fn persist_message_source(conn: &Connection, source: MessageSource) {
     let hash = sha256(&source.data);
     let created_at = Utc::now();
 
-    if new_record(conn, &hash) {
+    if let Some(message_source) = get_record(conn, &hash) {
+        message_source
+    }  else {
         conn.execute(
             "INSERT INTO message_sources (contents, hash, created_at) VALUES (?1, ?2, ?3)",
             (
                 &source.data,
-                hash,
+                &hash,
                 created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
             ),
         )
         .unwrap();
+
+        get_record(conn, &hash).unwrap()
     }
 }
 
@@ -192,12 +222,19 @@ fn sha256(text: &str) -> String {
         .join("")
 }
 
-fn new_record(conn: &Connection, hash: &str) -> bool {
-    let mut stmt = conn
-        .prepare("SELECT id FROM message_sources WHERE hash = ?")
-        .unwrap();
+fn get_record(conn: &Connection, hash: &str) -> Option<MessageSource> {
+    let mut stmt = get_record_by_hash_statement(conn);
 
-    let result = stmt.query_row([hash], |row| row.get::<usize, u32>(0));
+    stmt.query_row([hash], |row| {
+        let id = row.get::<usize, u32>(0).unwrap();
+        let data = row.get::<usize, String>(1).unwrap();
 
-    matches!(result, Err(_))
+        Ok(MessageSource::persisted_record(id, &data))
+    })
+    .ok()
+}
+
+fn get_record_by_hash_statement(conn: &Connection) -> Statement {
+    conn.prepare("SELECT id, contents FROM message_sources WHERE hash = ?")
+        .unwrap()
 }
