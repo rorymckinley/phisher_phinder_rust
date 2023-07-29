@@ -25,26 +25,13 @@ fn test_display_human_parse_results() {
 fn test_display_json_parse_results() {
     let mut cmd = Command::cargo_bin("pp-parser").unwrap();
 
-    cmd.write_stdin(input())
-        .assert()
-        .success()
-        .stdout(json_output_as_string(input()));
+    let assert = cmd.write_stdin(input()).assert().success();
+    let json_data = &assert.get_output().stdout;
 
-    // TODO Figure out what I am doing wrong with `assert_json_eq!`
-    // let assert = cmd
-    //     .write_stdin(input())
-    //     .assert()
-    //     .success();
-    // let json_data = &assert
-    //     .get_output()
-    //     .stdout;
-    //
-    // let jd: serde_json::Value = json!(std::str::from_utf8(json_data).unwrap());
-    //
-    // assert_json_eq!(
-    //     json_output_as_value(input()),
-    //     jd
-    // );
+    let json_data: serde_json::Value =
+        serde_json::from_str(std::str::from_utf8(json_data).unwrap()).unwrap();
+
+    assert_json_eq!(json_output_as_value(input()), json_data);
 }
 
 fn input() -> String {
