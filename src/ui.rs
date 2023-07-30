@@ -113,6 +113,7 @@ mod display_sender_addresses_extended_tests {
             },
             message_source: MessageSource::new(""),
             reportable_entities: None,
+            run_id: None,
         };
 
         assert_eq!(
@@ -182,6 +183,7 @@ mod display_sender_addresses_extended_tests {
             },
             message_source: MessageSource::new(""),
             reportable_entities: None,
+            run_id: None,
         };
 
         assert_eq!(
@@ -308,6 +310,7 @@ mod display_fulfillment_nodes_tests {
             },
             message_source: MessageSource::new(""),
             reportable_entities: None,
+            run_id: None,
         };
 
         assert_eq!(
@@ -877,6 +880,7 @@ mod display_delivery_nodes_tests {
             },
             message_source: MessageSource::new(""),
             reportable_entities: None,
+            run_id: None,
         }
     }
 
@@ -1170,6 +1174,7 @@ mod display_authentication_results_tests {
             },
             message_source: MessageSource::new(""),
             reportable_entities: None,
+            run_id: None,
         }
     }
 

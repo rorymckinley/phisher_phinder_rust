@@ -1,5 +1,5 @@
-use assert_cmd::Command;
 use assert_cmd::assert::Assert;
+use assert_cmd::Command;
 use assert_fs::fixture::TempDir;
 use assert_json_diff::assert_json_eq;
 use fallible_streaming_iterator::FallibleStreamingIterator;
@@ -29,7 +29,8 @@ fn returns_message_sources_with_ids() {
     let db_path = temp.path().join("pp.sqlite3");
 
     let mut cmd = Command::cargo_bin("pp-store-mail-source").unwrap();
-    let assert = cmd.env("PP_DB_PATH", db_path.to_str().unwrap())
+    let assert = cmd
+        .env("PP_DB_PATH", db_path.to_str().unwrap())
         .write_stdin(input())
         .assert()
         .success();
@@ -75,7 +76,8 @@ fn input() -> String {
             "id": null,
             "data": "Message Source 2"
         }
-    ]).to_string()
+    ])
+    .to_string()
 }
 
 fn expected_output() -> Value {

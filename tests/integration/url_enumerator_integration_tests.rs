@@ -22,9 +22,7 @@ fn test_enumerate_fulfillment_nodes_json() {
     setup_head_impostor(4545, true, Some("https://re.direct.to"));
 
     let mut cmd = Command::cargo_bin("pp-url-enumerator").unwrap();
-    let assert = cmd.write_stdin(json_input())
-        .assert()
-        .success();
+    let assert = cmd.write_stdin(json_input()).assert().success();
 
     let json_data = &assert.get_output().stdout;
 
@@ -106,7 +104,8 @@ fn json_input() -> String {
             "id": 9909,
             "data": "x"
         },
-        "reportable_entities": null
+        "reportable_entities": null,
+        "run_id": null,
     })
     .to_string()
 }
@@ -192,6 +191,7 @@ fn json_output() -> serde_json::Value {
             "id": 9909,
             "data": "x"
         },
-        "reportable_entities": null
+        "reportable_entities": null,
+        "run_id": null,
     })
 }

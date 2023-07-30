@@ -52,7 +52,7 @@ impl MessageSource {
     pub fn persisted_record(id: u32, data: &str) -> Self {
         Self {
             id: Some(id),
-            data: data.into()
+            data: data.into(),
         }
     }
 }

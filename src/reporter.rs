@@ -105,6 +105,7 @@ mod add_reportable_entities_tests {
                 },
                 fulfillment_nodes: vec![fulfillment_node],
             }),
+            run_id: None,
         }
     }
 

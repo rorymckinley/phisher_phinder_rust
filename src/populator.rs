@@ -227,6 +227,7 @@ mod populate_tests {
             },
             message_source: MessageSource::new("raw mail text goes here"),
             reportable_entities: None,
+            run_id: None,
         }
     }
 
@@ -3344,10 +3345,7 @@ mod extract_eligible_abuse_entities_tests {
 }
 
 fn extract_eligible_abuse_entities(entities: &[parser::Entity]) -> Vec<&parser::Entity> {
-    let all_entities: Vec<&parser::Entity> = entities
-        .iter()
-        .flat_map(all_entities_from)
-        .collect();
+    let all_entities: Vec<&parser::Entity> = entities.iter().flat_map(all_entities_from).collect();
 
     all_entities
         .into_iter()

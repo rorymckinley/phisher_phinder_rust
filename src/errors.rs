@@ -8,4 +8,6 @@ pub enum AppError {
     UTF8(#[from] std::string::FromUtf8Error),
     #[error(transparent)]
     Rusqlite(#[from] rusqlite::Error),
+    #[error("PersistenceError: {0}")]
+    Persistence(String),
 }
