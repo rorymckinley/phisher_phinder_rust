@@ -5,4 +5,5 @@ mod rdap_integration_tests;
 mod reporter_integration_tests;
 mod run_persistence_integration_tests;
 mod source_parsing_integration_tests;
+mod source_splitter_integration_tests;
 mod url_enumerator_integration_tests;

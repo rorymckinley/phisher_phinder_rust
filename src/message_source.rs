@@ -37,8 +37,8 @@ mod message_source_persisted_record_tests {
 
 #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct MessageSource {
-    pub id: Option<u32>,
     pub data: String,
+    pub id: Option<u32>,
 }
 
 impl MessageSource {
