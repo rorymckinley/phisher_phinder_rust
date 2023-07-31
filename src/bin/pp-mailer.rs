@@ -28,5 +28,7 @@ async fn main() {
     );
 
     let mailer = Mailer::new(mail_server, &get_env("PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS"));
-    mailer.send_mails(&mail_definitions, &input.message_source.data).await;
+    mailer
+        .send_mails(&mail_definitions, &input.message_source.data)
+        .await;
 }

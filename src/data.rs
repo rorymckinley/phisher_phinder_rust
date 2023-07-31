@@ -14,6 +14,7 @@ pub struct OutputData {
     pub parsed_mail: ParsedMail,
     pub message_source: MessageSource,
     pub reportable_entities: Option<ReportableEntities>,
+    pub run_id: Option<u32>,
 }
 
 impl OutputData {
@@ -22,6 +23,7 @@ impl OutputData {
             parsed_mail,
             message_source,
             reportable_entities: None,
+            run_id: None,
         }
     }
 }

@@ -217,6 +217,7 @@ fn json_output_as_value(source_data: String) -> serde_json::Value {
             "data": source_data
         },
         "reportable_entities": null,
+        "run_id": null
     })
 }
 

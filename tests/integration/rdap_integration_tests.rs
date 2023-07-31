@@ -9,7 +9,6 @@ use phisher_phinder_rust::mountebank::{
 };
 use serde_json::json;
 
-
 #[test]
 fn test_fetching_rdap_details() {
     setup_mountebank();
@@ -169,6 +168,7 @@ fn json_input() -> String {
             "data": "x"
         },
         "reportable_entities": null,
+        "run_id": null,
     })
     .to_string()
 }
@@ -319,6 +319,7 @@ fn expected_json_output() -> serde_json::Value {
             "data": "x"
         },
         "reportable_entities": null,
+        "run_id": null,
     })
 }
 
