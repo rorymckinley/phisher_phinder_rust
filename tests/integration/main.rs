@@ -1,6 +1,7 @@
 mod mailer_integration_tests;
 mod message_source_persistence_integration_tests;
 mod parser_integration_tests;
+mod random_sample_integration_tests;
 mod rdap_integration_tests;
 mod reporter_integration_tests;
 mod run_persistence_integration_tests;
