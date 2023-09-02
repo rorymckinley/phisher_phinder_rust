@@ -20,7 +20,7 @@ use regex::Regex;
 #[cfg(test)]
 mod display_sender_addresses_extended_tests {
     use super::*;
-    use crate::authentication_results::{AuthenticationResults, Dkim, DkimResult, Spf, SpfResult};
+    use crate::authentication_results::{Dkim, DkimResult, Spf, SpfResult};
     use crate::data::{
         Domain, DomainCategory, EmailAddressData, EmailAddresses, ParsedMail, Registrar,
     };
@@ -1808,60 +1808,14 @@ mod optional_cell_tests {
 }
 
 pub fn display_run(run: &Run) -> AppResult<String> {
-    let mut table = Table::new();
-
-    table.add_row(
-        Row::new(vec![
-            Cell::new("Run ID"),
-            Cell::new(&run.id.to_string()),
-        ])
-    );
-    table.add_row(
-        Row::new(vec![
-            Cell::new("Created At"),
-            Cell::new(&run.created_at.to_string()),
-        ])
-    );
-
-    if let Some(reportable_entities) = &run.data.reportable_entities {
-        table.add_row(
-            Row::new(vec![
-                Cell::new("Email Addresses").with_hspan(2),
-            ])
-        );
-        table.add_row(
-            build_email_addresses_row(
-                "From",
-                &reportable_entities.email_addresses.from
-            )
-        );
-        table.add_row(
-            build_email_addresses_row(
-                "Links",
-                &reportable_entities.email_addresses.links
-            )
-        );
-        table.add_row(
-            build_email_addresses_row(
-                "Reply-To",
-                &reportable_entities.email_addresses.reply_to
-            )
-        );
-        table.add_row(
-            build_email_addresses_row(
-                "Return-Path",
-                &reportable_entities.email_addresses.return_path
-            )
-        );
-    }
-
     Ok(
         format!(
-            "{}\n{}\n{}\n{}",
+            "{}\n{}",
             run_details(run).unwrap(),
-            email_addresses_details(run).unwrap(),
-            delivery_nodes_details(run).unwrap(),
-            fulfillment_nodes_details(run).unwrap()
+            display_reportable_entities(run).unwrap()
+            // email_addresses_details(run).unwrap(),
+            // delivery_nodes_details(run).unwrap(),
+            // fulfillment_nodes_details(run).unwrap()
         )
     )
 }
@@ -2202,7 +2156,7 @@ mod display_run_tests {
     fn build_host(sender_type: &str, position: usize) -> String {
         format!("{position}.{sender_type}.host.com")
     }
-    
+
     fn build_domain(sender_type: &str, position: usize) -> Domain {
         let registration_date = Utc
             .with_ymd_and_hms(2023, 6, 1, 10, 10, position.try_into().unwrap())
@@ -2247,10 +2201,10 @@ mod display_run_tests {
 
     fn build_node(label: &str, position: usize) -> Node {
         Node {
-            domain: Some(build_domain(label, position)),            
+            domain: Some(build_domain(label, position)),
             registrar: Some(build_registrar(label, position)),
             url: format!("https://{label}-{position}.test.com")
-        } 
+        }
     }
 }
 
@@ -2271,6 +2225,399 @@ fn run_details(run: &Run) -> AppResult<String> {
     );
 
     table_to_string(&table)
+}
+
+pub fn display_reportable_entities(run: &Run) -> AppResult<String> {
+    Ok(
+        format!(
+            "{}\n{}\n{}",
+            email_addresses_details(run).unwrap(),
+            delivery_nodes_details(run).unwrap(),
+            fulfillment_nodes_details(run).unwrap()
+        )
+    )
+}
+
+#[cfg(test)]
+mod display_reportable_entities_tests {
+    use chrono::prelude::*;
+    use crate::data::{DeliveryNode, DomainCategory, EmailAddresses, ParsedMail, ReportableEntities};
+    use crate::message_source::MessageSource;
+    use crate::run::Run;
+    use super::*;
+
+    #[test]
+    fn provides_a_human_friendly_representation_of_reportable_entities() {
+        let run = build_run();
+
+        assert_eq!(
+            String::from("\
+            +-------------+-------------------+\n\
+            | Email Addresses                 |\n\
+            +-------------+-------------------+\n\
+            | From        | from.1@test.com   |\n\
+            |             | from.2@test.com   |\n\
+            +-------------+-------------------+\n\
+            | Links       | link.1@test.com   |\n\
+            |             | link.2@test.com   |\n\
+            +-------------+-------------------+\n\
+            | Reply-To    | reply.1@test.com  |\n\
+            |             | reply.2@test.com  |\n\
+            +-------------+-------------------+\n\
+            | Return-Path | return.1@test.com |\n\
+            |             | return.2@test.com |\n\
+            +-------------+-------------------+\n\
+            \n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Delivery Nodes                                                          |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Position                | 1                                             |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Recipient               | recipient.1.test.com                          |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Time                    | 2023-08-29 09:41:01 UTC                       |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Trusted                 | false                                         |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Advertised Sender                                                       |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Host                    | 1.advertised.host.com                         |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | IP Address              | 10.10.10.1                                    |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Domain                  |                                               |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Abuse Email Address | d.advertised.1@test.com |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Category            | Other                   |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Name                | d.advertised.1.com      |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Registration Date   | 2023-06-01 10:10:01 UTC |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Infrastructure Provider |                                               |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Abuse Email Address | i.advertised.1@test.com |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Name                | Provider advertised 1   |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Registrar               |                                               |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Abuse Email Address | r.advertised.1@test.com |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Name                | Registrar advertised 1  |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Observed Sender                                                         |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Host                    | 1.observed.host.com                           |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | IP Address              | 20.20.20.1                                    |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Domain                  |                                               |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Abuse Email Address | d.observed.1@test.com   |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Category            | Other                   |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Name                | d.observed.1.com        |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Registration Date   | 2023-06-01 10:10:01 UTC |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Infrastructure Provider |                                               |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Abuse Email Address | i.observed.1@test.com   |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Name                | Provider observed 1     |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Registrar               |                                               |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Abuse Email Address | r.observed.1@test.com   |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Name                | Registrar observed 1    |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Position                | 2                                             |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Recipient               | recipient.2.test.com                          |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Time                    | 2023-08-29 09:41:02 UTC                       |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Trusted                 | false                                         |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Advertised Sender                                                       |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Host                    | 2.advertised.host.com                         |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | IP Address              | 10.10.10.2                                    |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Domain                  |                                               |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Abuse Email Address | d.advertised.2@test.com |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Category            | Other                   |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Name                | d.advertised.2.com      |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Registration Date   | 2023-06-01 10:10:02 UTC |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Infrastructure Provider |                                               |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Abuse Email Address | i.advertised.2@test.com |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Name                | Provider advertised 2   |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Registrar               |                                               |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Abuse Email Address | r.advertised.2@test.com |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Name                | Registrar advertised 2  |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Observed Sender                                                         |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Host                    | 2.observed.host.com                           |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | IP Address              | 20.20.20.2                                    |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Domain                  |                                               |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Abuse Email Address | d.observed.2@test.com   |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Category            | Other                   |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Name                | d.observed.2.com        |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Registration Date   | 2023-06-01 10:10:02 UTC |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Infrastructure Provider |                                               |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Abuse Email Address | i.observed.2@test.com   |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Name                | Provider observed 2     |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            | Registrar               |                                               |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Abuse Email Address | r.observed.2@test.com   |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Name                | Registrar observed 2    |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            \n\
+            +-----------+---------------------+-------------------------+\n\
+            | Fulfillment Nodes                                         |\n\
+            +-----------+---------------------+-------------------------+\n\
+            | Hidden    |                                               |\n\
+            +-----------+---------------------+-------------------------+\n\
+            | Domain    |                                               |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Abuse Email Address | d.hidden.1@test.com     |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Category            | Other                   |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Name                | d.hidden.1.com          |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Registration Date   | 2023-06-01 10:10:01 UTC |\n\
+            +-----------+---------------------+-------------------------+\n\
+            | Registrar |                                               |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Abuse Email Address | r.hidden.1@test.com     |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Name                | Registrar hidden 1      |\n\
+            +-----------+---------------------+-------------------------+\n\
+            | Url       | https://hidden-1.test.com                     |\n\
+            +-----------+---------------------+-------------------------+\n\
+            | Visible   |                                               |\n\
+            +-----------+---------------------+-------------------------+\n\
+            | Domain    |                                               |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Abuse Email Address | d.visible.1@test.com    |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Category            | Other                   |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Name                | d.visible.1.com         |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Registration Date   | 2023-06-01 10:10:01 UTC |\n\
+            +-----------+---------------------+-------------------------+\n\
+            | Registrar |                                               |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Abuse Email Address | r.visible.1@test.com    |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Name                | Registrar visible 1     |\n\
+            +-----------+---------------------+-------------------------+\n\
+            | Url       | https://visible-1.test.com                    |\n\
+            +-----------+---------------------+-------------------------+\n\
+            | Hidden    |                                               |\n\
+            +-----------+---------------------+-------------------------+\n\
+            | Domain    |                                               |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Abuse Email Address | d.hidden.2@test.com     |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Category            | Other                   |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Name                | d.hidden.2.com          |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Registration Date   | 2023-06-01 10:10:02 UTC |\n\
+            +-----------+---------------------+-------------------------+\n\
+            | Registrar |                                               |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Abuse Email Address | r.hidden.2@test.com     |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Name                | Registrar hidden 2      |\n\
+            +-----------+---------------------+-------------------------+\n\
+            | Url       | https://hidden-2.test.com                     |\n\
+            +-----------+---------------------+-------------------------+\n\
+            | Visible   |                                               |\n\
+            +-----------+---------------------+-------------------------+\n\
+            | Domain    |                                               |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Abuse Email Address | d.visible.2@test.com    |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Category            | Other                   |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Name                | d.visible.2.com         |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Registration Date   | 2023-06-01 10:10:02 UTC |\n\
+            +-----------+---------------------+-------------------------+\n\
+            | Registrar |                                               |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Abuse Email Address | r.visible.2@test.com    |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Name                | Registrar visible 2     |\n\
+            +-----------+---------------------+-------------------------+\n\
+            | Url       | https://visible-2.test.com                    |\n\
+            +-----------+---------------------+-------------------------+\n\
+            "),
+            display_reportable_entities(&run).unwrap()
+        )
+    }
+
+    fn build_run() -> Run {
+        let reportable_entities = ReportableEntities {
+            delivery_nodes: vec![
+                build_delivery_node(1),
+                build_delivery_node(2),
+            ],
+            email_addresses: EmailAddresses {
+                from: vec![
+                    EmailAddresses::to_email_address_data("from.1@test.com".into()),
+                    EmailAddresses::to_email_address_data("from.2@test.com".into()),
+                ],
+                links: vec![
+                    EmailAddresses::to_email_address_data("link.1@test.com".into()),
+                    EmailAddresses::to_email_address_data("link.2@test.com".into()),
+                ],
+                reply_to: vec![
+                    EmailAddresses::to_email_address_data("reply.1@test.com".into()),
+                    EmailAddresses::to_email_address_data("reply.2@test.com".into()),
+                ],
+                return_path: vec![
+                    EmailAddresses::to_email_address_data("return.1@test.com".into()),
+                    EmailAddresses::to_email_address_data("return.2@test.com".into()),
+                ],
+            },
+            fulfillment_nodes: vec![
+                build_fulfillment_node(1),
+                build_fulfillment_node(2),
+            ],
+        };
+
+        Run {
+            id: 1234,
+            created_at: Utc.with_ymd_and_hms(2023, 8, 29, 9, 41, 30).unwrap(),
+            data: OutputData {
+                message_source: MessageSource::new(""),
+                parsed_mail: ParsedMail {
+                    authentication_results: None,
+                    delivery_nodes: vec![],
+                    email_addresses: EmailAddresses {
+                        from: vec![],
+                        links: vec![],
+                        reply_to: vec![],
+                        return_path: vec![],
+                    },
+                    fulfillment_nodes: vec![],
+                    subject: None,
+                },
+                reportable_entities: Some(reportable_entities),
+                run_id: None,
+            },
+            message_source: MessageSource::new("")
+        }
+    }
+
+    fn build_delivery_node(position: usize) -> DeliveryNode {
+        let time = Utc.with_ymd_and_hms(2023, 8, 29, 9, 41, position.try_into().unwrap()).unwrap();
+
+        DeliveryNode {
+            advertised_sender: Some(build_host_node("advertised", position)),
+            observed_sender: Some(build_host_node("observed", position)),
+            position,
+            recipient: Some(format!("recipient.{}.test.com", position)),
+            time: Some(time),
+            trusted: false
+        }
+    }
+
+    fn build_host_node(sender_type: &str, position: usize) -> HostNode {
+        HostNode {
+            domain: Some(build_domain(sender_type, position)),
+            host: Some(build_host(sender_type, position)),
+            infrastructure_provider: Some(build_infrastructure_provider(sender_type, position)),
+            ip_address: Some(build_ip_address(sender_type, position)),
+            registrar: Some(build_registrar(sender_type, position)),
+        }
+    }
+
+    fn build_host(sender_type: &str, position: usize) -> String {
+        format!("{position}.{sender_type}.host.com")
+    }
+
+    fn build_domain(sender_type: &str, position: usize) -> Domain {
+        let registration_date = Utc
+            .with_ymd_and_hms(2023, 6, 1, 10, 10, position.try_into().unwrap())
+            .unwrap();
+
+        Domain {
+            abuse_email_address: Some(format!("d.{sender_type}.{position}@test.com")),
+            category: DomainCategory::Other,
+            name: format!("d.{sender_type}.{position}.com"),
+            registration_date: Some(registration_date),
+        }
+    }
+
+    fn build_infrastructure_provider(sender_type: &str, position: usize) -> InfrastructureProvider {
+        InfrastructureProvider {
+            abuse_email_address: Some(format!("i.{sender_type}.{position}@test.com")),
+            name: Some(format!("Provider {sender_type} {position}")),
+        }
+    }
+
+    fn build_ip_address(sender_type: &str, position: usize) -> String {
+        if sender_type == "advertised" {
+            format!("10.10.10.{position}")
+        } else {
+            format!("20.20.20.{position}")
+        }
+    }
+
+    fn build_registrar(sender_type: &str, position: usize) -> Registrar {
+        Registrar {
+            abuse_email_address: Some(format!("r.{sender_type}.{position}@test.com")),
+            name: Some(format!("Registrar {sender_type} {position}")),
+        }
+    }
+
+    fn build_fulfillment_node(position: usize) -> FulfillmentNode {
+        FulfillmentNode {
+            hidden: Some(build_node("hidden", position)),
+            visible: build_node("visible", position),
+        }
+    }
+
+    fn build_node(label: &str, position: usize) -> Node {
+        Node {
+            domain: Some(build_domain(label, position)),
+            registrar: Some(build_registrar(label, position)),
+            url: format!("https://{label}-{position}.test.com")
+        }
+    }
 }
 
 fn email_addresses_details(run: &Run) -> AppResult<String> {
@@ -2529,16 +2876,16 @@ fn fulfillment_nodes_details(run: &Run) -> AppResult<String> {
 
         table.add_row(
             Row::new(vec![
-                Cell::new("Fulfillment Nodes").with_hspan(3),                
-            ])            
-        ); 
+                Cell::new("Fulfillment Nodes").with_hspan(3),
+            ])
+        );
 
         for node in fulfillment_nodes {
             add_fulfillment_node_rows(&mut table, node);
         }
     }
 
-    table_to_string(&table) 
+    table_to_string(&table)
 }
 
 fn add_fulfillment_node_rows(table: &mut Table, node: &FulfillmentNode) {
