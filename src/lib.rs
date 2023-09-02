@@ -15,5 +15,6 @@ pub mod persistence;
 pub mod populator;
 pub mod reporter;
 pub mod result;
+pub mod run;
 pub mod sources;
 pub mod ui;

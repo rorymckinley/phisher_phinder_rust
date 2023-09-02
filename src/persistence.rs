@@ -2,6 +2,7 @@ use crate::data::OutputData;
 use crate::errors::AppError;
 use crate::message_source::MessageSource;
 use crate::result::AppResult;
+use crate::run::Run;
 use chrono::Utc;
 use rusqlite::{Connection, Statement};
 use sha2::{Digest, Sha256};
@@ -409,6 +410,8 @@ mod persist_run_tests {
 }
 
 pub fn persist_run(conn: &Connection, run_data: &OutputData) -> AppResult<u32> {
+    create_runs_table(conn);
+
     conn.execute(
         "CREATE TABLE IF NOT EXISTS runs \
         ( \
@@ -450,6 +453,148 @@ pub fn persist_run(conn: &Connection, run_data: &OutputData) -> AppResult<u32> {
         _ => {
             // TODO Not tested - find a way to trigger this
             Err(AppError::Persistence(String::from("foo")))
+        }
+    }
+}
+
+// Function to create runs table
+fn create_runs_table(conn: &Connection) {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS runs \
+        ( \
+            id INTEGER PRIMARY KEY, \
+            data TEXT NOT NULL, \
+            message_source_id INTEGER NOT NULL, \
+            created_at TEXT NOT NULL, \
+            FOREIGN KEY(message_source_id) REFERENCES message_sources(id)
+        )",
+        [],
+    )
+    .unwrap();
+}
+
+pub fn find_random_run(conn: &Connection) -> Option<Run> {
+    let mut stmt = conn
+        .prepare("\
+            SELECT r.id, r.data, r.created_at, m.id, m.data \
+            FROM runs r JOIN message_sources m ON m.id = r.message_source_id \
+            WHERE r.id IN (\
+                SELECT id FROM runs ORDER BY RANDOM() LIMIT 1\
+            )\
+            LIMIT 1
+        ")
+        .unwrap();
+
+    stmt.query_map(
+        [],
+        |row| {
+            Ok(
+                Run::persisted_record(
+                    row.get_unwrap(0),
+                    row.get_unwrap(1),
+                    row.get_unwrap(2),
+                    row.get_unwrap(3),
+                    row.get_unwrap(4),
+                )
+            )
+        }
+    )
+    .unwrap()
+    .flatten()
+    .collect::<Vec<Run>>()
+    .pop()
+}
+
+#[cfg(test)]
+mod find_random_run_tests {
+    use assert_fs::TempDir;
+    use chrono::Duration;
+    use crate::data::{EmailAddresses, ParsedMail};
+    use super::*;
+
+    #[test]
+    fn returns_none_if_no_db_entries() {
+        let temp = TempDir::new().unwrap();
+        let conn = create_connection(temp.path());
+
+        create_message_sources_table(&conn);
+        create_runs_table(&conn);
+
+        assert!(find_random_run(&conn).is_none());
+    }
+
+    #[test]
+    fn returns_run_if_entries_exist() {
+        let temp = TempDir::new().unwrap();
+        let conn = create_connection(temp.path());
+        let now = Utc::now();
+        let expected_message_source = MessageSource::persisted_record(1, "src 0");
+
+        build_run(&conn, 0);
+
+        let run = find_random_run(&conn).unwrap();
+
+        assert_eq!(1, run.id);
+        assert_eq!(expected_message_source, run.message_source);
+        assert_eq!(build_output_data(expected_message_source), run.data);
+        assert!(now.signed_duration_since(run.created_at) < Duration::milliseconds(1000));
+    }
+
+    #[test]
+    fn returns_a_random_run_on_each_call() {
+        let temp = TempDir::new().unwrap();
+
+        let conn = create_connection(temp.path());
+
+        create_samples(&conn, 10);
+
+        // Pull a collection of samples
+        let mut run_ids: Vec<u32> = (0..10)
+            .map(|_| find_random_run(&conn).unwrap().id )
+            .collect();
+
+        // If I have done my maths right, there is a 1 in 10^10 of getting the same id with every
+        // request
+        run_ids.sort();
+        run_ids.dedup();
+
+        assert!(run_ids.len() > 1);
+    }
+
+    fn create_connection(root_path: &Path) -> Connection {
+        Connection::open(root_path.join("test.sqlite3")).unwrap()
+    }
+
+    fn create_samples(conn: &Connection, number_of_samples: u8) {
+        (0..number_of_samples).for_each(|i| { build_run(conn, i) })
+    }
+
+    fn build_run(conn: &Connection, index: u8) {
+        let persisted_source = persist_message_source(conn, message_source(index));
+
+        let output_data = build_output_data(persisted_source);
+
+        persist_run(conn, &output_data).unwrap();
+    }
+
+    fn message_source(id: u8) -> MessageSource {
+        MessageSource::new(&format!("src {id}"))
+    }
+
+    fn build_output_data(message_source: MessageSource) -> OutputData {
+        OutputData::new(parsed_mail(), message_source)
+    }
+
+    fn parsed_mail() -> ParsedMail {
+        ParsedMail::new(None, vec![], email_addresses(), vec![], None)
+    }
+
+    fn email_addresses() -> EmailAddresses {
+        EmailAddresses {
+            from: vec![],
+            links: vec![],
+            reply_to: vec![],
+            return_path: vec![]
         }
     }
 }

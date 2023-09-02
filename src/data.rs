@@ -754,6 +754,7 @@ pub struct EmailAddresses {
 }
 
 impl EmailAddresses {
+    // TODO Not sure if having this method here still makes sense
     pub fn to_email_address_data(address: String) -> EmailAddressData {
         EmailAddressData {
             address,
@@ -793,6 +794,7 @@ mod email_address_data_from_email_address {
 }
 
 impl EmailAddressData {
+    // TODO This can probably replace EmailAddresses#to_email_address_data
     pub fn from_email_address(address: &str) -> Self {
         Self {
             address: address.into(),

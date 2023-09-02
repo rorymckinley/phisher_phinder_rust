@@ -13,3 +13,7 @@ per month :( - consider a feature to disable mail testing.
 
 Start the mountebank container: `docker-compose up -d`
 Run the tests: `env $(cat .env.test | xargs) cargo test --features test-mocks`
+
+## Processing multiple files
+
+cat file.mbox | cargo run --bin pp-source-parser | env $(cat .env | xargs) cargo run --bin pp-store-mail-source | cargo run --bin pp-source-splitter | ./analyser_wrapper.sh
