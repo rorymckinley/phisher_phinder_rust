@@ -1,3 +1,4 @@
+mod fetch_run_details_tests;
 mod mailer_integration_tests;
 mod message_source_persistence_integration_tests;
 mod parser_integration_tests;

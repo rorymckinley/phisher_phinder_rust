@@ -1,4 +1,4 @@
-use mail_parser::{Addr, HeaderValue, Message};
+use mail_parser::{Addr, HeaderName, HeaderValue, Message, RfcHeader};
 use scraper::{Html, Selector};
 
 pub trait AnalysableMessage {
@@ -35,9 +35,10 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
     }
 
     #[test]
-    fn returns_the_return_path() {
+    fn returns_the_return_paths() {
         let input = "\
 Delivered-To: victim@gmail.com\r
+Return-Path: <info@xxx.zz>\r
 Received: by 2002:a05:7300:478f:b0:75:5be4:1dc0 with SMTP id r15csp4024141dyk;\r
         Tue, 6 Sep 2022 16:17:20 -0700 (PDT)\r
 Return-Path: <info@xxx.fr>\r
@@ -47,7 +48,7 @@ Subject: We’re sorry that we didn’t touch base with you earlier. f309\r\n\r
 <div style=\"width:650px;margin:0 auto;font-family:verdana;font-size:16px\">\r
 </div>\r
 ";
-        let expected = vec![String::from("info@xxx.fr")];
+        let expected: Vec<String> = vec!["info@xxx.zz".into(), "info@xxx.fr".into()];
 
         let parsed_mail = Message::parse(input.as_bytes()).unwrap();
 
@@ -428,15 +429,21 @@ impl AnalysableMessage for Message<'_> {
     }
 
     fn get_return_path(&self) -> Vec<String> {
-        // TODO Cover other options
-        match self.return_path() {
-            HeaderValue::Text(address) => {
-                vec![address.to_string()]
-            }
-            _ => {
-                vec![]
-            }
-        }
+        // mail_parser (understandably) only returns a single return_path value.
+        // The below is based on the mail_parser implementation of return_path
+        self
+            .parts[0]
+            .headers
+            .iter()
+            .filter(|header| matches!(&header.name, HeaderName::Rfc(RfcHeader::ReturnPath)))
+            .flat_map(|header| {
+                if let HeaderValue::Text(address) = &header.value {
+                    Some(address.to_string())
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     fn get_subject(&self) -> Option<String> {

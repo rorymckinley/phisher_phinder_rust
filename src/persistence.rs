@@ -598,3 +598,101 @@ mod find_random_run_tests {
         }
     }
 }
+
+pub fn find_run(conn: &Connection, run_id: u32) -> Option<Run> {
+    let mut stmt = conn
+        .prepare("\
+            SELECT r.id, r.data, r.created_at, m.id, m.data \
+            FROM runs r JOIN message_sources m ON m.id = r.message_source_id \
+            WHERE r.id = ?
+            LIMIT 1
+        ")
+        .unwrap();
+
+    stmt.query_map(
+        [run_id],
+        |row| {
+            Ok(
+                Run::persisted_record(
+                    row.get_unwrap(0),
+                    row.get_unwrap(1),
+                    row.get_unwrap(2),
+                    row.get_unwrap(3),
+                    row.get_unwrap(4),
+                )
+            )
+        }
+    )
+    .unwrap()
+    .flatten()
+    .collect::<Vec<Run>>()
+    .pop()
+}
+
+#[cfg(test)]
+mod find_run_tests {
+    use assert_fs::TempDir;
+    use chrono::Duration;
+    use crate::data::{EmailAddresses, ParsedMail};
+    use super::*;
+
+    #[test]
+    fn returns_none_if_no_matching_entry_exists() {
+        let temp = TempDir::new().unwrap();
+        let conn = create_connection(temp.path());
+
+        let run_id = build_run(&conn, 0);
+
+        assert!(find_run(&conn, run_id + 1).is_none());
+    }
+
+    #[test]
+    fn returns_run_if_entry_exists() {
+        let temp = TempDir::new().unwrap();
+        let conn = create_connection(temp.path());
+        let now = Utc::now();
+        let expected_message_source = MessageSource::persisted_record(1, "src 0");
+
+        let run_id = build_run(&conn, 0);
+
+        let run = find_run(&conn, run_id).unwrap();
+
+        assert_eq!(1, run.id);
+        assert_eq!(expected_message_source, run.message_source);
+        assert_eq!(build_output_data(expected_message_source), run.data);
+        assert!(now.signed_duration_since(run.created_at) < Duration::milliseconds(1000));
+    }
+
+    fn create_connection(root_path: &Path) -> Connection {
+        Connection::open(root_path.join("test.sqlite3")).unwrap()
+    }
+
+    fn build_run(conn: &Connection, index: u8) -> u32 {
+        let persisted_source = persist_message_source(conn, message_source(index));
+
+        let output_data = build_output_data(persisted_source);
+
+        persist_run(conn, &output_data).unwrap()
+    }
+
+    fn message_source(id: u8) -> MessageSource {
+        MessageSource::new(&format!("src {id}"))
+    }
+
+    fn build_output_data(message_source: MessageSource) -> OutputData {
+        OutputData::new(parsed_mail(), message_source)
+    }
+
+    fn parsed_mail() -> ParsedMail {
+        ParsedMail::new(None, vec![], email_addresses(), vec![], None)
+    }
+
+    fn email_addresses() -> EmailAddresses {
+        EmailAddresses {
+            from: vec![],
+            links: vec![],
+            reply_to: vec![],
+            return_path: vec![]
+        }
+    }
+}
