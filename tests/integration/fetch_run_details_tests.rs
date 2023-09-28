@@ -31,7 +31,7 @@ fn returns_the_message_source_for_specified_run_id() {
 }
 
 #[test]
-fn does_return_message_source_if_no_message_source_flags() {
+fn does_return_message_source_if_no_message_source_flag() {
     let temp = TempDir::new().unwrap();
     let db_path = temp.path().join("pp.sqlite3");
     let conn = Connection::open(&db_path).unwrap();
@@ -45,6 +45,23 @@ fn does_return_message_source_if_no_message_source_flags() {
         .assert()
         .success()
         .stdout(predicate::str::contains("src 1").not());
+}
+
+#[test]
+fn returns_message_soruce_suitable_for_piping_if_pipe_message_source_flag() {
+    let temp = TempDir::new().unwrap();
+    let db_path = temp.path().join("pp.sqlite3");
+    let conn = Connection::open(&db_path).unwrap();
+
+    let run_id = build_run(&conn, 1);
+
+    Command::cargo_bin("pp-fetch-run-details")
+        .unwrap()
+        .env("PP_DB_PATH", &db_path)
+        .args(["--pipe-message-source", &format!("{run_id}")])
+        .assert()
+        .success()
+        .stdout("src 1");
 }
 
 #[test]

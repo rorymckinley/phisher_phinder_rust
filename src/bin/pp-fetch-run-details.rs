@@ -30,4 +30,8 @@ fn main() {
     if cli.message_source {
         println!("{}", run.message_source.data);
     }
+
+    if cli.pipe_message_source {
+        print!("{}", run.message_source.data);
+    }
 }

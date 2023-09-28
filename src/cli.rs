@@ -15,6 +15,8 @@ pub struct FetchRunDetailsCli {
     #[arg(long)]
     pub message_source: bool,
     #[arg(long)]
+    pub pipe_message_source: bool,
+    #[arg(long)]
     pub reportable_entities: bool,
     pub run_id: u32,
 }
