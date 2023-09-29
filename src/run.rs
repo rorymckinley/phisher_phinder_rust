@@ -2,6 +2,7 @@ use chrono::prelude::*;
 use crate::data::OutputData;
 use crate::message_source::MessageSource;
 
+#[derive(Debug, PartialEq)]
 pub struct Run {
     pub created_at: DateTime<Utc>,
     pub data: OutputData,

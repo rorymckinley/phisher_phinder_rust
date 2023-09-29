@@ -20,3 +20,8 @@ pub struct FetchRunDetailsCli {
     pub reportable_entities: bool,
     pub run_id: u32,
 }
+
+#[derive(Parser)]
+pub struct FindOtherRunsCli {
+    pub run_id: u32,
+}

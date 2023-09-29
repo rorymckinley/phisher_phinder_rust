@@ -3,7 +3,7 @@ use crate::errors::AppError;
 use crate::message_source::MessageSource;
 use crate::result::AppResult;
 use crate::run::Run;
-use chrono::Utc;
+use chrono::prelude::*;
 use rusqlite::{Connection, Statement};
 use sha2::{Digest, Sha256};
 use std::path::Path;
@@ -37,7 +37,6 @@ pub fn connect(path: &Path) -> AppResult<Connection> {
 #[cfg(test)]
 mod persist_message_source_tests {
     use super::*;
-    use chrono::prelude::*;
     use chrono::{Duration, Utc};
 
     #[test]
@@ -248,7 +247,6 @@ fn get_record_by_hash_statement(conn: &Connection) -> Statement {
 mod persist_run_tests {
     use super::*;
     use crate::data::{EmailAddresses, ParsedMail};
-    use chrono::prelude::*;
     use chrono::{Duration, Utc};
 
     #[test]
@@ -604,7 +602,7 @@ pub fn find_run(conn: &Connection, run_id: u32) -> Option<Run> {
         .prepare("\
             SELECT r.id, r.data, r.created_at, m.id, m.data \
             FROM runs r JOIN message_sources m ON m.id = r.message_source_id \
-            WHERE r.id = ?
+            WHERE r.id = ? \
             LIMIT 1
         ")
         .unwrap();
@@ -673,6 +671,111 @@ mod find_run_tests {
         let output_data = build_output_data(persisted_source);
 
         persist_run(conn, &output_data).unwrap()
+    }
+
+    fn message_source(id: u8) -> MessageSource {
+        MessageSource::new(&format!("src {id}"))
+    }
+
+    fn build_output_data(message_source: MessageSource) -> OutputData {
+        OutputData::new(parsed_mail(), message_source)
+    }
+
+    fn parsed_mail() -> ParsedMail {
+        ParsedMail::new(None, vec![], email_addresses(), vec![], None)
+    }
+
+    fn email_addresses() -> EmailAddresses {
+        EmailAddresses {
+            from: vec![],
+            links: vec![],
+            reply_to: vec![],
+            return_path: vec![]
+        }
+    }
+}
+
+pub fn find_runs_for_message_source(conn: &Connection, message_source: &MessageSource) -> Vec<Run> {
+    let mut stmt = conn
+        .prepare("\
+            SELECT r.id, r.data, r.created_at, m.id, m.data \
+            FROM runs r JOIN message_sources m ON m.id = r.message_source_id \
+            WHERE r.message_source_id = ?
+        ")
+        .unwrap();
+
+    stmt.query_map(
+        [message_source.id],
+        |row| {
+            Ok(
+                Run::persisted_record(
+                    row.get_unwrap(0),
+                    row.get_unwrap(1),
+                    row.get_unwrap(2),
+                    row.get_unwrap(3),
+                    row.get_unwrap(4),
+                )
+            )
+        }
+    )
+    .unwrap()
+    .flatten()
+    .collect::<Vec<Run>>()
+}
+
+#[cfg(test)]
+mod find_runs_for_message_source_tests {
+    use assert_fs::TempDir;
+    use crate::data::{EmailAddresses, ParsedMail};
+    use super::*;
+
+    #[test]
+    fn returns_empty_vec_if_no_matching_runs() {
+        let temp = TempDir::new().unwrap();
+        let conn = create_connection(temp.path());
+
+        let _other_run = build_run(&conn, other_source(&conn));
+
+        let expected: Vec<Run> = vec![];
+
+        assert_eq!(expected, find_runs_for_message_source(&conn, &target_source(&conn)));
+    }
+
+    #[test]
+    fn returns_collection_of_runs_for_message_source() {
+        let temp = TempDir::new().unwrap();
+        let conn = create_connection(temp.path());
+
+        let target_run_1 = build_run(&conn, target_source(&conn));
+        let target_run_2 = build_run(&conn, target_source(&conn));
+        let _other_run = build_run(&conn, other_source(&conn));
+
+        let expected = vec![target_run_1, target_run_2];
+
+        let mut runs = find_runs_for_message_source(&conn, &target_source(&conn));
+        runs.sort_by(|a, b| a.id.partial_cmp(&b.id).unwrap());
+
+        assert_eq!(expected, runs);
+    }
+
+    fn create_connection(root_path: &Path) -> Connection {
+        Connection::open(root_path.join("test.sqlite3")).unwrap()
+    }
+
+    fn target_source(conn: &Connection) -> MessageSource {
+        persist_message_source(conn, message_source(1))
+    }
+
+    fn other_source(conn: &Connection) -> MessageSource {
+        persist_message_source(conn, message_source(2))
+    }
+
+    fn build_run(conn: &Connection, message_source: MessageSource) -> Run {
+        let output_data = build_output_data(message_source);
+
+        let run_id = persist_run(conn, &output_data).unwrap();
+
+        find_run(conn, run_id).unwrap()
     }
 
     fn message_source(id: u8) -> MessageSource {

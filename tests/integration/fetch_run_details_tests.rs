@@ -48,7 +48,7 @@ fn does_return_message_source_if_no_message_source_flag() {
 }
 
 #[test]
-fn returns_message_soruce_suitable_for_piping_if_pipe_message_source_flag() {
+fn returns_message_source_suitable_for_piping_if_pipe_message_source_flag() {
     let temp = TempDir::new().unwrap();
     let db_path = temp.path().join("pp.sqlite3");
     let conn = Connection::open(&db_path).unwrap();
