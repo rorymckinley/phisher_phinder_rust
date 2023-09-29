@@ -2949,3 +2949,64 @@ mod optional_date_time_cell_tests {
         );
     }
 }
+
+pub fn display_run_ids(runs: &[Run]) -> String {
+    runs
+        .iter()
+        .map(|r| r.id.to_string())
+        .collect::<Vec<String>>()
+        .join("\n")
+}
+
+#[cfg(test)]
+mod display_run_ids_tests {
+    use crate::data::{EmailAddresses, ParsedMail};
+    use crate::message_source::MessageSource;
+    use super::*;
+
+    #[test]
+    fn displays_run_ids() {
+        let runs = vec![build_run(1), build_run(2), build_run(3)];
+
+        assert_eq!("1\n2\n3", display_run_ids(&runs));
+    }
+
+    fn message_source() -> MessageSource {
+        MessageSource {
+            id: None,
+            data: String::from("")
+        }
+    }
+
+    fn build_run(id: u32) -> Run {
+        Run {
+            created_at: Utc::now(),
+            data: build_output_data(message_source()),
+            id,
+            message_source: message_source()
+        }
+    }
+
+    fn build_output_data(message_source: MessageSource) -> OutputData {
+        OutputData::new(parsed_mail(), message_source)
+    }
+
+    fn parsed_mail() -> ParsedMail {
+        ParsedMail::new(
+            None,
+            vec![],
+            email_addresses("from_1@test.com"),
+            vec![],
+            None
+        )
+    }
+
+    fn email_addresses(email_address: &str) -> EmailAddresses {
+        EmailAddresses {
+            from: vec![EmailAddressData::from_email_address(email_address)],
+            links: vec![],
+            reply_to: vec![],
+            return_path: vec![]
+        }
+    }
+}

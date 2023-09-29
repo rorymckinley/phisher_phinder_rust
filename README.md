@@ -17,3 +17,7 @@ Run the tests: `env $(cat .env.test | xargs) cargo test --features test-mocks`
 ## Processing multiple files
 
 cat file.mbox | cargo run --bin pp-source-parser | env $(cat .env | xargs) cargo run --bin pp-store-mail-source | cargo run --bin pp-source-splitter | ./analyser_wrapper.sh
+
+## Reprocessing a message
+
+env $(cat .env | xargs) cargo run --bin pp-fetch-run-details -- --pipe-message-source 2419 | cargo run --bin pp-source-parser | env $(cat .env | xargs) cargo run --bin pp-store-mail-source | cargo run --bin pp-source-splitter | ./analyser_wrapper.sh
