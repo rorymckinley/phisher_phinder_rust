@@ -141,6 +141,69 @@ mod delivery_node_tests {
     }
 }
 
+#[cfg(test)]
+mod delivery_node_domain_matches_test {
+    use super::*;
+
+    #[test]
+    fn returns_true_if_observed_host_domain_matches_email_address_domain() {
+        let node = delivery_node("test.com");
+
+        assert!(node.domain_matches(&email_address()));
+    }
+
+    #[test]
+    fn returns_false_if_observed_host_domain_does_not_match_email_address_domain() {
+        let node = delivery_node("not-test.com");
+
+        assert!(!node.domain_matches(&email_address()));
+    }
+
+    #[test]
+    fn returns_false_if_no_observed_sender() {
+        let node = delivery_node_sans_sender();
+
+        assert!(!node.domain_matches(&email_address()));
+    }
+
+    #[test]
+    fn returns_false_if_email_address_does_not_have_domain() {
+        let node = delivery_node("not-test.com");
+
+        assert!(!node.domain_matches(&email_address_sans_domain()));
+    }
+
+    fn email_address() -> EmailAddressData {
+        EmailAddressData::from_email_address("a@test.com")
+    }
+
+    fn email_address_sans_domain() -> EmailAddressData {
+        EmailAddressData {
+            address: String::from("a@test.com"),
+            domain: None,
+            registrar: None
+        }
+    }
+
+    fn delivery_node(domain_name: &str) -> DeliveryNode {
+        DeliveryNode {
+            observed_sender: Some(HostNode::new(Some(domain_name), None).unwrap()),
+            ..delivery_node_sans_sender()
+        }
+    }
+
+    fn delivery_node_sans_sender() -> DeliveryNode {
+        DeliveryNode {
+            advertised_sender: Some(HostNode::new(Some("advertised-sender.com"), None).unwrap()),
+            observed_sender: None,
+            position: 0,
+            recipient: None,
+            time: None,
+            trusted: false
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct DeliveryNode {
     pub advertised_sender: Option<HostNode>,
@@ -168,6 +231,18 @@ impl DeliveryNode {
             recipient,
             time: extract_time_from_header(header_value),
             trusted,
+        }
+    }
+
+    pub fn domain_matches(&self, email_address: &EmailAddressData) -> bool {
+        if let Some(observed_sender) = self.observed_sender.as_ref() {
+            if let Some(domain) = email_address.domain.as_ref() {
+                observed_sender.domain_matches(domain)
+            } else {
+                false
+            }
+        } else {
+            false
         }
     }
 }
@@ -663,6 +738,52 @@ mod host_node_tests {
     }
 }
 
+#[cfg(test)]
+mod host_node_domain_matches_test {
+    use super::*;
+
+    #[test]
+    fn returns_true_if_domain_matches_given_domain() {
+        let domain = Domain::from_host("test.com").unwrap();
+        let node = build_node();
+
+        assert!(node.domain_matches(&domain));
+    }
+
+    #[test]
+    fn returns_false_if_domain_does_not_match_given_domain() {
+        let domain = Domain::from_host("not-test.com").unwrap();
+        let node = build_node();
+
+        assert!(!node.domain_matches(&domain));
+    }
+
+    #[test]
+    fn returns_false_if_node_does_not_have_domain() {
+        let domain = Domain::from_host("test.com").unwrap();
+        let node = build_node_sans_domain();
+
+        assert!(!node.domain_matches(&domain));
+    }
+
+    fn build_node() -> HostNode {
+        HostNode {
+            domain: Domain::from_host("test.com"),
+            ..build_node_sans_domain()
+        }
+    }
+
+    fn build_node_sans_domain() -> HostNode {
+        HostNode {
+            domain: None,
+            host: None,
+            infrastructure_provider: None,
+            ip_address: None,
+            registrar: None
+        }
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum HostNodeError {
     #[error("error instantiating HostNode")]
@@ -696,6 +817,14 @@ impl HostNode {
             ip_address: ip_address.map(|ip_a| ip_a.into()),
             registrar: None,
         })
+    }
+
+    pub fn domain_matches(&self, domain: &Domain) -> bool {
+        if let Some(host_domain) = self.domain.as_ref() {
+            host_domain.name == domain.name
+        } else {
+            false
+        }
     }
 }
 
