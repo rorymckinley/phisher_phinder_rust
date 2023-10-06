@@ -187,7 +187,7 @@ mod delivery_node_domain_matches_test {
 
     fn delivery_node(domain_name: &str) -> DeliveryNode {
         DeliveryNode {
-            observed_sender: Some(HostNode::new(Some(domain_name), None).unwrap()),
+            observed_sender: Some(build_host_node(domain_name)),
             ..delivery_node_sans_sender()
         }
     }
@@ -200,6 +200,30 @@ mod delivery_node_domain_matches_test {
             recipient: None,
             time: None,
             trusted: false
+        }
+    }
+
+    fn build_host_node(domain_name: &str) -> HostNode {
+        HostNode {
+            domain: Some(build_domain(domain_name)),
+            host: None,
+            infrastructure_provider: None,
+            ip_address: None,
+            registrar: None
+        }
+    }
+
+    fn build_domain(name: &str) -> Domain {
+        Domain {
+            abuse_email_address: None,
+            category: DomainCategory::Other,
+            name: name.into(),
+            registration_date: None,
+            resolved_domain: Some(ResolvedDomain {
+                abuse_email_address: None,
+                name: name.into(),
+                registration_date: None,
+            })
         }
     }
 }
@@ -592,6 +616,7 @@ mod fulfillment_node_tests {
                     category: DomainCategory::Other,
                     name: "foo.bar".into(),
                     registration_date: None,
+                    resolved_domain: None,
                 }),
                 registrar: None,
                 url: url.into(),
@@ -683,6 +708,7 @@ mod host_node_tests {
                 category: DomainCategory::Other,
                 name: "foo.bar".into(),
                 registration_date: None,
+                resolved_domain: None,
             }),
             host: Some(host.into()),
             infrastructure_provider: None,
@@ -704,6 +730,7 @@ mod host_node_tests {
                 category: DomainCategory::Other,
                 name: "foo.bar".into(),
                 registration_date: None,
+                resolved_domain: None,
             }),
             host: Some(host.into()),
             infrastructure_provider: None,
@@ -768,7 +795,7 @@ mod host_node_domain_matches_test {
 
     fn build_node() -> HostNode {
         HostNode {
-            domain: Domain::from_host("test.com"),
+            domain: Some(build_domain("test.com")),
             ..build_node_sans_domain()
         }
     }
@@ -780,6 +807,20 @@ mod host_node_domain_matches_test {
             infrastructure_provider: None,
             ip_address: None,
             registrar: None
+        }
+    }
+
+    fn build_domain(name: &str) -> Domain {
+        Domain {
+            abuse_email_address: None,
+            category: DomainCategory::Other,
+            name: name.into(),
+            registration_date: None,
+            resolved_domain: Some(ResolvedDomain {
+                abuse_email_address: None,
+                name: name.into(),
+                registration_date: None,
+            })
         }
     }
 }
@@ -821,7 +862,7 @@ impl HostNode {
 
     pub fn domain_matches(&self, domain: &Domain) -> bool {
         if let Some(host_domain) = self.domain.as_ref() {
-            host_domain.name == domain.name
+            host_domain.resolved_domain_matches(domain)
         } else {
             false
         }
@@ -842,6 +883,7 @@ mod node_tests {
                 category: DomainCategory::Other,
                 name: "foo.bar".into(),
                 registration_date: None,
+                resolved_domain: None,
             }),
             registrar: None,
             url: url.into(),
@@ -914,6 +956,7 @@ mod email_address_data_from_email_address {
                 category: DomainCategory::Other,
                 name: "fake.zzz".into(),
                 registration_date: None,
+                resolved_domain: None,
             }),
             registrar: None,
         };
@@ -939,6 +982,7 @@ pub struct Domain {
     pub category: DomainCategory,
     pub name: String,
     pub registration_date: Option<DateTime<Utc>>,
+    pub resolved_domain: Option<ResolvedDomain>,
 }
 
 #[cfg(test)]
@@ -952,6 +996,7 @@ mod domain_from_email_address_tests {
             category: DomainCategory::Other,
             name: "test.xxx".into(),
             registration_date: None,
+            resolved_domain: None,
         };
 
         assert_eq!(Some(expected), Domain::from_email_address("foo@test.xxx"))
@@ -964,6 +1009,7 @@ mod domain_from_email_address_tests {
             category: DomainCategory::OpenEmailProvider,
             name: "outlook.com".into(),
             registration_date: None,
+            resolved_domain: None,
         };
 
         assert_eq!(
@@ -991,6 +1037,7 @@ mod domain_from_url_tests {
             category: DomainCategory::Other,
             name: "foo.baz".into(),
             registration_date: None,
+            resolved_domain: None,
         };
 
         assert_eq!(Some(expected), Domain::from_url(url));
@@ -1005,6 +1052,7 @@ mod domain_from_url_tests {
             category: DomainCategory::UrlShortener,
             name: "tinyurl.com".into(),
             registration_date: None,
+            resolved_domain: None,
         };
 
         assert_eq!(Some(expected), Domain::from_url(url));
@@ -1038,6 +1086,7 @@ mod from_host_tests {
             category: DomainCategory::Other,
             name: "foo.baz".into(),
             registration_date: None,
+            resolved_domain: None,
         };
 
         assert_eq!(Some(expected), Domain::from_host(host));
@@ -1046,6 +1095,87 @@ mod from_host_tests {
     #[test]
     fn does_not_instantiate_if_host_string_is_empty() {
         assert_eq!(None, Domain::from_host(""));
+    }
+}
+
+#[cfg(test)]
+mod resolved_domain_matches_tests {
+    use super::*;
+
+    #[test]
+    fn returns_true_if_resolved_domain_name_matches_provided_domain() {
+        let subject = build_domain(Some(build_resolved_domain()));
+
+        assert!(subject.resolved_domain_matches(&Domain::from_host("test.com").unwrap()));
+    }
+
+    #[test]
+    fn returns_false_if_resolved_domain_name_does_not_match_provided_domain() {
+        let subject = build_domain(Some(build_resolved_domain()));
+
+        assert!(!subject.resolved_domain_matches(&Domain::from_host("not-test.com").unwrap()));
+    }
+
+    #[test]
+    fn returns_false_if_no_resolved_domain() {
+        let subject = build_domain(None);
+
+        assert!(!subject.resolved_domain_matches(&Domain::from_host("test.com").unwrap()));
+    }
+
+    fn build_domain(resolved_domain: Option<ResolvedDomain>) -> Domain {
+        Domain {
+            abuse_email_address: None,
+            category: DomainCategory::Other,
+            name: "doesnotmatter.com".into(),
+            registration_date: None,
+            resolved_domain
+        }
+    }
+
+    fn build_resolved_domain() -> ResolvedDomain {
+        ResolvedDomain {
+            abuse_email_address: None,
+            name: "test.com".into(),
+            registration_date: None
+        }
+    }
+}
+
+#[cfg(test)]
+mod resolved_name_tests {
+    use super::*;
+
+    #[test]
+    fn returns_resolved_domain_name_if_resolved_domain_exists() {
+        let domain = build_domain(Some(build_resolved_domain()));
+
+        assert_eq!(Some(String::from("test.com")), domain.resolved_name());
+    }
+
+    #[test]
+    fn returns_none_if_no_resolved_domain() {
+        let domain = build_domain(None);
+
+        assert!(domain.resolved_name().is_none());
+    }
+
+    fn build_domain(resolved_domain: Option<ResolvedDomain>) -> Domain {
+        Domain {
+            abuse_email_address: None,
+            category: DomainCategory::Other,
+            name: "doesnotmatter.com".into(),
+            registration_date: None,
+            resolved_domain
+        }
+    }
+
+    fn build_resolved_domain() -> ResolvedDomain {
+        ResolvedDomain {
+            abuse_email_address: None,
+            name: "test.com".into(),
+            registration_date: None
+        }
     }
 }
 
@@ -1099,6 +1229,7 @@ impl Domain {
             category: DomainCategory::OpenEmailProvider,
             name: domain.into(),
             registration_date: None,
+            resolved_domain: None,
         }
     }
 
@@ -1108,6 +1239,7 @@ impl Domain {
             category: DomainCategory::Other,
             name: domain.into(),
             registration_date: None,
+            resolved_domain: None,
         }
     }
 
@@ -1119,7 +1251,20 @@ impl Domain {
             category: DomainCategory::UrlShortener,
             name: domain.into(),
             registration_date: None,
+            resolved_domain: None,
         }
+    }
+
+    pub fn resolved_domain_matches(&self, domain: &Domain) -> bool {
+        if let Some(r_domain) = self.resolved_domain.as_ref() {
+            r_domain.name == domain.name
+        } else {
+            false
+        }
+    }
+
+    pub fn resolved_name(&self) -> Option<String> {
+        self.resolved_domain.as_ref().map(|resolved_domain| String::from(&resolved_domain.name))
     }
 }
 
@@ -1129,6 +1274,13 @@ pub enum DomainCategory {
     OpenEmailProvider,
     Other,
     UrlShortener,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct ResolvedDomain {
+    pub name: String,
+    pub registration_date: Option<DateTime<Utc>>,
+    pub abuse_email_address: Option<String>,
 }
 
 #[cfg(test)]

@@ -92,6 +92,7 @@ mod email_addresses_tests {
                 category: DomainCategory::Other,
                 name: "test.com".into(),
                 registration_date: None,
+                resolved_domain: None,
             }),
             registrar: None,
         }

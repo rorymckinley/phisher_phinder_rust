@@ -70,6 +70,7 @@ mod build_mail_definitions_tests {
                     category: DomainCategory::Other,
                     name: "delivery-node.zzz".into(),
                     registration_date: None,
+                    resolved_domain: None,
                 }),
                 host: None,
                 infrastructure_provider: Some(InfrastructureProvider {
@@ -285,7 +286,7 @@ fn convert_addresses_to_mail_definitions(
 ) -> Vec<MailDefinition> {
     email_addresses
         .iter()
-        .map(|e_a_d| convert_address_data_to_definition(e_a_d))
+        .map(convert_address_data_to_definition)
         .collect()
 }
 
@@ -376,6 +377,7 @@ mod convert_address_data_to_definition_tests {
                 category: DomainCategory::OpenEmailProvider,
                 name: "test.com".into(),
                 registration_date: None,
+                resolved_domain: None,
             }),
             registrar: Some(Registrar {
                 abuse_email_address: Some("abuse@regone.zzz".into()),
@@ -392,6 +394,7 @@ mod convert_address_data_to_definition_tests {
                 category: DomainCategory::OpenEmailProvider,
                 name: "test.com".into(),
                 registration_date: None,
+                resolved_domain: None,
             }),
             registrar: None,
         }
@@ -489,6 +492,7 @@ mod extract_abuse_address_from_domain_tests {
             category: DomainCategory::OpenEmailProvider,
             name: "does-not-matter".into(),
             registration_date: None,
+            resolved_domain: None,
         }
     }
 
@@ -498,6 +502,7 @@ mod extract_abuse_address_from_domain_tests {
             category: DomainCategory::UrlShortener,
             name: "does-not-matter".into(),
             registration_date: None,
+            resolved_domain: None,
         }
     }
 
@@ -507,6 +512,7 @@ mod extract_abuse_address_from_domain_tests {
             category: DomainCategory::Other,
             name: "does-not-matter".into(),
             registration_date: None,
+            resolved_domain: None,
         }
     }
 
@@ -516,6 +522,7 @@ mod extract_abuse_address_from_domain_tests {
             category: DomainCategory::OpenEmailProvider,
             name: "does-not-matter".into(),
             registration_date: None,
+            resolved_domain: None,
         }
     }
 }
@@ -813,6 +820,7 @@ mod build_mail_definitions_from_delivery_nodes_tests {
                     category: DomainCategory::Other,
                     name: "delivery-node.zzz".into(),
                     registration_date: None,
+                    resolved_domain: None,
                 }),
                 host: None,
                 infrastructure_provider: None,
@@ -944,6 +952,7 @@ mod build_mail_definitions_from_delivery_node_tests {
                     category: DomainCategory::Other,
                     name: "delivery-node.zzz".into(),
                     registration_date: None,
+                    resolved_domain: None,
                 }),
                 host: None,
                 infrastructure_provider: Some(InfrastructureProvider {
@@ -972,6 +981,7 @@ mod build_mail_definitions_from_delivery_node_tests {
                     category: DomainCategory::Other,
                     name: "delivery-node.zzz".into(),
                     registration_date: None,
+                    resolved_domain: None,
                 }),
                 host: None,
                 infrastructure_provider: None,

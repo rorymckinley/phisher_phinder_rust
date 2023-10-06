@@ -27,6 +27,7 @@ fn json_input() -> String {
                         "category": "other",
                         "name": "fake.net",
                         "registration_date": "2022-11-18T10:11:12Z",
+                        "resolved_domain": null,
                     },
                     "registrar": {
                         "abuse_email_address": "abuse@regone.zzz",
@@ -40,6 +41,7 @@ fn json_input() -> String {
                         "category": "other",
                         "name": "alsofake.net",
                         "registration_date": "2022-11-18T10:11:17Z",
+                        "resolved_domain": null,
                     },
                     "registrar": {
                         "abuse_email_address": "abuse@regsix.zzz",
@@ -53,6 +55,7 @@ fn json_input() -> String {
                         "category": "other",
                         "name": "possiblynotfake.com",
                         "registration_date": "2022-11-18T10:11:13Z",
+                        "resolved_domain": null,
                     },
                     "registrar": {
                         "abuse_email_address": "abuse@regtwo.zzz",
@@ -66,6 +69,7 @@ fn json_input() -> String {
                         "category": "other",
                         "name": "morethanlikelyfake.net",
                         "registration_date": "2022-11-18T10:11:14Z",
+                        "resolved_domain": null,
                     },
                     "registrar": {
                         "name": "Reg Three",
@@ -95,6 +99,7 @@ fn json_input() -> String {
                             "category": "other",
                             "name": "dodgyaf.com",
                             "registration_date": null,
+                            "resolved_domain": null,
                         },
                         "host": "foo.bar.com",
                         "infrastructure_provider": null,
@@ -107,6 +112,7 @@ fn json_input() -> String {
                             "category": "other",
                             "name": "probablylegit.com",
                             "registration_date": "2022-11-18T10:11:19Z",
+                            "resolved_domain": null,
                         },
                         "host": "probablylegit.com",
                         "ip_address": "10.10.10.10",
@@ -133,6 +139,7 @@ fn json_input() -> String {
                             "category": "other",
                             "name": "visible.net",
                             "registration_date":  "2022-11-18T10:11:15Z",
+                            "resolved_domain": null,
                         },
                         "registrar": {
                             "name": "Reg Four",
@@ -146,6 +153,7 @@ fn json_input() -> String {
                             "category": "other",
                             "name": "hidden.com",
                             "registration_date":  "2022-11-18T10:11:16Z",
+                            "resolved_domain": null,
                         },
                         "registrar": {
                             "name": "Reg Five",
@@ -178,6 +186,7 @@ fn expected_json_output() -> serde_json::Value {
                         "category": "other",
                         "name": "fake.net",
                         "registration_date": "2022-11-18T10:11:12Z",
+                        "resolved_domain": null,
                     },
                     "registrar": {
                         "abuse_email_address": "abuse@regone.zzz",
@@ -191,6 +200,7 @@ fn expected_json_output() -> serde_json::Value {
                         "category": "other",
                         "name": "alsofake.net",
                         "registration_date": "2022-11-18T10:11:17Z",
+                        "resolved_domain": null,
                     },
                     "registrar": {
                         "abuse_email_address": "abuse@regsix.zzz",
@@ -204,6 +214,7 @@ fn expected_json_output() -> serde_json::Value {
                         "category": "other",
                         "name": "possiblynotfake.com",
                         "registration_date": "2022-11-18T10:11:13Z",
+                        "resolved_domain": null,
                     },
                     "registrar": {
                         "abuse_email_address": "abuse@regtwo.zzz",
@@ -217,6 +228,7 @@ fn expected_json_output() -> serde_json::Value {
                         "category": "other",
                         "name": "morethanlikelyfake.net",
                         "registration_date": "2022-11-18T10:11:14Z",
+                        "resolved_domain": null,
                     },
                     "registrar": {
                         "name": "Reg Three",
@@ -246,6 +258,7 @@ fn expected_json_output() -> serde_json::Value {
                             "category": "other",
                             "name": "dodgyaf.com",
                             "registration_date": null,
+                            "resolved_domain": null,
                         },
                         "host": "foo.bar.com",
                         "infrastructure_provider": null,
@@ -258,6 +271,7 @@ fn expected_json_output() -> serde_json::Value {
                             "category": "other",
                             "name": "probablylegit.com",
                             "registration_date": "2022-11-18T10:11:19Z",
+                            "resolved_domain": null,
                         },
                         "host": "probablylegit.com",
                         "ip_address": "10.10.10.10",
@@ -284,6 +298,7 @@ fn expected_json_output() -> serde_json::Value {
                             "category": "other",
                             "name": "visible.net",
                             "registration_date":  "2022-11-18T10:11:15Z",
+                            "resolved_domain": null,
                         },
                         "registrar": {
                             "name": "Reg Four",
@@ -297,6 +312,7 @@ fn expected_json_output() -> serde_json::Value {
                             "category": "other",
                             "name": "hidden.com",
                             "registration_date":  "2022-11-18T10:11:16Z",
+                            "resolved_domain": null,
                         },
                         "registrar": {
                             "name": "Reg Five",
@@ -319,6 +335,7 @@ fn expected_json_output() -> serde_json::Value {
                         "category": "other",
                         "name": "alsofake.net",
                         "registration_date": "2022-11-18T10:11:17Z",
+                        "resolved_domain": null,
                     },
                     "registrar": {
                         "abuse_email_address": "abuse@regsix.zzz",
@@ -336,6 +353,7 @@ fn expected_json_output() -> serde_json::Value {
                             "category": "other",
                             "name": "visible.net",
                             "registration_date":  "2022-11-18T10:11:15Z",
+                            "resolved_domain": null,
                         },
                         "registrar": {
                             "name": "Reg Four",
@@ -349,6 +367,7 @@ fn expected_json_output() -> serde_json::Value {
                             "category": "other",
                             "name": "hidden.com",
                             "registration_date":  "2022-11-18T10:11:16Z",
+                            "resolved_domain": null,
                         },
                         "registrar": {
                             "name": "Reg Five",

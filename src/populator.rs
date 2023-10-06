@@ -1,6 +1,6 @@
 use crate::data::{
     DeliveryNode, Domain, DomainCategory, EmailAddressData, EmailAddresses, FulfillmentNode,
-    HostNode, InfrastructureProvider, Node, OutputData, ParsedMail, Registrar,
+    HostNode, InfrastructureProvider, Node, OutputData, ParsedMail, Registrar, ResolvedDomain,
 };
 use chrono::prelude::*;
 use std::str::FromStr;
@@ -305,10 +305,15 @@ mod populate_tests {
 
     fn domain_object(name: &str, registration_date: Option<DateTime<Utc>>) -> Option<Domain> {
         Some(Domain {
+            abuse_email_address: None,
             category: DomainCategory::Other,
             name: name.into(),
             registration_date,
-            abuse_email_address: None,
+            resolved_domain: Some(ResolvedDomain {
+                abuse_email_address: None,
+                name: name.into(),
+                registration_date,
+            }),
         })
     }
 
@@ -528,10 +533,15 @@ mod lookup_email_address_from_rdap_tests {
         category: DomainCategory,
     ) -> Option<Domain> {
         Some(Domain {
+            abuse_email_address: None,
             category,
             name: name.into(),
             registration_date,
-            abuse_email_address: None,
+            resolved_domain: Some(ResolvedDomain {
+                abuse_email_address: None,
+                name: name.into(),
+                registration_date,
+            }),
         })
     }
 
@@ -648,10 +658,15 @@ mod lookup_fulfillment_nodes_from_rdap_tests {
     // test_support rather?
     fn domain_object(name: &str, registration_date: Option<DateTime<Utc>>) -> Option<Domain> {
         Some(Domain {
+            abuse_email_address: None,
             category: DomainCategory::Other,
             name: name.into(),
             registration_date,
-            abuse_email_address: None,
+            resolved_domain: Some(ResolvedDomain {
+                abuse_email_address: None,
+                name: name.into(),
+                registration_date,
+            }),
         })
     }
 
@@ -851,10 +866,15 @@ mod lookup_delivery_nodes_from_rdap_tests {
     // test_support rather?
     fn domain_object(name: &str, registration_date: Option<DateTime<Utc>>) -> Option<Domain> {
         Some(Domain {
+            abuse_email_address: None,
             category: DomainCategory::Other,
             name: name.into(),
             registration_date,
-            abuse_email_address: None,
+            resolved_domain: Some(ResolvedDomain {
+                abuse_email_address: None,
+                name: name.into(),
+                registration_date,
+            }),
         })
     }
 
@@ -942,10 +962,15 @@ mod lookup_fulfillment_node_tests {
     // test_support rather?
     fn domain_object(name: &str, registration_date: Option<DateTime<Utc>>) -> Option<Domain> {
         Some(Domain {
+            abuse_email_address: None,
             category: DomainCategory::Other,
             name: name.into(),
             registration_date,
-            abuse_email_address: None,
+            resolved_domain: Some(ResolvedDomain {
+                abuse_email_address: None,
+                name: name.into(),
+                registration_date,
+            }),
         })
     }
 
@@ -1031,11 +1056,18 @@ mod lookup_delivery_node_tests {
     }
 
     fn output_delivery_node() -> DeliveryNode {
+        let registration_date = Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap());
+
         let domain = Some(Domain {
             abuse_email_address: None,
             category: DomainCategory::Other,
             name: "host.dodgyaf.com".into(),
-            registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap()),
+            registration_date,
+            resolved_domain: Some(ResolvedDomain {
+                abuse_email_address: None,
+                name: "host.dodgyaf.com".into(),
+                registration_date,
+            }),
         });
 
         DeliveryNode {
@@ -1108,7 +1140,7 @@ mod lookup_node_tests {
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
         let actual =
-            tokio_test::block_on(lookup_node(Arc::new(bootstrap), node("https://fake.net")));
+            tokio_test::block_on(lookup_node(Arc::new(bootstrap), node("https://sub.fake.net")));
 
         assert_eq!(Some(populated_node()), actual);
     }
@@ -1155,28 +1187,40 @@ mod lookup_node_tests {
         Some(Node {
             domain: None,
             registrar: None,
-            url: "https://fake.net".into(),
+            url: "https://sub.fake.net".into(),
         })
     }
 
     fn populated_node() -> Node {
         Node {
             domain: domain_object(
+                "sub.fake.net",
                 "fake.net",
                 Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
             ),
             registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
-            url: "https://fake.net".into(),
+            url: "https://sub.fake.net".into(),
         }
     }
 
     // test_support rather?
-    fn domain_object(name: &str, registration_date: Option<DateTime<Utc>>) -> Option<Domain> {
+    fn domain_object(
+        name: &str,
+        resolved_name: &str,
+        registration_date: Option<DateTime<Utc>>
+    ) -> Option<Domain> {
         Some(Domain {
+            abuse_email_address: None,
             category: DomainCategory::Other,
             name: name.into(),
             registration_date,
-            abuse_email_address: None,
+            resolved_domain: Some(
+                ResolvedDomain {
+                    abuse_email_address: None,
+                    name: resolved_name.into(),
+                    registration_date
+                }
+            )
         })
     }
 
@@ -1202,14 +1246,20 @@ async fn lookup_node(bootstrap: Arc<Bootstrap>, node_option: Option<Node>) -> Op
     if let Some(node) = node_option {
         if let Some(domain) = node.domain {
             if let Some(response) = get_rdap_data(bootstrap, Some(domain.name.clone())).await {
+                let registration_date = extract_registration_date(&response.rdap_result.events);
                 Some(Node {
                     domain: Some(Domain {
-                        registration_date: extract_registration_date(&response.events),
+                        registration_date,
+                        resolved_domain: Some(ResolvedDomain {
+                            abuse_email_address: None,
+                            name: response.domain_name,
+                            registration_date,
+                        }),
                         ..domain
                     }),
                     registrar: Some(Registrar {
-                        abuse_email_address: extract_abuse_email(&response.entities),
-                        name: extract_registrar_name(&response.entities),
+                        abuse_email_address: extract_abuse_email(&response.rdap_result.entities),
+                        name: extract_registrar_name(&response.rdap_result.entities),
                     }),
                     ..node
                 })
@@ -1244,6 +1294,7 @@ mod lookup_host_node_tests {
 
         let expected = Some(output_host_node(
             "host.dodgyaf.com",
+            "dodgyaf.com",
             "Reg Six",
             "abuse@regfive.zzz",
             Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap(),
@@ -1302,6 +1353,7 @@ mod lookup_host_node_tests {
 
         let expected = Some(output_host_node_sans_ip_address(
             "host.dodgyaf.com",
+            "dodgyaf.com",
             "Reg Six",
             "abuse@regfive.zzz",
             Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap(),
@@ -1325,6 +1377,7 @@ mod lookup_host_node_tests {
 
         let expected = Some(output_host_node_sans_infrastructure_provider(
             "host.dodgyaf.com",
+            "dodgyaf.com",
             "192.168.10.10",
             "Reg Six",
             "abuse@regfive.zzz",
@@ -1359,6 +1412,7 @@ mod lookup_host_node_tests {
 
     fn output_host_node(
         host_name: &str,
+        resolved_domain_name: &str,
         registrar_name: &str,
         registrar_abuse_email_address: &str,
         registration_date: DateTime<Utc>,
@@ -1367,7 +1421,7 @@ mod lookup_host_node_tests {
         infrastructure_provider_email_address: &str,
     ) -> HostNode {
         HostNode {
-            domain: domain_object(host_name, Some(registration_date)),
+            domain: domain_object(host_name, resolved_domain_name, Some(registration_date)),
             host: Some(host_name.into()),
             infrastructure_provider: infrastructure_provider_instance(
                 infrastructure_provider_name,
@@ -1398,12 +1452,13 @@ mod lookup_host_node_tests {
 
     fn output_host_node_sans_ip_address(
         host_name: &str,
+        resolved_domain_name: &str,
         registrar_name: &str,
         registrar_abuse_email_address: &str,
         registration_date: DateTime<Utc>,
     ) -> HostNode {
         HostNode {
-            domain: domain_object(host_name, Some(registration_date)),
+            domain: domain_object(host_name, resolved_domain_name, Some(registration_date)),
             host: Some(host_name.into()),
             infrastructure_provider: None,
             ip_address: None,
@@ -1413,13 +1468,14 @@ mod lookup_host_node_tests {
 
     fn output_host_node_sans_infrastructure_provider(
         host_name: &str,
+        resolved_domain_name: &str,
         ip_address: &str,
         registrar_name: &str,
         registrar_abuse_email_address: &str,
         registration_date: DateTime<Utc>,
     ) -> HostNode {
         HostNode {
-            domain: domain_object(host_name, Some(registration_date)),
+            domain: domain_object(host_name, resolved_domain_name, Some(registration_date)),
             host: Some(host_name.into()),
             infrastructure_provider: None,
             ip_address: Some(ip_address.into()),
@@ -1429,7 +1485,7 @@ mod lookup_host_node_tests {
 
     fn setup_impostors() {
         setup_dns_server(vec![DnsServerConfig::response_200(
-            "host.dodgyaf.com",
+            "dodgyaf.com",
             None,
             "Reg Six",
             "abuse@regfive.zzz",
@@ -1452,12 +1508,21 @@ mod lookup_host_node_tests {
         ]);
     }
 
-    fn domain_object(name: &str, registration_date: Option<DateTime<Utc>>) -> Option<Domain> {
+    fn domain_object(
+        name: &str,
+        resolved_name: &str,
+        registration_date: Option<DateTime<Utc>>
+    ) -> Option<Domain> {
         Some(Domain {
+            abuse_email_address: None,
             category: DomainCategory::Other,
             name: name.into(),
             registration_date,
-            abuse_email_address: None,
+            resolved_domain: Some(ResolvedDomain {
+                abuse_email_address: None,
+                name: resolved_name.into(),
+                registration_date,
+            }),
         })
     }
 
@@ -1491,13 +1556,20 @@ async fn lookup_host_node(bootstrap: Arc<Bootstrap>, node: Option<HostNode>) -> 
         let (domain_response, ip_response) = tokio::join!(get_domain_data, get_ip_data);
 
         let (domain, registrar) = if let Some(domain_data) = domain_response {
+            let registration_date = extract_registration_date(&domain_data.rdap_result.events);
+
             let domain = host_node.domain.map(|dom| Domain {
-                registration_date: extract_registration_date(&domain_data.events),
+                registration_date,
+                resolved_domain: Some(ResolvedDomain{
+                    abuse_email_address: None,
+                    name: domain_data.domain_name,
+                    registration_date,
+                }),
                 ..dom
             });
             let registrar = Some(Registrar {
-                abuse_email_address: extract_abuse_email(&domain_data.entities),
-                name: extract_registrar_name(&domain_data.entities),
+                abuse_email_address: extract_abuse_email(&domain_data.rdap_result.entities),
+                name: extract_registrar_name(&domain_data.rdap_result.entities),
             });
             (domain, registrar)
         } else {
@@ -1623,17 +1695,23 @@ mod lookup_email_address_tests {
 
     fn email_address_data() -> EmailAddressData {
         EmailAddressData {
-            address: "someone@fake.net".into(),
-            domain: domain_object("fake.net", None, DomainCategory::Other),
+            address: "someone@dodgy.fake.net".into(),
+            domain: domain_object(
+                "dodgy.fake.net",
+                None,
+                None,
+                DomainCategory::Other
+            ),
             registrar: None,
         }
     }
 
     fn updated_email_address_data() -> EmailAddressData {
         EmailAddressData {
-            address: "someone@fake.net".into(),
+            address: "someone@dodgy.fake.net".into(),
             domain: domain_object(
-                "fake.net",
+                "dodgy.fake.net",
+                Some("fake.net"),
                 Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
                 DomainCategory::Other,
             ),
@@ -1652,7 +1730,7 @@ mod lookup_email_address_tests {
     fn email_address_data_without_rdap_servers() -> EmailAddressData {
         EmailAddressData {
             address: "someone@fake.unobtainium".into(),
-            domain: domain_object("fake.unobtainium", None, DomainCategory::Other),
+            domain: domain_object("fake.unobtainium", None, None, DomainCategory::Other),
             registrar: None,
         }
     }
@@ -1660,7 +1738,7 @@ mod lookup_email_address_tests {
     fn email_address_data_with_populated_registrar() -> EmailAddressData {
         EmailAddressData {
             address: "someone@fake.net".into(),
-            domain: domain_object("fake.net", None, DomainCategory::Other),
+            domain: domain_object("fake.net", None, None, DomainCategory::Other),
             registrar: Some(Registrar {
                 abuse_email_address: None,
                 name: None,
@@ -1671,21 +1749,34 @@ mod lookup_email_address_tests {
     fn email_address_data_with_open_email_provider() -> EmailAddressData {
         EmailAddressData {
             address: "someone@fake.net".into(),
-            domain: domain_object("fake.net", None, DomainCategory::OpenEmailProvider),
+            domain: domain_object(
+                "dodgy.fake.net",
+                None,
+                None,
+                DomainCategory::OpenEmailProvider
+                ),
             registrar: None,
         }
     }
 
     fn domain_object(
         name: &str,
+        resolved_name: Option<&str>,
         registration_date: Option<DateTime<Utc>>,
         category: DomainCategory,
     ) -> Option<Domain> {
+        let resolved_domain = resolved_name.map(|name| ResolvedDomain {
+            abuse_email_address: None,
+            name: name.into(),
+            registration_date,
+        });
+
         Some(Domain {
+            abuse_email_address: None,
             category,
             name: name.into(),
             registration_date,
-            abuse_email_address: None,
+            resolved_domain,
         })
     }
 
@@ -1713,12 +1804,17 @@ async fn lookup_email_address(
     } = &data
     {
         if let Some(response) = get_rdap_data(bootstrap, Some(name.into())).await {
-            let registrar_name = extract_registrar_name(&response.entities);
-            let abuse_email_address = extract_abuse_email(&response.entities);
-            let registration_date = extract_registration_date(&response.events);
+            let registrar_name = extract_registrar_name(&response.rdap_result.entities);
+            let abuse_email_address = extract_abuse_email(&response.rdap_result.entities);
+            let registration_date = extract_registration_date(&response.rdap_result.events);
 
             let domain = Domain {
                 registration_date,
+                resolved_domain: Some(ResolvedDomain {
+                    abuse_email_address: None,
+                    name: response.domain_name,
+                    registration_date,
+                }),
                 ..data.domain.unwrap()
             };
 
@@ -1753,19 +1849,22 @@ mod get_rdap_data_tests {
         setup_impostors();
         let bootstrap = Arc::new(tokio_test::block_on(get_bootstrap()));
 
-        assert_handle(
+        assert_response(
             Arc::clone(&bootstrap),
-            Some("foo.bar.baz.biz.net"),
+            "foo.bar.baz.biz.net",
+            "foo.bar.baz.biz.net",
             "DOM-BIZ",
         );
-        assert_handle(
+        assert_response(
             Arc::clone(&bootstrap),
-            Some("foo.bar.baz.buzz.net"),
+            "foo.bar.baz.buzz.net",
+            "bar.baz.buzz.net",
             "DOM-BUZZ",
         );
-        assert_handle(
+        assert_response(
             Arc::clone(&bootstrap),
-            Some("foo.bar.baz.boz.net"),
+            "foo.bar.baz.boz.net",
+            "boz.net",
             "DOM-BOZ",
         );
         assert_none(Arc::clone(&bootstrap), Some("un.ob.tai.nium.net"));
@@ -1787,18 +1886,21 @@ mod get_rdap_data_tests {
         assert_none(Arc::clone(&bootstrap), None)
     }
 
-    fn assert_handle(
+    fn assert_response(
         bootstrap: Arc<Bootstrap>,
-        domain_name_option: Option<&str>,
-        expected_handle: &str,
+        domain_name: &str,
+        resolved_domain_name: &str,
+        expected_handle: &str
     ) {
-        let domain = tokio_test::block_on(get_rdap_data(
+
+        let response = tokio_test::block_on(get_rdap_data(
             Arc::clone(&bootstrap),
-            domain_name_option.map(|val| val.into()),
+            Some(domain_name.into())
         ))
         .unwrap();
 
-        assert_eq!(String::from(expected_handle), domain.handle.unwrap())
+        assert_eq!(resolved_domain_name, &response.domain_name);
+        assert_eq!(String::from(expected_handle), response.rdap_result.handle.unwrap());
     }
 
     fn assert_none(bootstrap: Arc<Bootstrap>, domain_name_option: Option<&str>) {
@@ -1848,8 +1950,8 @@ mod get_rdap_data_tests {
 async fn get_rdap_data(
     bootstrap: Arc<Bootstrap>,
     domain_name_option: Option<String>,
-) -> Option<parser::Domain> {
-    let mut domain_response: Option<parser::Domain> = None;
+) -> Option<RdapDomainResult> {
+    let mut domain_response: Option<RdapDomainResult> = None;
 
     if let Some(domain_name) = domain_name_option {
         if let Some(servers) = bootstrap.dns.find(&domain_name) {
@@ -1862,7 +1964,12 @@ async fn get_rdap_data(
                     let partial_name = &domain_name_parts[start_pos..num_parts].join(".");
 
                     if let Ok(response) = client.query_domain(&servers[0], partial_name).await {
-                        domain_response = Some(response);
+                        domain_response =Some(
+                            RdapDomainResult {
+                                domain_name: String::from(partial_name),
+                                rdap_result: response,
+                            }
+                        );
                     }
                 }
             }
@@ -1870,6 +1977,11 @@ async fn get_rdap_data(
     }
 
     domain_response
+}
+
+struct RdapDomainResult {
+    domain_name: String,
+    rdap_result: parser::Domain,
 }
 
 #[cfg(test)]

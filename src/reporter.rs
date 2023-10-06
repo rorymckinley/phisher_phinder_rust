@@ -10,12 +10,14 @@ mod add_reportable_entities_tests {
     use crate::authentication_results::{AuthenticationResults, Spf, SpfResult};
     use crate::data::{
         Domain,
+        DomainCategory,
         EmailAddressData,
         FulfillmentNode,
         HostNode,
         Node,
         ParsedMail,
-        ReportableEntities
+        ReportableEntities,
+        ResolvedDomain,
     };
     use crate::message_source::MessageSource;
 
@@ -157,7 +159,7 @@ mod add_reportable_entities_tests {
             advertised_sender: None,
             observed_sender: Some(HostNode {
                 host: Some(host.into()),
-                domain: Some(Domain::from_host(host).unwrap()),
+                domain: Some(build_domain(host)),
                 infrastructure_provider: None,
                 ip_address: None,
                 registrar: None
@@ -166,6 +168,20 @@ mod add_reportable_entities_tests {
             recipient: None,
             time: None,
             trusted,
+        }
+    }
+
+    fn build_domain(name: &str) -> Domain {
+        Domain {
+            abuse_email_address: None,
+            category: DomainCategory::Other,
+            name: name.into(),
+            registration_date: None,
+            resolved_domain: Some(ResolvedDomain {
+                abuse_email_address: None,
+                name: name.into(),
+                registration_date: None,
+            })
         }
     }
 }
@@ -201,7 +217,7 @@ fn extract_reportable_delivery_nodes(parsed_mail: &ParsedMail) -> Vec<DeliveryNo
 mod extract_reportable_email_addresses_tests {
     use super::*;
     use crate::authentication_results::{AuthenticationResults, Dkim, DkimResult};
-    use crate::data::{Domain, EmailAddressData, HostNode};
+    use crate::data::{Domain, DomainCategory, EmailAddressData, HostNode, ResolvedDomain};
 
     #[test]
     fn includes_link_email_addresses() {
@@ -238,7 +254,7 @@ mod extract_reportable_email_addresses_tests {
     }
 
     #[test]
-    fn includes_reply_to_addresses_that_are_validated_via_authentication_results() {
+    fn includes_reply_to_addresses_that_are_validated() {
         let parsed_mail = parsed_mail(authentication_results_from_address());
 
         let output = extract_reportable_email_addresses(
@@ -259,7 +275,7 @@ mod extract_reportable_email_addresses_tests {
     }
 
     #[test]
-    fn includes_return_path_that_are_validated_via_authentication_results() {
+    fn includes_return_path_that_are_validated() {
         let parsed_mail = parsed_mail(authentication_results_from_address());
 
         let output = extract_reportable_email_addresses(
@@ -359,7 +375,7 @@ mod extract_reportable_email_addresses_tests {
             advertised_sender: None,
             observed_sender: Some(HostNode {
                 host: Some(host.into()),
-                domain: Some(Domain::from_host(host).unwrap()),
+                domain: Some(build_domain(host)),
                 infrastructure_provider: None,
                 ip_address: None,
                 registrar: None
@@ -368,6 +384,20 @@ mod extract_reportable_email_addresses_tests {
             recipient: None,
             time: None,
             trusted: true,
+        }
+    }
+
+    fn build_domain(name: &str) -> Domain {
+        Domain {
+            abuse_email_address: None,
+            category: DomainCategory::Other,
+            name: name.into(),
+            registration_date: None,
+            resolved_domain: Some(ResolvedDomain {
+                abuse_email_address: None,
+                name: name.into(),
+                registration_date: None,
+            })
         }
     }
 }
@@ -418,7 +448,7 @@ fn filter_valid_email_addresses(
 
 #[cfg(test)]
 mod filter_valid_email_addresses_tests {
-    use crate::data::{Domain, HostNode};
+    use crate::data::{Domain, DomainCategory, HostNode, ResolvedDomain};
     use crate::authentication_results::{Dkim, DkimResult};
     use super::*;
 
@@ -491,7 +521,7 @@ mod filter_valid_email_addresses_tests {
             advertised_sender: None,
             observed_sender: Some(HostNode {
                 host: Some(host.into()),
-                domain: Some(Domain::from_host(host).unwrap()),
+                domain: Some(build_domain(host)),
                 infrastructure_provider: None,
                 ip_address: None,
                 registrar: None
@@ -502,6 +532,20 @@ mod filter_valid_email_addresses_tests {
             trusted: true,
         }
     }
+
+    fn build_domain(name: &str) -> Domain {
+        Domain {
+            abuse_email_address: None,
+            category: DomainCategory::Other,
+            name: name.into(),
+            registration_date: None,
+            resolved_domain: Some(ResolvedDomain {
+                abuse_email_address: None,
+                name: name.into(),
+                registration_date: None,
+            })
+        }
+    }
 }
 
 fn extract_reportable_fulfillment_nodes(parsed_mail: &ParsedMail) -> Vec<FulfillmentNode> {
@@ -510,7 +554,7 @@ fn extract_reportable_fulfillment_nodes(parsed_mail: &ParsedMail) -> Vec<Fulfill
 
 #[cfg(test)]
 mod delivery_node_email_address_validator_tests {
-    use crate::data::{Domain, EmailAddressData, HostNode};
+    use crate::data::{Domain, DomainCategory, EmailAddressData, HostNode, ResolvedDomain};
     use super::*;
 
     #[test]
@@ -540,11 +584,12 @@ mod delivery_node_email_address_validator_tests {
     }
 
     fn build_delivery_node(host: &str) -> DeliveryNode {
+
         DeliveryNode {
             advertised_sender: None,
             observed_sender: Some(HostNode {
                 host: None,
-                domain: Some(Domain::from_host(host).unwrap()),
+                domain: Some(build_domain(host)),
                 infrastructure_provider: None,
                 ip_address: None,
                 registrar: None
@@ -553,6 +598,20 @@ mod delivery_node_email_address_validator_tests {
             recipient: None,
             time: None,
             trusted: true,
+        }
+    }
+
+    fn build_domain(name: &str) -> Domain {
+        Domain {
+            abuse_email_address: None,
+            category: DomainCategory::Other,
+            name: name.into(),
+            registration_date: None,
+            resolved_domain: Some(ResolvedDomain {
+                abuse_email_address: None,
+                name: name.into(),
+                registration_date: None,
+            })
         }
     }
 }

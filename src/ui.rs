@@ -38,10 +38,11 @@ mod display_sender_addresses_extended_tests {
                     from: vec![EmailAddressData {
                         address: "fr@test.www".into(),
                         domain: Some(Domain {
+                            abuse_email_address: None,
                             category: DomainCategory::Other,
                             name: "test.www".into(),
                             registration_date: Some(datetime(2022, 12, 1, 2, 3, 4)),
-                            abuse_email_address: None,
+                            resolved_domain: None,
                         }),
                         registrar: Some(Registrar {
                             abuse_email_address: Some("abuse@regone.zzz".into()),
@@ -52,10 +53,11 @@ mod display_sender_addresses_extended_tests {
                         EmailAddressData {
                             address: "rt@test.xxx".into(),
                             domain: Some(Domain {
+                                abuse_email_address: None,
                                 category: DomainCategory::Other,
                                 name: "test.xxx".into(),
                                 registration_date: Some(datetime(2022, 12, 2, 3, 4, 5)),
-                                abuse_email_address: None,
+                                resolved_domain: None,
                             }),
                             registrar: Some(Registrar {
                                 abuse_email_address: Some("abuse@regtwo.zzz".into()),
@@ -65,10 +67,11 @@ mod display_sender_addresses_extended_tests {
                         EmailAddressData {
                             address: "rt@test.yyy".into(),
                             domain: Some(Domain {
+                                abuse_email_address: None,
                                 category: DomainCategory::Other,
                                 name: "test.yyy".into(),
                                 registration_date: Some(datetime(2022, 12, 2, 3, 4, 6)),
-                                abuse_email_address: None,
+                                resolved_domain: None,
                             }),
                             registrar: Some(Registrar {
                                 abuse_email_address: Some("abuse@regthree.zzz".into()),
@@ -79,10 +82,11 @@ mod display_sender_addresses_extended_tests {
                     return_path: vec![EmailAddressData {
                         address: "rp@test.zzz".into(),
                         domain: Some(Domain {
+                            abuse_email_address: None,
                             category: DomainCategory::Other,
                             name: "test.zzz".into(),
                             registration_date: Some(datetime(2022, 12, 3, 4, 5, 7)),
-                            abuse_email_address: None,
+                            resolved_domain: None,
                         }),
                         registrar: Some(Registrar {
                             abuse_email_address: Some("abuse@regfour.zzz".into()),
@@ -93,10 +97,11 @@ mod display_sender_addresses_extended_tests {
                         EmailAddressData {
                             address: "l1@test.aaa".into(),
                             domain: Some(Domain {
+                                abuse_email_address: None,
                                 category: DomainCategory::Other,
                                 name: "test.aaa".into(),
                                 registration_date: Some(datetime(2022, 12, 4, 5, 6, 8)),
-                                abuse_email_address: None,
+                                resolved_domain: None,
                             }),
                             registrar: Some(Registrar {
                                 abuse_email_address: Some("abuse@regfive.zzz".into()),
@@ -106,10 +111,11 @@ mod display_sender_addresses_extended_tests {
                         EmailAddressData {
                             address: "l2@test.bbb".into(),
                             domain: Some(Domain {
+                                abuse_email_address: None,
                                 category: DomainCategory::Other,
                                 name: "test.bbb".into(),
                                 registration_date: Some(datetime(2022, 12, 4, 5, 6, 9)),
-                                abuse_email_address: None,
+                                resolved_domain: None,
                             }),
                             registrar: Some(Registrar {
                                 abuse_email_address: Some("abuse@regsix.zzz".into()),
@@ -158,10 +164,11 @@ mod display_sender_addresses_extended_tests {
                     from: vec![EmailAddressData {
                         address: "fr@test.xxx".into(),
                         domain: Some(Domain {
+                            abuse_email_address: None,
                             category: DomainCategory::Other,
                             name: "test.xxx".into(),
                             registration_date: Some(datetime(2022, 12, 1, 2, 3, 4)),
-                            abuse_email_address: None,
+                            resolved_domain: None,
                         }),
                         registrar: Some(Registrar {
                             abuse_email_address: Some("abuse@regone.zzz".into()),
@@ -176,10 +183,11 @@ mod display_sender_addresses_extended_tests {
                     return_path: vec![EmailAddressData {
                         address: "rp@test.zzz".into(),
                         domain: Some(Domain {
+                            abuse_email_address: None,
                             category: DomainCategory::Other,
                             name: "test.zzz".into(),
                             registration_date: Some(datetime(2022, 12, 3, 4, 5, 6)),
-                            abuse_email_address: None,
+                            resolved_domain: None,
                         }),
                         registrar: Some(Registrar {
                             abuse_email_address: Some("abuse@regthree.zzz".into()),
@@ -361,10 +369,11 @@ mod display_fulfillment_nodes_tests {
 
     fn domain_object(name: &str, registration_date: Option<DateTime<Utc>>) -> Option<Domain> {
         Some(Domain {
+            abuse_email_address: None,
             category: DomainCategory::Other,
             name: name.into(),
             registration_date,
-            abuse_email_address: None,
+            resolved_domain: None,
         })
     }
 
@@ -478,6 +487,7 @@ mod domain_category_cell_tests {
             category: DomainCategory::Other,
             name: "doesnotmatter".into(),
             registration_date: None,
+            resolved_domain: None,
         };
 
         assert_eq!(Cell::new("Other"), domain_category_cell(Some(&domain)));
@@ -509,6 +519,7 @@ mod registration_date_cell_tests {
             category: DomainCategory::Other,
             name: "doesnotmatter".into(),
             registration_date: Some(datetime(2022, 12, 25, 10, 11, 12)),
+            resolved_domain: None,
         };
 
         assert_eq!(
@@ -524,6 +535,7 @@ mod registration_date_cell_tests {
             category: DomainCategory::Other,
             name: "doesnotmatter".into(),
             registration_date: None,
+            resolved_domain: None,
         };
 
         assert_eq!(Cell::new("N/A"), registration_date_cell(Some(&domain)));
@@ -955,6 +967,7 @@ mod display_delivery_nodes_tests {
                 category: DomainCategory::Other,
                 name: host.into(),
                 registration_date,
+                resolved_domain: None,
             }),
             host: Some(host.into()),
             ip_address: Some(ip_address.into()),
@@ -1813,9 +1826,6 @@ pub fn display_run(run: &Run) -> AppResult<String> {
             "{}\n{}",
             run_details(run).unwrap(),
             display_reportable_entities(run).unwrap()
-            // email_addresses_details(run).unwrap(),
-            // delivery_nodes_details(run).unwrap(),
-            // fulfillment_nodes_details(run).unwrap()
         )
     )
 }
@@ -2167,6 +2177,7 @@ mod display_run_tests {
             category: DomainCategory::Other,
             name: format!("d.{sender_type}.{position}.com"),
             registration_date: Some(registration_date),
+            resolved_domain: None,
         }
     }
 
@@ -2241,7 +2252,14 @@ pub fn display_reportable_entities(run: &Run) -> AppResult<String> {
 #[cfg(test)]
 mod display_reportable_entities_tests {
     use chrono::prelude::*;
-    use crate::data::{DeliveryNode, DomainCategory, EmailAddresses, ParsedMail, ReportableEntities};
+    use crate::data::{
+        DeliveryNode,
+        DomainCategory,
+        EmailAddresses,
+        ParsedMail,
+        ReportableEntities,
+        ResolvedDomain,
+    };
     use crate::message_source::MessageSource;
     use crate::run::Run;
     use super::*;
@@ -2295,6 +2313,8 @@ mod display_reportable_entities_tests {
             +-------------------------+---------------------+-------------------------+\n\
             |                         | Registration Date   | 2023-06-01 10:10:01 UTC |\n\
             +-------------------------+---------------------+-------------------------+\n\
+            |                         | Resolved Name       | r-d.advertised.1.com    |\n\
+            +-------------------------+---------------------+-------------------------+\n\
             | Infrastructure Provider |                                               |\n\
             +-------------------------+---------------------+-------------------------+\n\
             |                         | Abuse Email Address | i.advertised.1@test.com |\n\
@@ -2322,6 +2342,8 @@ mod display_reportable_entities_tests {
             |                         | Name                | d.observed.1.com        |\n\
             +-------------------------+---------------------+-------------------------+\n\
             |                         | Registration Date   | 2023-06-01 10:10:01 UTC |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Resolved Name       | r-d.observed.1.com      |\n\
             +-------------------------+---------------------+-------------------------+\n\
             | Infrastructure Provider |                                               |\n\
             +-------------------------+---------------------+-------------------------+\n\
@@ -2359,6 +2381,8 @@ mod display_reportable_entities_tests {
             +-------------------------+---------------------+-------------------------+\n\
             |                         | Registration Date   | 2023-06-01 10:10:02 UTC |\n\
             +-------------------------+---------------------+-------------------------+\n\
+            |                         | Resolved Name       | r-d.advertised.2.com    |\n\
+            +-------------------------+---------------------+-------------------------+\n\
             | Infrastructure Provider |                                               |\n\
             +-------------------------+---------------------+-------------------------+\n\
             |                         | Abuse Email Address | i.advertised.2@test.com |\n\
@@ -2386,6 +2410,8 @@ mod display_reportable_entities_tests {
             |                         | Name                | d.observed.2.com        |\n\
             +-------------------------+---------------------+-------------------------+\n\
             |                         | Registration Date   | 2023-06-01 10:10:02 UTC |\n\
+            +-------------------------+---------------------+-------------------------+\n\
+            |                         | Resolved Name       | r-d.observed.2.com      |\n\
             +-------------------------+---------------------+-------------------------+\n\
             | Infrastructure Provider |                                               |\n\
             +-------------------------+---------------------+-------------------------+\n\
@@ -2415,6 +2441,8 @@ mod display_reportable_entities_tests {
             +-----------+---------------------+-------------------------+\n\
             |           | Registration Date   | 2023-06-01 10:10:01 UTC |\n\
             +-----------+---------------------+-------------------------+\n\
+            |           | Resolved Name       | r-d.hidden.1.com        |\n\
+            +-----------+---------------------+-------------------------+\n\
             | Registrar |                                               |\n\
             +-----------+---------------------+-------------------------+\n\
             |           | Abuse Email Address | r.hidden.1@test.com     |\n\
@@ -2434,6 +2462,8 @@ mod display_reportable_entities_tests {
             |           | Name                | d.visible.1.com         |\n\
             +-----------+---------------------+-------------------------+\n\
             |           | Registration Date   | 2023-06-01 10:10:01 UTC |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Resolved Name       | r-d.visible.1.com       |\n\
             +-----------+---------------------+-------------------------+\n\
             | Registrar |                                               |\n\
             +-----------+---------------------+-------------------------+\n\
@@ -2455,6 +2485,8 @@ mod display_reportable_entities_tests {
             +-----------+---------------------+-------------------------+\n\
             |           | Registration Date   | 2023-06-01 10:10:02 UTC |\n\
             +-----------+---------------------+-------------------------+\n\
+            |           | Resolved Name       | r-d.hidden.2.com        |\n\
+            +-----------+---------------------+-------------------------+\n\
             | Registrar |                                               |\n\
             +-----------+---------------------+-------------------------+\n\
             |           | Abuse Email Address | r.hidden.2@test.com     |\n\
@@ -2474,6 +2506,8 @@ mod display_reportable_entities_tests {
             |           | Name                | d.visible.2.com         |\n\
             +-----------+---------------------+-------------------------+\n\
             |           | Registration Date   | 2023-06-01 10:10:02 UTC |\n\
+            +-----------+---------------------+-------------------------+\n\
+            |           | Resolved Name       | r-d.visible.2.com       |\n\
             +-----------+---------------------+-------------------------+\n\
             | Registrar |                                               |\n\
             +-----------+---------------------+-------------------------+\n\
@@ -2579,6 +2613,11 @@ mod display_reportable_entities_tests {
             category: DomainCategory::Other,
             name: format!("d.{sender_type}.{position}.com"),
             registration_date: Some(registration_date),
+            resolved_domain: Some(ResolvedDomain {
+                abuse_email_address: None,
+                name: format!("r-d.{sender_type}.{position}.com"),
+                registration_date: None,
+            }),
         }
     }
 
@@ -2769,6 +2808,7 @@ fn add_host_node_rows(table: &mut Table, label: &str, node_option: Option<&HostN
 }
 
 fn add_domain_rows(table: &mut Table, domain_option: Option<&Domain>) {
+    // TODO Check test coverage for this
     if let Some(domain) = domain_option {
         table.add_row(
             Row::new(vec![
@@ -2806,6 +2846,14 @@ fn add_domain_rows(table: &mut Table, domain_option: Option<&Domain>) {
                 Cell::new(""),
                 Cell::new("Registration Date"),
                 optional_date_time_cell(domain.registration_date.as_ref()),
+            ])
+        );
+
+        table.add_row(
+            Row::new(vec![
+                Cell::new(""),
+                Cell::new("Resolved Name"),
+                optional_cell(domain.resolved_name().as_deref()),
             ])
         );
     }
