@@ -16,5 +16,6 @@ pub mod populator;
 pub mod reporter;
 pub mod result;
 pub mod run;
+pub mod service;
 pub mod sources;
 pub mod ui;

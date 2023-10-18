@@ -2,6 +2,14 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum AppError {
+    #[error("Database path {0} appears to be incorrect")]
+    DatabasePathIncorrect(String),
+    #[error("The provided database path is unparseable")]
+    DatabasePathUnparseable,
+    #[error("Service has nothing to process")]
+    NothingToProcess,
+    #[error("Can not find a run with the given ID")]
+    SpecifiedRunMissing,
     #[error(transparent)]
     IO(#[from] std::io::Error),
     #[error(transparent)]

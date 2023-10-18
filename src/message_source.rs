@@ -11,7 +11,7 @@ mod message_source_new_tests {
                 id: None,
                 data: data.into()
             },
-            MessageSource::new(&data)
+            MessageSource::new(data)
         );
     }
 }
