@@ -4,6 +4,7 @@ use phisher_phinder_rust::data::OutputData;
 use phisher_phinder_rust::populator::populate;
 use phisher_phinder_rust::ui;
 use std::io;
+use std::sync::Arc;
 use test_friendly_rdap_client::Client;
 
 #[tokio::main]
@@ -26,7 +27,9 @@ async fn main() {
 
     let bootstrap = client.fetch_bootstrap().await.unwrap();
 
-    let output = populate(bootstrap, input).await;
+    let b_strap = Arc::new(bootstrap);
+
+    let output = populate(Arc::clone(&b_strap), input).await;
 
     let cli = Cli::parse();
 

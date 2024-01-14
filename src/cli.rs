@@ -18,10 +18,16 @@ pub struct FetchRunDetailsCli {
     pub pipe_message_source: bool,
     #[arg(long)]
     pub reportable_entities: bool,
-    pub run_id: u32,
+    pub run_id: i64,
 }
 
 #[derive(Parser)]
 pub struct FindOtherRunsCli {
-    pub run_id: u32,
+    pub run_id: i64,
+}
+
+#[derive(Parser)]
+pub struct SingleCli {
+    #[arg(long, value_name = "RUN_ID")]
+    pub reprocess_run: Option<i64>,
 }

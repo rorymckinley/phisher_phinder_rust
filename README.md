@@ -20,7 +20,7 @@ As of Oct 2023, I am not sure if I am happy enough to have PPR sending mails to 
 it is technically capable. However, I do believe it is useful if you wish to identify some of
 the infrastructure behind an email.
 
-The code quality is well below what I would prefer as PPR started as a weekend project to scratch an
+The code quality is well below what I would prefer, as PPR started as a weekend project to scratch an
 itch while allowing me to retain some basic Rust skills. I am hoping to improve the code quality over
 time but I have strived for as much test coverage as makes sense.
 
@@ -32,19 +32,47 @@ Note: I use Linux for development so PPR may not work on OS X and will definitel
 Windows. This is a practical choice and not a religious one :), so I am happy to assist with what
 is needed to get PPR running on other platforms.
 
+## Functionality
+
+### Importing mail source(s)
+
+PPR can import a file containing the message source of a single email or multiple emails. For a
+file containing multiple message sources, the only format currently supported is the mbox format
+produced by the Google takeout service.
+
+```
+cat /path/to/source/file | env $(cat .env | xargs) cargo run --bin ppr
+```
+
+Imported message sources are stored in the sqlite database specified in the ENV variables
+(`PP_DBATH`).
+
+### Reprocessing an existing message source
+
+PPR can reprocess a message source that already exists in the DB. You may want to do this if the
+message source was processed by an earlier version of PPR that had an bug or lacked a particular
+feature.
+
+Counterintuitively, you need to provide the id of a run linked to the message source rather than
+the id of the message source.
+
+```
+env $(cat .env | xargs) cargo run --bin ppr --reprocess-run <RUN_ID>
+```
+
 ## env files
 
 `env.test.example` and `env.example` can be used as a template for the required ENV files.
 
-## Processing a single email source file
+## Processing a single email source file (DEPRECATED)
 
 `cat dodgy.eml | cargo run --bin pp-source-parser | env $(cat .env | xargs) cargo run --bin pp-store-mail-source | cargo run --bin pp-source-splitter | ./analyser_wrapper.sh`
 
-## Processing multiple files
+## Processing multiple files (DEPRECATED)
 
 `cat file.mbox | cargo run --bin pp-source-parser | env $(cat .env | xargs) cargo run --bin pp-store-mail-source | cargo run --bin pp-source-splitter | ./analyser_wrapper.sh`
 
-## Reprocessing a message
+## Reprocessing a message (DEPRECATED)
 
 `env $(cat .env | xargs) cargo run --bin pp-fetch-run-details -- --pipe-message-source 2419 | cargo run --bin pp-source-parser | env $(cat .env | xargs) cargo run --bin pp-store-mail-source | cargo run --bin pp-source-splitter | ./analyser_wrapper.sh`
 

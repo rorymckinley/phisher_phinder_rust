@@ -187,11 +187,7 @@ pub fn persist_message_source(conn: &Connection, source: MessageSource) -> Messa
     if let Some(message_source) = get_record(conn, &hash) {
         message_source
     } else {
-        conn.execute(
-            "INSERT INTO message_sources (data, hash, created_at) VALUES (?1, ?2, ?3)",
-            (&source.data, &hash, created_at_string()),
-        )
-        .unwrap();
+        create_message_source(conn, &source, &hash);
 
         get_record(conn, &hash).unwrap()
     }
@@ -222,11 +218,53 @@ fn sha256(text: &str) -> String {
         .join("")
 }
 
+fn create_message_source(conn: &Connection, source: &MessageSource, hash: &str) {
+    conn.execute(
+        "INSERT INTO message_sources (data, hash, created_at) VALUES (?1, ?2, ?3)",
+        (&source.data, hash, created_at_string()),
+    )
+    // TODO proper error handling heere
+    .unwrap();
+}
+
 fn created_at_string() -> String {
     Utc::now().format("%Y-%m-%d %H:%M:%S").to_string()
 }
 
-fn get_record(conn: &Connection, hash: &str) -> Option<MessageSource> {
+#[cfg(test)]
+mod get_record_tests {
+    use super::*;
+
+    #[test]
+    fn returns_none_if_message_cannot_be_found() {
+        let conn = connection();
+
+        persist_message_source(&conn, MessageSource::new("source 1"));
+        persist_message_source(&conn, MessageSource::new("source 2"));
+
+        assert!(get_record(&conn, &sha256("source 3")).is_none());
+    }
+
+    #[test]
+    fn returns_message_source_if_it_can_be_found() {
+        let conn = connection();
+
+        persist_message_source(&conn, MessageSource::new("source 1"));
+        persist_message_source(&conn, MessageSource::new("source 2"));
+        persist_message_source(&conn, MessageSource::new("source 3"));
+
+        assert_eq!(
+            MessageSource::persisted_record(2, "source 2"),
+            get_record(&conn, &sha256("source 2")).unwrap()
+        );
+    }
+
+    fn connection() -> Connection {
+        Connection::open_in_memory().unwrap()
+    }
+}
+
+pub fn get_record(conn: &Connection, hash: &str) -> Option<MessageSource> {
     let mut stmt = get_record_by_hash_statement(conn);
 
     stmt.query_row([hash], |row| {
@@ -407,7 +445,7 @@ mod persist_run_tests {
     }
 }
 
-pub fn persist_run(conn: &Connection, run_data: &OutputData) -> AppResult<u32> {
+pub fn persist_run(conn: &Connection, run_data: &OutputData) -> AppResult<i64> {
     create_runs_table(conn);
 
     conn.execute(
@@ -437,7 +475,7 @@ pub fn persist_run(conn: &Connection, run_data: &OutputData) -> AppResult<u32> {
             // TODO This will break if there is another process writing to the DB
             let mut stmt = conn.prepare("SELECT last_insert_rowid()").unwrap();
 
-            let last_id = stmt.query_row([], |row| row.get::<usize, u32>(0)).unwrap();
+            let last_id = stmt.query_row([], |row| row.get::<usize, i64>(0)).unwrap();
 
             Ok(last_id)
         }
@@ -597,7 +635,7 @@ mod find_random_run_tests {
     }
 }
 
-pub fn find_run(conn: &Connection, run_id: u32) -> Option<Run> {
+pub fn find_run(conn: &Connection, run_id: i64) -> Option<Run> {
     let mut stmt = conn
         .prepare("\
             SELECT r.id, r.data, r.created_at, m.id, m.data \
@@ -665,7 +703,7 @@ mod find_run_tests {
         Connection::open(root_path.join("test.sqlite3")).unwrap()
     }
 
-    fn build_run(conn: &Connection, index: u8) -> u32 {
+    fn build_run(conn: &Connection, index: u8) -> i64 {
         let persisted_source = persist_message_source(conn, message_source(index));
 
         let output_data = build_output_data(persisted_source);

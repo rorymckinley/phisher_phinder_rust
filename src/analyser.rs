@@ -1,8 +1,14 @@
 use crate::analysable_message::AnalysableMessage;
 use crate::authentication_results::AuthenticationResults;
 use crate::data::{
-    DeliveryNode, EmailAddressData, EmailAddresses, FulfillmentNode, TrustedRecipientDeliveryNode,
+    DeliveryNode,
+    EmailAddressData,
+    EmailAddresses,
+    FulfillmentNode,
+    ParsedMail,
+    TrustedRecipientDeliveryNode,
 };
+use crate::service::Configuration;
 use regex::Regex;
 
 pub struct Analyser<'a, T> {
@@ -458,6 +464,20 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
         Self { parsed_mail }
     }
 
+    pub fn analyse<U>(&self, config: &U) -> Option<ParsedMail>
+    where U: Configuration
+    {
+        Some(
+            ParsedMail::new(
+                self.authentication_results(),
+                self.delivery_nodes(config.trusted_recipient()),
+                self.sender_email_addresses(),
+                self.fulfillment_nodes(),
+                self.subject(),
+            )
+        )
+    }
+
     pub fn subject(&self) -> Option<String> {
         self.parsed_mail.get_subject()
     }
@@ -535,5 +555,199 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
 
     fn convert_address(&self, address: &str) -> EmailAddressData {
         EmailAddressData::from_email_address(address)
+    }
+}
+
+#[cfg(test)]
+mod analyse_tests {
+    use chrono::prelude::*;
+    use crate::data::HostNode;
+    use std::path::{Path, PathBuf};
+    use super::*;
+
+    #[test]
+    fn sets_the_authentication_results_in_parsed_mail() {
+        let input_mail = build_input_mail(vec![], vec![]);
+        let analyser = Analyser::new(&input_mail);
+        let config = build_config();
+
+        let parsed_mail = analyser.analyse(&config).unwrap();
+
+        assert_eq!(
+            authentication_results(),
+            parsed_mail.authentication_results
+        )
+    }
+
+    #[test]
+    fn sets_the_delivery_nodes_in_parsed_mail() {
+        let h_1 = build_received_header(
+            ("a.bar.com", "b.bar.com.", "10.10.10.12"),
+            "a.baz.com",
+            "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)",
+        );
+        let h_2 = build_received_header(
+            ("c.bar.com", "d.bar.com.", "10.10.10.11"),
+            "b.baz.com",
+            "Tue, 06 Sep 2022 16:17:21 -0700 (PDT)",
+        );
+
+        let input_mail = build_input_mail(vec![], vec![&h_1, &h_2]);
+        let analyser = Analyser::new(&input_mail);
+        let config = build_config();
+
+        let parsed_mail = analyser.analyse(&config).unwrap();
+
+        assert_eq!(
+            vec![delivery_node_1(), delivery_node_2()],
+            parsed_mail.delivery_nodes
+        );
+    }
+
+    #[test]
+    fn sets_sender_email_addresses() {
+        let input_mail = build_input_mail(
+            vec!["mailto:link1@test.com", "mailto:link2@test.com"],
+            vec![]
+        );
+        let analyser = Analyser::new(&input_mail);
+        let config = build_config();
+
+        let parsed_mail = analyser.analyse(&config).unwrap();
+
+        let expected_email_address_data = EmailAddresses {
+            from: vec![EmailAddressData::from_email_address("from@test.com")],
+            links: vec![
+                EmailAddressData::from_email_address("link1@test.com"),
+                EmailAddressData::from_email_address("link2@test.com"),
+            ],
+            reply_to: vec![EmailAddressData::from_email_address("reply@test.com")],
+            return_path: vec![EmailAddressData::from_email_address("return@test.com")],
+        };
+
+        assert_eq!(expected_email_address_data, parsed_mail.email_addresses);
+    }
+
+    #[test]
+    fn sets_fulfillment_nodes() {
+        let input_mail = build_input_mail(
+            vec!["https://test-link1.com", "https://test-link2.com"],
+            vec![]
+        );
+        let analyser = Analyser::new(&input_mail);
+        let config = build_config();
+        let expected_fulfillment_nodes= vec![
+            FulfillmentNode::new("https://test-link1.com"),
+            FulfillmentNode::new("https://test-link2.com")
+        ];
+
+        let parsed_mail = analyser.analyse(&config).unwrap();
+
+        assert_eq!(expected_fulfillment_nodes, parsed_mail.fulfillment_nodes);
+    }
+
+    #[test]
+    fn sets_subject() {
+        let input_mail = build_input_mail(vec![], vec![]);
+        let analyser = Analyser::new(&input_mail);
+        let config = build_config();
+
+        let parsed_mail = analyser.analyse(&config).unwrap();
+
+        assert_eq!(String::from("My First Phishing Email"), parsed_mail.subject.unwrap());
+    }
+
+    fn build_input_mail<'a>(
+        links: Vec<&'a str>, received_headers: Vec<&'a str>
+    ) -> TestParsedMail<'a> {
+        TestParsedMail::new(
+            "from@test.com".into(),
+            "reply@test.com".into(),
+            "return@test.com".into(),
+            "My First Phishing Email".into(),
+            links,
+            received_headers,
+            Some(authentication_results_header()),
+        )
+    }
+
+    fn authentication_results_header() -> String {
+        format!(
+            "{};\r\n        {}",
+            "Authentication-Results: mx.google.com",
+            "dkim=pass header.i=@compromised.zzz header.s=ymy header.b=JPh8bpEm"
+        )
+    }
+
+    fn authentication_results() -> Option<AuthenticationResults> {
+        Some(
+            AuthenticationResults::parse_header(authentication_results_header())
+        )
+    }
+
+    fn build_received_header(from_parts: (&str, &str, &str), by_host: &str, date: &str) -> String {
+        let (advertised_host, actual_host, ip) = from_parts;
+
+        let from = format!("{advertised_host} ({actual_host} [{ip}])");
+        let by = format!("{by_host} with ESMTP id jg8-2002");
+        let f_o_r = "<victim@gmail.com>";
+
+        format!("from {from}\r\n        by {by}\r\n        for {f_o_r};\r\n        {date}")
+    }
+
+    fn delivery_node_1() -> DeliveryNode {
+        DeliveryNode {
+            advertised_sender: Some(HostNode::new(Some("a.bar.com"), None).unwrap()),
+            observed_sender: observed_sender("b.bar.com", "10.10.10.12"),
+            position: 0,
+            recipient: Some("a.baz.com".into()),
+            time: Some(Utc.with_ymd_and_hms(2022, 9, 6, 23, 17, 22).unwrap()),
+            trusted: true,
+        }
+    }
+
+    fn delivery_node_2() -> DeliveryNode {
+        DeliveryNode {
+            advertised_sender: Some(HostNode::new(Some("c.bar.com"), None).unwrap()),
+            observed_sender: observed_sender("d.bar.com", "10.10.10.11"),
+            position: 1,
+            recipient: Some("b.baz.com".into()),
+            time: Some(Utc.with_ymd_and_hms(2022, 9, 6, 23, 17, 21).unwrap()),
+            trusted: false,
+        }
+    }
+
+    fn build_config() -> TestConfig {
+        TestConfig { db_path: Path::new("").to_path_buf() }
+    }
+
+    fn observed_sender(host: &str, ip_address: &str) -> Option<HostNode> {
+        Some(HostNode::new(Some(host), Some(ip_address)).unwrap())
+    }
+
+    struct TestConfig {
+        db_path: PathBuf
+    }
+
+    impl Configuration for TestConfig {
+        fn db_path(&self) -> &PathBuf {
+            &self.db_path
+        }
+
+        fn message_sources(&self) -> Option<&str> {
+            None
+        }
+
+        fn rdap_bootstrap_host(&self) -> Option<&str> {
+            None
+        }
+
+        fn reprocess_run_id(&self) -> Option<i64> {
+            None
+        }
+
+        fn trusted_recipient(&self) -> &str {
+            "a.baz.com"
+        }
     }
 }

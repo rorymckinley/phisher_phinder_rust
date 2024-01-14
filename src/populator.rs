@@ -27,9 +27,11 @@ mod populate_tests {
 
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
+        let arc_bootstrap = Arc::new(bootstrap);
+
         let input = input_data();
 
-        let actual = tokio_test::block_on(populate(bootstrap, input));
+        let actual = tokio_test::block_on(populate(arc_bootstrap, input));
 
         assert_eq!(
             vec![EmailAddressData {
@@ -52,9 +54,11 @@ mod populate_tests {
 
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
+        let arc_bootstrap = Arc::new(bootstrap);
+
         let input = input_data();
 
-        let actual = tokio_test::block_on(populate(bootstrap, input));
+        let actual = tokio_test::block_on(populate(arc_bootstrap, input));
 
         assert_eq!(
             vec![EmailAddressData {
@@ -77,9 +81,11 @@ mod populate_tests {
 
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
+        let arc_bootstrap = Arc::new(bootstrap);
+
         let input = input_data();
 
-        let actual = tokio_test::block_on(populate(bootstrap, input));
+        let actual = tokio_test::block_on(populate(arc_bootstrap, input));
 
         assert_eq!(
             vec![EmailAddressData {
@@ -102,9 +108,11 @@ mod populate_tests {
 
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
+        let arc_bootstrap = Arc::new(bootstrap);
+
         let input = input_data();
 
-        let actual = tokio_test::block_on(populate(bootstrap, input));
+        let actual = tokio_test::block_on(populate(arc_bootstrap, input));
 
         assert_eq!(
             vec![EmailAddressData {
@@ -127,9 +135,11 @@ mod populate_tests {
 
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
+        let arc_bootstrap = Arc::new(bootstrap);
+
         let input = input_data();
 
-        let actual = tokio_test::block_on(populate(bootstrap, input));
+        let actual = tokio_test::block_on(populate(arc_bootstrap, input));
 
         assert_eq!(
             vec![FulfillmentNode {
@@ -155,9 +165,11 @@ mod populate_tests {
 
         let bootstrap = tokio_test::block_on(get_bootstrap());
 
+        let arc_bootstrap = Arc::new(bootstrap);
+
         let input = input_data();
 
-        let actual = tokio_test::block_on(populate(bootstrap, input));
+        let actual = tokio_test::block_on(populate(arc_bootstrap, input));
 
         assert_eq!(
             sorted(vec![
@@ -417,7 +429,7 @@ mod populate_tests {
     }
 }
 
-pub async fn populate(bootstrap: Bootstrap, data: OutputData) -> OutputData {
+pub async fn populate(bootstrap: Arc<Bootstrap>, data: OutputData) -> OutputData {
     let b_strap = Arc::new(bootstrap);
     let update_from =
         lookup_email_address_from_rdap(Arc::clone(&b_strap), data.parsed_mail.email_addresses.from);
