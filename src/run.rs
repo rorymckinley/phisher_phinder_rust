@@ -22,7 +22,10 @@ impl Run {
         Self {
             id,
             data: serde_json::from_str(&data_string).unwrap(),
-            created_at: Utc.datetime_from_str(&created_at, "%Y-%m-%d %H:%M:%S").unwrap(),
+            created_at: DateTime::parse_from_str(
+                &format!("{} +0000", created_at),
+                "%Y-%m-%d %H:%M:%S %z"
+            ).unwrap().into(),
             message_source: MessageSource::persisted_record(
                 message_source_id,
                 &message_source_string
