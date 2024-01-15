@@ -73,9 +73,13 @@ mod persist_message_source_tests {
 
         let (_, _, _, created_at_string) = table_contents(&conn).pop().unwrap();
 
-        let created_at = Utc
-            .datetime_from_str(&created_at_string, "%Y-%m-%d %H:%M:%S")
-            .unwrap();
+        let created_at: DateTime<Utc> = DateTime
+            ::parse_from_str(
+                &format!("{created_at_string} +0000"),
+                "%Y-%m-%d %H:%M:%S %z"
+            )
+            .unwrap()
+            .into();
 
         assert!(created_at.signed_duration_since(now) <= Duration::seconds(1));
     }
@@ -334,9 +338,12 @@ mod persist_run_tests {
 
         let (_, _, _, created_at_string) = table_contents(&conn).pop().unwrap();
 
-        let created_at = Utc
-            .datetime_from_str(&created_at_string, "%Y-%m-%d %H:%M:%S")
-            .unwrap();
+        let created_at: DateTime<Utc> = DateTime
+            ::parse_from_str(
+                &format!("{created_at_string} +0000"), "%Y-%m-%d %H:%M:%S %z"
+            )
+            .unwrap()
+            .into();
 
         assert!(created_at.signed_duration_since(now) <= Duration::seconds(1));
     }
