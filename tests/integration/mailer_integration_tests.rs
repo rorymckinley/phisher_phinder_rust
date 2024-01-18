@@ -94,7 +94,10 @@ fn json_input() -> String {
                 "reply_to": [],
                 "return_path": []
             },
-            "fulfillment_nodes": [],
+            "fulfillment_nodes_container": {
+                "duplicates_removed": false,
+                "nodes": []
+            }
         }
     })
     .to_string()

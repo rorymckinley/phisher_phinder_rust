@@ -11,7 +11,8 @@ async fn main() {
     match ServiceConfiguration::new(read_from_stdin().as_deref(), &cli, std::env::vars()) {
         Ok(config) => {
             match Service::process_message(&config).await {
-                Ok(_) => {
+                Ok(output) => {
+                    println!("{output}");
                     exit(0)
                 },
                 Err(e) => {

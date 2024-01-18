@@ -17,10 +17,10 @@ fn main() {
     match &std::env::var("PP_DB_PATH") {
         Ok(db_path) => {
             if let Ok(conn) = connect(Path::new(&db_path)) {
-                let run_id = persist_run(&conn, &input).unwrap();
+                let run =  persist_run(&conn, &input).unwrap();
 
                 let output = OutputData {
-                    run_id: Some(run_id),
+                    run_id: Some(run.id.into()),
                     ..input
                 };
 

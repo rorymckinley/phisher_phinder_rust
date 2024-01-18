@@ -349,13 +349,15 @@ mod persist_run_tests {
     }
 
     #[test]
-    fn returns_run_id() {
+    fn returns_run_persisted() {
         let conn = connection();
 
         create_message_sources_table(&conn);
         let message_source_id_1 = create_message_source_entry(&conn, 100, "x");
 
-        assert_eq!(1, persist_run(&conn, &input(message_source_id_1)).unwrap())
+        let persisted_run: Run = persist_run(&conn, &input(message_source_id_1)).unwrap();
+
+        assert_eq!(1, persisted_run.id);
     }
 
     #[test]
@@ -452,7 +454,7 @@ mod persist_run_tests {
     }
 }
 
-pub fn persist_run(conn: &Connection, run_data: &OutputData) -> AppResult<i64> {
+pub fn persist_run(conn: &Connection, run_data: &OutputData) -> AppResult<Run> {
     create_runs_table(conn);
 
     conn.execute(
@@ -482,9 +484,11 @@ pub fn persist_run(conn: &Connection, run_data: &OutputData) -> AppResult<i64> {
             // TODO This will break if there is another process writing to the DB
             let mut stmt = conn.prepare("SELECT last_insert_rowid()").unwrap();
 
+            // TODO Error handling for this
             let last_id = stmt.query_row([], |row| row.get::<usize, i64>(0)).unwrap();
 
-            Ok(last_id)
+            find_run(conn, last_id)
+                .ok_or(AppError::Persistence("Could not find Run with provided id".into()))
         }
         Err(rusqlite::Error::SqliteFailure(_, message_option)) => {
             let error_text = match message_option {
@@ -715,7 +719,7 @@ mod find_run_tests {
 
         let output_data = build_output_data(persisted_source);
 
-        persist_run(conn, &output_data).unwrap()
+        persist_run(conn, &output_data).unwrap().id.into()
     }
 
     fn message_source(id: u8) -> MessageSource {
@@ -818,9 +822,7 @@ mod find_runs_for_message_source_tests {
     fn build_run(conn: &Connection, message_source: MessageSource) -> Run {
         let output_data = build_output_data(message_source);
 
-        let run_id = persist_run(conn, &output_data).unwrap();
-
-        find_run(conn, run_id).unwrap()
+        persist_run(conn, &output_data).unwrap()
     }
 
     fn message_source(id: u8) -> MessageSource {

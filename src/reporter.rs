@@ -1,6 +1,11 @@
 use crate::authentication_results::AuthenticationResults;
 use crate::data::{
-    DeliveryNode, EmailAddressData, EmailAddresses, FulfillmentNode, OutputData, ParsedMail,
+    DeliveryNode,
+    EmailAddressData,
+    EmailAddresses,
+    FulfillmentNodesContainer,
+    OutputData,
+    ParsedMail,
     ReportableEntities,
 };
 
@@ -109,7 +114,10 @@ mod add_reportable_entities_tests {
                         reportable_email_address_delivery_node_2(),
                     ],
                 },
-                fulfillment_nodes: vec![fulfillment_node],
+                fulfillment_nodes_container: FulfillmentNodesContainer {
+                    duplicates_removed: false,
+                    nodes: vec![fulfillment_node],
+                }
             }),
             run_id: None,
         }
@@ -198,7 +206,7 @@ pub fn add_reportable_entities(data: OutputData) -> OutputData {
         reportable_entities: Some(ReportableEntities {
             delivery_nodes,
             email_addresses,
-            fulfillment_nodes: extract_reportable_fulfillment_nodes(&data.parsed_mail),
+            fulfillment_nodes_container: extract_reportable_fulfillment_nodes(&data.parsed_mail),
         }),
         ..data
     }
@@ -548,8 +556,88 @@ mod filter_valid_email_addresses_tests {
     }
 }
 
-fn extract_reportable_fulfillment_nodes(parsed_mail: &ParsedMail) -> Vec<FulfillmentNode> {
-    parsed_mail.fulfillment_nodes.clone()
+fn extract_reportable_fulfillment_nodes(parsed_mail: &ParsedMail) -> FulfillmentNodesContainer {
+    let mut nodes =  parsed_mail.fulfillment_nodes.clone();
+
+    nodes.sort_unstable_by(|a, b| a.functional_cmp(b));
+
+    nodes.dedup_by(|a, b| a.functional_eq(b));
+
+    FulfillmentNodesContainer {
+        duplicates_removed: nodes.len() != parsed_mail.fulfillment_nodes.len(),
+        nodes,
+    }
+
+
+}
+
+#[cfg(test)]
+mod extract_reportable_fulfillment_nodes_tests {
+    use crate::data::FulfillmentNode;
+    use super::*;
+
+    #[test]
+    fn returns_fulfillment_nodes() {
+        let input = parsed_mail(fulfillment_nodes());
+        let expected = FulfillmentNodesContainer {
+            duplicates_removed: false,
+            nodes: fulfillment_nodes_sorted(),
+        };
+
+        assert_eq!(expected, extract_reportable_fulfillment_nodes(&input));
+    }
+
+    #[test]
+    fn remove_duplicates_from_the_collection() {
+        let input = parsed_mail(fulfillment_nodes_with_duplicates());
+        let expected = FulfillmentNodesContainer {
+            duplicates_removed: true,
+            nodes: fulfillment_nodes_sorted(),
+        };
+
+        assert_eq!(expected, extract_reportable_fulfillment_nodes(&input));
+    }
+
+    fn parsed_mail(fulfillment_nodes: Vec<FulfillmentNode>) -> ParsedMail {
+        ParsedMail::new(
+            None,
+            vec![],
+            EmailAddresses {
+                from: vec![],
+                links: vec![],
+                reply_to: vec![],
+                return_path: vec![]
+            },
+            fulfillment_nodes,
+            None,
+        )
+    }
+
+    fn fulfillment_nodes() -> Vec<FulfillmentNode> {
+        vec![
+            FulfillmentNode::new("http://foo.biz"),
+            FulfillmentNode::new("http://foo.baz"),
+            FulfillmentNode::new("http://foo.bar"),
+        ]
+    }
+
+    fn fulfillment_nodes_with_duplicates() -> Vec<FulfillmentNode> {
+        vec![
+            FulfillmentNode::new("http://foo.biz"),
+            FulfillmentNode::new("http://foo.baz"),
+            FulfillmentNode::new("http://foo.biz"),
+            FulfillmentNode::new("http://foo.bar"),
+            FulfillmentNode::new("http://foo.baz"),
+        ]
+    }
+
+    fn fulfillment_nodes_sorted() -> Vec<FulfillmentNode> {
+        vec![
+            FulfillmentNode::new("http://foo.bar"),
+            FulfillmentNode::new("http://foo.baz"),
+            FulfillmentNode::new("http://foo.biz"),
+        ]
+    }
 }
 
 #[cfg(test)]

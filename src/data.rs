@@ -1,6 +1,7 @@
 use chrono::prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
 use thiserror::Error;
@@ -663,6 +664,62 @@ mod fulfillment_node_tests {
         assert_eq!(Node::new("https://foo.baz"), f_node.visible);
         assert_eq!(Some(Node::new("https://foo.bar")), f_node.hidden);
     }
+
+    #[test]
+    fn can_indicate_if_functionally_equal_to_other_node() {
+        let f_node = build_node("http://foo.bar", Some("http://foo.baz"));
+        let unequal_node = build_node("http://foo.bar", Some("http://foo.biz"));
+
+        assert!(!f_node.functional_eq(&unequal_node));
+
+        let equal_node = build_node("http://foo.bar", Some("http://foo.baz"));
+        assert!(f_node.functional_eq(&equal_node));
+    }
+
+    #[test]
+    fn can_perform_a_functional_comparison_with_another_node_for_ordering_purposes() {
+        let f_node = build_node("http://foo.bar", Some("http://foo.bas"));
+        let less_than_node = build_node("http://foo.bar", Some("http://foo.bar"));
+
+        assert_eq!(Ordering::Greater, f_node.functional_cmp(&less_than_node));
+
+        let f_node = build_node("http://foo.bar", Some("http://foo.bas"));
+        let equal_node = build_node("http://foo.bar", Some("http://foo.bas"));
+
+        assert_eq!(Ordering::Equal, f_node.functional_cmp(&equal_node));
+
+        let f_node = build_node("http://foo.bar", Some("http://foo.bas"));
+        let greater_than_node = build_node("http://foo.bar", Some("http://foo.bat"));
+
+        assert_eq!(Ordering::Less, f_node.functional_cmp(&greater_than_node));
+    }
+
+    #[test]
+    fn functional_node_is_hidden_node_if_hidden_node_present() {
+        let f_node = build_node("https://foo.bar", Some("https://foo.baz"));
+
+        assert_eq!(
+            &Node::new("https://foo.baz"),
+            f_node.functional_node()
+        )
+    }
+
+    #[test]
+    fn functional_node_is_visible_node_if_hidden_node_absent() {
+        let f_node = build_node("https://foo.bar", None);
+
+        assert_eq!(
+            &Node::new("https://foo.bar"),
+            f_node.functional_node()
+        )
+    }
+
+    fn build_node(visible: &str, hidden: Option<&str>) -> FulfillmentNode {
+        FulfillmentNode {
+            visible: Node::new(visible),
+            hidden: hidden.map(Node::new)
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -690,6 +747,26 @@ impl FulfillmentNode {
 
     pub fn set_hidden(&mut self, url: &str) {
         self.hidden = Some(Node::new(url));
+    }
+
+    pub fn functional_eq(&self, other: &Self) -> bool {
+        self
+            .functional_node()
+            .functional_eq(other.functional_node())
+    }
+
+    pub fn functional_node(&self) -> &Node {
+        if let Some(node) = &self.hidden {
+            node
+        } else {
+            &self.visible
+        }
+    }
+
+    pub fn functional_cmp(&self, other: &Self) -> Ordering {
+        self
+            .functional_node()
+            .functional_cmp(other.functional_node())
     }
 }
 
@@ -891,6 +968,53 @@ mod node_tests {
 
         assert_eq!(expected, Node::new(url))
     }
+
+    #[test]
+    fn returns_host_and_path_as_functional_uri() {
+        let node = Node::new(
+            "https://user:pass@a.b.c/d?p=1#fragment"
+        );
+        assert_eq!(String::from("a.b.c/d"), node.functional_uri());
+    }
+
+    #[test]
+    fn functional_uri_returns_url_changed_if_it_cannot_be_parsed() {
+        let url = "VqX@````````````````````0x5Np";
+        let node = Node::new(url);
+
+        assert_eq!(String::from(url), node.functional_uri());
+    }
+
+    #[test]
+    fn functional_uri_returns_url_unchanged_if_no_host() {
+        let url = "mailto:foo@bar.com";
+        let node = Node::new(url);
+
+        assert_eq!(String::from(url), node.functional_uri());
+    }
+
+    #[test]
+    fn is_functionally_equal_if_functional_uris_match() {
+        let node = Node::new("https://foo.bar.baz/buzz");
+        let unequal_node = Node::new("https://foo.bar.baz/biz");
+        assert!(!node.functional_eq(&unequal_node));
+
+        let equal_node = Node::new("https://foo.bar.baz/buzz");
+        assert!(node.functional_eq(&equal_node));
+    }
+
+    #[test]
+    fn performs_comparison_for_ordering_based_on_host_and_path() {
+        let node = Node::new("https://foo.bar.baz/b");
+        let lesser_node = Node::new("https://foo.bar.baz/a");
+        assert_eq!(Ordering::Greater, node.functional_cmp(&lesser_node));
+
+        let equal_node = Node::new("https://foo.bar.baz/b");
+        assert_eq!(Ordering::Equal, node.functional_cmp(&equal_node));
+
+        let greater_node = Node::new("https://foo.bar.baz/c");
+        assert_eq!(Ordering::Less, node.functional_cmp(&greater_node));
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -907,6 +1031,30 @@ impl Node {
             domain: Domain::from_url(url),
             registrar: None,
         }
+    }
+
+    pub fn functional_uri(&self) -> String {
+        if let Ok(url_obj) = Url::parse(&self.url) {
+            // TODO Need to handle the case where we have no host or an IP host
+            if let Some(host) = url_obj.host() {
+                format!("{}{}", host, url_obj.path())
+            } else {
+                self.url.clone()
+            }
+        } else {
+            self.url.clone()
+        }
+    }
+
+    pub fn functional_eq(&self, other: &Self) -> bool {
+        // TODO How much can we trust the urls? Does the fact that
+        // we have a Node mean that the url can be parsed? If not,
+        // how do we deal with this error? Just return false
+        self.functional_uri() == other.functional_uri()
+    }
+
+    pub fn functional_cmp(&self, other: &Self) -> Ordering {
+        self.functional_uri().cmp(&other.functional_uri())
     }
 }
 
@@ -1521,5 +1669,11 @@ impl TrustedRecipientDeliveryNode {
 pub struct ReportableEntities {
     pub delivery_nodes: Vec<DeliveryNode>,
     pub email_addresses: EmailAddresses,
-    pub fulfillment_nodes: Vec<FulfillmentNode>,
+    pub fulfillment_nodes_container: FulfillmentNodesContainer,
+}
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+pub struct FulfillmentNodesContainer {
+    pub duplicates_removed: bool,
+    pub nodes: Vec<FulfillmentNode>,
 }

@@ -1,25 +1,30 @@
 use assert_cmd::Command;
 use assert_fs::fixture::TempDir;
 use phisher_phinder_rust::authentication_results::AuthenticationResults;
-use phisher_phinder_rust::data::{EmailAddressData, EmailAddresses, OutputData, ParsedMail, ReportableEntities};
+use phisher_phinder_rust::data::{
+    EmailAddressData,
+    EmailAddresses,
+    FulfillmentNodesContainer,
+    OutputData,
+    ParsedMail,
+    ReportableEntities
+};
 use phisher_phinder_rust::message_source::MessageSource;
 use phisher_phinder_rust::persistence::{
     connect,
-    find_run,
     find_runs_for_message_source,
     get_record,
     persist_message_source,
     persist_run,
 };
 use phisher_phinder_rust::run::Run;
+use predicates::prelude::*;
 use rusqlite::Connection;
 use sha2::{Digest, Sha256};
 use std::path::Path;
 
 const BINARY_NAME: &str = "ppr";
-// TODO Overlap with source_parsing_integration_tests
 
-// TODO Flesh out these tests once we have more functionality in binary
 #[test]
 fn processes_input_from_stdin() {
     let temp = TempDir::new().unwrap();
@@ -33,11 +38,6 @@ fn processes_input_from_stdin() {
         .assert()
         .success();
 
-    let persisted_hashes = lookup_message_source_hashes(&db_path);
-
-    assert!(persisted_hashes.contains(&sha256(&mail_body_1())));
-    assert!(persisted_hashes.contains(&sha256(&mail_body_2())));
-
     assert!(
         lookup_run_linked_to_message(
             &db_path, &sha256(&mail_body_1())
@@ -50,8 +50,21 @@ fn processes_input_from_stdin() {
     );
 }
 
-// TODO Flesh out these tests once we have more functionality in binary
-// TODO Add test to cover the case where a run id is provided but the run does not exist
+#[test]
+fn returns_output_from_the_import() {
+    let temp = TempDir::new().unwrap();
+    let db_path = temp.path().join("pp.sqlite3");
+
+    let mut cmd = command(BINARY_NAME);
+
+    cmd
+        .env("PP_DB_PATH", &db_path)
+        .write_stdin(multiple_source_input())
+        .assert()
+        .stdout(predicate::str::contains("2 messages processed"))
+        .success();
+}
+
 #[test]
 fn reruns_an_existing_run() {
     let temp = TempDir::new().unwrap();
@@ -59,17 +72,15 @@ fn reruns_an_existing_run() {
 
     let conn = connect(&db_path).unwrap();
 
-    let _run_1_id = build_run(&conn, 0);
-    let run_2_id = build_run(&conn, 1);
-    let _run_3_id = build_run(&conn, 2);
-
-    let run_2 = find_run(&conn, run_2_id).unwrap();
+    let _run_1 = build_run(&conn, 0);
+    let run_2 = build_run(&conn, 1);
+    let _run_3 = build_run(&conn, 2);
 
     let mut cmd = command(BINARY_NAME);
 
     cmd
         .env("PP_DB_PATH", &db_path)
-        .args(["--reprocess-run", &format!("{run_2_id}")])
+        .args(["--reprocess-run", &format!("{}", run_2.id)])
         .assert()
         .success();
 
@@ -157,22 +168,6 @@ fn sha256(text: &str) -> String {
         .join("")
 }
 
-fn lookup_message_source_hashes(db_path: &Path) -> Vec<String> {
-    let conn = connect(db_path).unwrap();
-
-    let mut stmt = conn
-        .prepare("SELECT hash FROM message_sources")
-        .unwrap();
-
-    let rows = stmt
-        .query_map([], |row| row.get(0))
-        .unwrap();
-
-    rows
-        .map(|row_result| row_result.unwrap())
-        .collect()
-}
-
 fn lookup_run_linked_to_message(db_path: &Path, hash: &str) -> Option<Run> {
     let conn = connect(db_path).unwrap();
 
@@ -181,7 +176,7 @@ fn lookup_run_linked_to_message(db_path: &Path, hash: &str) -> Option<Run> {
     find_runs_for_message_source(&conn, &message_source).pop()
 }
 
-fn build_run(conn: &Connection, index: u8) -> i64 {
+fn build_run(conn: &Connection, index: u8) -> Run {
     let persisted_source = persist_message_source(conn, message_source(index));
 
     let output_data = build_output_data(persisted_source);
@@ -233,7 +228,10 @@ fn reportable_entities() -> ReportableEntities {
     ReportableEntities {
         delivery_nodes: vec![],
         email_addresses: email_addresses("reportable@test.com"),
-        fulfillment_nodes: vec![]
+        fulfillment_nodes_container: FulfillmentNodesContainer {
+            duplicates_removed: false,
+            nodes: vec![],
+        }
     }
 }
 
