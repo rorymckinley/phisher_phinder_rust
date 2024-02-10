@@ -345,38 +345,41 @@ fn expected_json_output() -> serde_json::Value {
                 "reply_to": [],
                 "return_path": []
             },
-            "fulfillment_nodes": [
-                {
-                    "visible": {
-                        "domain": {
-                            "abuse_email_address": null,
-                            "category": "other",
-                            "name": "visible.net",
-                            "registration_date":  "2022-11-18T10:11:15Z",
-                            "resolved_domain": null,
+            "fulfillment_nodes_container": {
+                "duplicates_removed": false,
+                "nodes": [
+                    {
+                        "visible": {
+                            "domain": {
+                                "abuse_email_address": null,
+                                "category": "other",
+                                "name": "visible.net",
+                                "registration_date":  "2022-11-18T10:11:15Z",
+                                "resolved_domain": null,
+                            },
+                            "registrar": {
+                                "name": "Reg Four",
+                                "abuse_email_address": "abuse@regfour.zzz",
+                            },
+                            "url": "https://visible.net",
                         },
-                        "registrar": {
-                            "name": "Reg Four",
-                            "abuse_email_address": "abuse@regfour.zzz",
-                        },
-                        "url": "https://visible.net",
-                    },
-                    "hidden": {
-                        "domain": {
-                            "abuse_email_address": null,
-                            "category": "other",
-                            "name": "hidden.com",
-                            "registration_date":  "2022-11-18T10:11:16Z",
-                            "resolved_domain": null,
-                        },
-                        "registrar": {
-                            "name": "Reg Five",
-                            "abuse_email_address": "abuse@regfive.zzz",
-                        },
-                        "url": "https://hidden.com",
+                        "hidden": {
+                            "domain": {
+                                "abuse_email_address": null,
+                                "category": "other",
+                                "name": "hidden.com",
+                                "registration_date":  "2022-11-18T10:11:16Z",
+                                "resolved_domain": null,
+                            },
+                            "registrar": {
+                                "name": "Reg Five",
+                                "abuse_email_address": "abuse@regfive.zzz",
+                            },
+                            "url": "https://hidden.com",
+                        }
                     }
-                }
-            ],
+                ]
+            }
         },
         "message_source": {
             "id": 9909,

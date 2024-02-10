@@ -5,6 +5,7 @@ use crate::data::{
     Domain,
     EmailAddressData,
     FulfillmentNode,
+    FulfillmentNodesContainer,
     HostNode,
     InfrastructureProvider,
     Node,
@@ -133,6 +134,8 @@ mod display_sender_addresses_extended_tests {
         assert_eq!(
             String::from("\
             +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
+            | Email Addresses                                                                                 |\n\
+            +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
             | Address Source | Address     | Category | Registrar | Registration Date   | Abuse Email Address |\n\
             +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
             | From           | fr@test.www | Other    | Reg One   | 2022-12-01 02:03:04 | abuse@regone.zzz    |\n\
@@ -205,6 +208,8 @@ mod display_sender_addresses_extended_tests {
         assert_eq!(
             String::from("\
             +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
+            | Email Addresses                                                                                 |\n\
+            +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
             | Address Source | Address     | Category | Registrar | Registration Date   | Abuse Email Address |\n\
             +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
             | From           | fr@test.xxx | Other    | Reg One   | 2022-12-01 02:03:04 | abuse@regone.zzz    |\n\
@@ -245,6 +250,10 @@ mod display_sender_addresses_extended_tests {
 
 pub fn display_sender_addresses_extended(data: &OutputData) -> AppResult<String> {
     let mut table = Table::new();
+
+    table.add_row(Row::new(vec![
+        Cell::new("Email Addresses").with_hspan(6)
+    ]));
 
     table.add_row(Row::new(vec![
         Cell::new("Address Source"),
@@ -1128,6 +1137,8 @@ mod display_authentication_results_tests {
             String::from(
                 "\
             +--------------------+------------+-----------+-----------------+\n\
+            | Authentication Results                                        |\n\
+            +--------------------+------------+-----------+-----------------+\n\
             | Service Identifier | N/A                                      |\n\
             +--------------------+------------+-----------+-----------------+\n\
             | DKIM                                                          |\n\
@@ -1155,6 +1166,8 @@ mod display_authentication_results_tests {
         assert_eq!(
             String::from(
                 "\
+            +--------------------+---------------+----------------+-----------------+\n\
+            | Authentication Results                                                |\n\
             +--------------------+---------------+----------------+-----------------+\n\
             | Service Identifier | mx.google.com                                    |\n\
             +--------------------+---------------+----------------+-----------------+\n\
@@ -1219,6 +1232,9 @@ pub fn display_authentication_results(data: &OutputData) -> AppResult<String> {
     let auth_results = data.parsed_mail.authentication_results.as_ref();
 
     table.add_row(Row::new(vec![
+        Cell::new("Authentication Results").with_hspan(4)
+    ]));
+    table.add_row(Row::new(vec![
         Cell::new("Service Identifier"),
         authentication_results_service_identifier(auth_results).with_hspan(3),
     ]));
@@ -1237,7 +1253,6 @@ pub fn display_authentication_results(data: &OutputData) -> AppResult<String> {
         authentication_results_dkim_signature(auth_results),
         authentication_results_dkim_user(auth_results),
     ]));
-    // table.add_row(Row::new(vec![Cell::new("N/A"), Cell::new("N/A"), Cell::new("N/A"), Cell::new("N/A")]));
     table.add_row(Row::new(vec![Cell::new("SPF").with_hspan(4)]));
     table.add_row(Row::new(vec![
         Cell::new("Result"),
@@ -1833,7 +1848,14 @@ pub fn display_run(run: &Run) -> AppResult<String> {
 #[cfg(test)]
 mod display_run_tests {
     use chrono::prelude::*;
-    use crate::data::{DeliveryNode, DomainCategory, EmailAddresses, ParsedMail, ReportableEntities};
+    use crate::data::{
+        DeliveryNode,
+        DomainCategory,
+        EmailAddresses,
+        FulfillmentNodesContainer,
+        ParsedMail,
+        ReportableEntities
+    };
     use crate::message_source::MessageSource;
     use crate::run::Run;
     use super::*;
@@ -1849,6 +1871,8 @@ mod display_run_tests {
             +------------+-------------------------+\n\
             | Created At | 2023-08-29 09:41:30 UTC |\n\
             +------------+-------------------------+\n\
+            \n\
+            Reportable Entities\n\
             \n\
             +-------------+-------------------+\n\
             | Email Addresses                 |\n\
@@ -2126,10 +2150,13 @@ mod display_run_tests {
                     EmailAddresses::to_email_address_data("return.2@test.com".into()),
                 ],
             },
-            fulfillment_nodes: vec![
-                build_fulfillment_node(1),
-                build_fulfillment_node(2),
-            ],
+            fulfillment_nodes_container: FulfillmentNodesContainer {
+                duplicates_removed: false,
+                nodes: vec![
+                    build_fulfillment_node(1),
+                    build_fulfillment_node(2),
+                ],
+            }
         };
 
         Run {
@@ -2257,7 +2284,7 @@ fn run_details(run: &Run) -> AppResult<String> {
 pub fn display_reportable_entities(run: &Run) -> AppResult<String> {
     Ok(
         format!(
-            "{}\n{}\n{}",
+            "Reportable Entities\n\n{}\n{}\n{}",
             email_addresses_details(run).unwrap(),
             delivery_nodes_details(run).unwrap(),
             fulfillment_nodes_details(run).unwrap()
@@ -2272,6 +2299,7 @@ mod display_reportable_entities_tests {
         DeliveryNode,
         DomainCategory,
         EmailAddresses,
+        FulfillmentNodesContainer,
         ParsedMail,
         ReportableEntities,
         ResolvedDomain,
@@ -2286,6 +2314,8 @@ mod display_reportable_entities_tests {
 
         assert_eq!(
             String::from("\
+            Reportable Entities\n\
+            \n\
             +-------------+-------------------+\n\
             | Email Addresses                 |\n\
             +-------------+-------------------+\n\
@@ -2562,10 +2592,13 @@ mod display_reportable_entities_tests {
                     EmailAddresses::to_email_address_data("return.2@test.com".into()),
                 ],
             },
-            fulfillment_nodes: vec![
-                build_fulfillment_node(1),
-                build_fulfillment_node(2),
-            ],
+            fulfillment_nodes_container: FulfillmentNodesContainer {
+                duplicates_removed: false,
+                nodes: vec![
+                    build_fulfillment_node(1),
+                    build_fulfillment_node(2),
+                ],
+            }
         };
 
         Run {
@@ -2936,12 +2969,13 @@ fn fulfillment_nodes_details(run: &Run) -> AppResult<String> {
     let mut table = Table::new();
 
     if let Some(reportable_entities) = &run.data.reportable_entities {
-        let fulfillment_nodes = &reportable_entities.fulfillment_nodes;
+        let fulfillment_nodes = &reportable_entities.fulfillment_nodes_container.nodes;
 
         table.add_row(
-            Row::new(vec![
-                Cell::new("Fulfillment Nodes").with_hspan(3),
-            ])
+            fulfillment_nodes_header(&reportable_entities.fulfillment_nodes_container)
+            // Row::new(vec![
+            //     Cell::new("Fulfillment Nodes").with_hspan(3),
+            // ])
         );
 
         for node in fulfillment_nodes {
@@ -2950,6 +2984,47 @@ fn fulfillment_nodes_details(run: &Run) -> AppResult<String> {
     }
 
     table_to_string(&table)
+}
+
+fn fulfillment_nodes_header(container: &FulfillmentNodesContainer) -> Row {
+    let header = if container.duplicates_removed {
+        "Fulfillment Nodes [Duplicates Removed]"
+    } else {
+        "Fulfillment Nodes"
+    };
+
+    Row::new(vec![Cell::new(header).with_hspan(3)])
+}
+
+#[cfg(test)]
+mod fulfillment_nodes_header_tests {
+    use super::*;
+
+    #[test]
+    fn returns_duplicates_not_removed_header() {
+        let container = FulfillmentNodesContainer {
+            duplicates_removed: false,
+            nodes: vec![]
+        };
+        let expected = Row::new(vec![
+            Cell::new("Fulfillment Nodes").with_hspan(3)
+        ]);
+
+        assert_eq!(expected, fulfillment_nodes_header(&container));
+    }
+
+    #[test]
+    fn returns_duplicates_removed_header() {
+        let container = FulfillmentNodesContainer {
+            duplicates_removed: true,
+            nodes: vec![]
+        };
+        let expected = Row::new(vec![
+            Cell::new("Fulfillment Nodes [Duplicates Removed]").with_hspan(3)
+        ]);
+
+        assert_eq!(expected, fulfillment_nodes_header(&container));
+    }
 }
 
 fn add_fulfillment_node_rows(table: &mut Table, node: &FulfillmentNode) {
@@ -3071,6 +3146,82 @@ mod display_run_ids_tests {
             links: vec![],
             reply_to: vec![],
             return_path: vec![]
+        }
+    }
+}
+
+pub fn display_metadata(run: &Run) -> AppResult<String> {
+    let mut table = Table::new();
+
+    let message_source_id = run
+        .message_source
+        .id
+        .map(|val| format!("{val}"));
+
+    table.add_row(Row::new(vec![
+        Cell::new("Metadata").with_hspan(2)
+    ]));
+    table.add_row(Row::new(vec![
+        Cell::new("Message Source ID"),
+        optional_cell(message_source_id.as_deref())
+    ]));
+    table.add_row(Row::new(vec![
+        Cell::new("Run ID"),
+        Cell::new(&run.id.to_string())
+    ]));
+
+    table_to_string(&table)
+}
+
+#[cfg(test)]
+mod display_metadata_tests {
+    use crate::data::{EmailAddresses, OutputData, ParsedMail};
+    use crate::message_source::MessageSource;
+    use super::*;
+
+    #[test]
+    fn produces_string_containing_run_metadata() {
+        let run = build_run();
+
+        assert_eq!(
+            String::from("\
+            +-------------------+------+\n\
+            | Metadata                 |\n\
+            +-------------------+------+\n\
+            | Message Source ID | 5678 |\n\
+            +-------------------+------+\n\
+            | Run ID            | 1234 |\n\
+            +-------------------+------+\n\
+            "),
+            display_metadata(&run).unwrap()
+        );
+    }
+
+    fn build_run() -> Run {
+        Run {
+            id: 1234,
+            created_at: Utc.with_ymd_and_hms(2023, 8, 29, 9, 41, 30).unwrap(),
+            data: OutputData {
+                message_source: MessageSource::new(""),
+                parsed_mail: ParsedMail {
+                    authentication_results: None,
+                    delivery_nodes: vec![],
+                    email_addresses: EmailAddresses {
+                        from: vec![],
+                        links: vec![],
+                        reply_to: vec![],
+                        return_path: vec![],
+                    },
+                    fulfillment_nodes: vec![],
+                    subject: None,
+                },
+                reportable_entities: None,
+                run_id: None,
+            },
+            message_source: MessageSource {
+                data: "".into(),
+                id: Some(5678),
+            }
         }
     }
 }

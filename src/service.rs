@@ -6,6 +6,8 @@ use crate::errors::AppError;
 use crate::persistence::{connect, find_run, persist_message_source, persist_run};
 use crate::populator::populate;
 use crate::reporter::add_reportable_entities;
+use crate::run::Run;
+use crate::run_presenter::present;
 use crate::sources::create_from_str;
 use mail_parser::*;
 use rusqlite::Connection;
@@ -321,9 +323,11 @@ pub struct Service {
 }
 
 impl Service {
-    pub async fn process_message<T>(config: &T) -> Result<(), AppError>
+    pub async fn process_message<T>(config: &T) -> Result<String, AppError>
     where T: Configuration {
-        let input_data = Self::process_message_source(config)?;
+        let connection = Self::setup_connection(config)?;
+
+        let input_data = Self::process_message_source(&connection, config)?;
 
         // From https://users.rust-lang.org/t/how-to-tokio-join-on-a-vector-of-futures/73233
         let enumeration_tasks: Vec<_> = input_data
@@ -352,14 +356,24 @@ impl Service {
             .map(|task| { tokio::spawn(populate(Arc::clone(&b_strap), task))})
             .collect();
 
-        Self::persist_runs(config, populate_tasks).await?;
+        let records_with_reportable_entities = Self::add_reportable_entities(populate_tasks).await;
 
-        Ok(())
+        let run_result = Self::persist_runs(&connection, records_with_reportable_entities)?;
+
+        // TODO The error in the Result is a tuple of (Connection, Error)
+        // Add error conversion for this
+        connection.close().unwrap();
+
+        match run_result {
+            RunStorageResult::MultipleRuns(count) => Ok(format!("{count} messages processed.")),
+            RunStorageResult::SingleRun(boxed_run) => {
+                present(*boxed_run)
+            }
+        }
     }
 
-    fn process_message_source<T>( config: &T) -> Result<Vec<OutputData>, AppError>
+    fn process_message_source<T>(connection: &Connection,  config: &T) -> Result<Vec<OutputData>, AppError>
     where T: Configuration {
-        let connection = Self::setup_connection(config)?;
 
         if let Some(message_sources)= config.message_sources() {
             let outputs = create_from_str(message_sources)
@@ -380,12 +394,10 @@ impl Service {
                 })
                 .collect::<Vec<_>>();
 
-            // TODO The error in the Result is a tuple of (Connection, Error)
-            // Add error conversion for this
-            connection.close().unwrap();
-
             Ok(outputs)
         } else if let Some(run_id) = config.reprocess_run_id() {
+            let connection = Self::setup_connection(config)?;
+
             if let Some(run) = find_run(&connection, run_id) {
                 // TODO Better error handling
                 let parsed_mail = Message::parse(run.message_source.data.as_bytes()).unwrap();
@@ -404,6 +416,10 @@ impl Service {
 
                 Ok(vec![output])
             } else {
+                // TODO The error in the Result is a tuple of (Connection, Error)
+                // Add error conversion for this
+                connection.close().unwrap();
+
                 Err(AppError::SpecifiedRunMissing)
             }
         } else {
@@ -412,31 +428,51 @@ impl Service {
 
     }
 
-    // TODO Not sure if this is the greatest abstraction - what if we ned up with 
-    // a collection of things that aren't Futures?
-    async fn persist_runs<T>(config: &T, output_tasks: Vec<impl Future<Output=Result<OutputData, JoinError>>>)
-    -> Result<(), AppError>
-    where T: Configuration {
-        let connection = Self::setup_connection(config)?;
+    fn persist_runs(connection: &Connection, output_data_records: Vec<OutputData>)
+    -> Result<RunStorageResult, AppError> {
+        let mut runs: Vec<Run> = vec![];
+
+        for record in output_data_records {
+            // TODO Better error handling here -  what do we do if enumerating output data
+            // fails?
+            // TODO what do we if enumerating works out but we get a JoinError from the `.await`
+            // How do I test that?
+            let run = persist_run(connection, &record)?;
+            runs.push(run);
+        }
+
+
+        let run_count = runs.len();
+
+        // TODO Cover the empty use case
+        if run_count == 1 {
+            //TODO Better error handling
+            Ok(RunStorageResult::SingleRun(Box::new(runs.pop().unwrap())))
+        } else {
+            Ok(RunStorageResult::MultipleRuns(run_count))
+        }
+    }
+
+    async fn add_reportable_entities(
+        output_tasks: Vec<impl Future<Output=Result<OutputData, JoinError>>>
+    ) -> Vec<OutputData> {
+        let mut output: Vec<OutputData> = vec![];
 
         for task in output_tasks {
             // TODO Better error handling here -  what do we do if enumerating output data
             // fails?
             // TODO what do we if enumerating works out but we get a JoinError from the `.await`
             // How do I test that?
-            persist_run(&connection, &add_reportable_entities(task.await.unwrap()))?;
+            output.push(add_reportable_entities(task.await.unwrap()))
         }
 
-        // TODO The error in the Result is a tuple of (Connection, Error)
-        // Add error conversion for this
-        connection.close().unwrap();
-
-        Ok(())
+        output
     }
 
     fn setup_connection<T>(config: &T) -> Result<Connection, AppError>
     where T: Configuration {
-        connect(config.db_path()).map_err(|_| {
+        connect(config.db_path()).map_err(|e| {
+            println!("{e:?}");
             // NOTE There is a chance that this fails, due to invalid UTF-8
             // Not sure how likely it is to happen, but it is really hard to test,
             // so for now, allow it to panic
@@ -444,6 +480,11 @@ impl Service {
             AppError::DatabasePathIncorrect(path.into())
         })
     }
+}
+
+enum RunStorageResult {
+    MultipleRuns(usize),
+    SingleRun(Box<Run>),
 }
 
 #[cfg(test)]
@@ -480,6 +521,9 @@ mod service_process_message_from_stdin_tests {
 
     #[test]
     fn persists_a_run_for_each_message_source() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+
         let temp = TempDir::new().unwrap();
         let db_path = temp.path().join("pp.sqlite3");
         let input = multiple_source_input();
@@ -499,8 +543,45 @@ mod service_process_message_from_stdin_tests {
         assert_eq!(MessageSource::persisted_record(2, &mail_body_2()), run_2_data_source);
     }
 
+    #[test]
+    fn returns_number_of_messages_processed_if_multiple_messages() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+
+        let temp = TempDir::new().unwrap();
+        let db_path = temp.path().join("pp.sqlite3");
+        let input = multiple_source_input();
+
+        let config = build_config(Some(&input), None, &db_path);
+
+        let output = tokio_test::block_on(Service::process_message(&config)).unwrap();
+
+        assert_eq!(String::from("2 messages processed."), output);
+    }
+
+    #[test]
+    fn returns_the_run_details_if_single_message() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+
+        let temp = TempDir::new().unwrap();
+        let db_path = temp.path().join("pp.sqlite3");
+        let input = single_source_input();
+
+        let config = build_config(Some(&input), None, &db_path);
+
+        let output = tokio_test::block_on(Service::process_message(&config)).unwrap();
+
+        assert!(output.contains("Abuse Email Address"));
+        assert!(output.contains(""))
+    }
+
     fn multiple_source_input() -> String {
         format!("{}\r\n{}", entry_1(), entry_2())
+    }
+
+    fn single_source_input() -> String {
+        entry_1()
     }
 
     fn entry_1() -> String {
@@ -562,7 +643,13 @@ mod service_process_message_from_stdin_tests {
 mod service_process_message_rerun_tests {
     use assert_fs::fixture::TempDir;
     use crate::authentication_results::AuthenticationResults;
-    use crate::data::{EmailAddressData, EmailAddresses, ParsedMail, ReportableEntities};
+    use crate::data::{
+        EmailAddressData,
+        EmailAddresses,
+        FulfillmentNodesContainer,
+        ParsedMail,
+        ReportableEntities
+    };
     use crate::message_source::MessageSource;
     use crate::mountebank::{clear_all_impostors, setup_bootstrap_server};
     use crate::persistence::{connect, find_runs_for_message_source};
@@ -650,7 +737,7 @@ mod service_process_message_rerun_tests {
 
         let output_data = build_output_data(persisted_source);
 
-        persist_run(conn, &output_data).unwrap()
+        persist_run(conn, &output_data).unwrap().id.into()
     }
 
     fn message_source(index: u8) -> MessageSource {
@@ -680,7 +767,10 @@ mod service_process_message_rerun_tests {
         ReportableEntities {
             delivery_nodes: vec![],
             email_addresses: email_addresses("reportable@test.com"),
-            fulfillment_nodes: vec![]
+            fulfillment_nodes_container: FulfillmentNodesContainer {
+                duplicates_removed: false,
+                nodes: vec![],
+            }
         }
     }
 
@@ -897,7 +987,14 @@ mod service_process_message_enumerate_urls_test {
 mod service_process_message_populate_from_rdap_tests {
     use assert_fs::fixture::TempDir;
     use chrono::prelude::*;
-    use crate::data::{Domain, DomainCategory, EmailAddressData, EmailAddresses, Registrar, ResolvedDomain};
+    use crate::data::{
+        Domain,
+        DomainCategory,
+        EmailAddressData,
+        EmailAddresses,
+        Registrar,
+        ResolvedDomain
+    };
     use crate::mountebank::{
         clear_all_impostors, setup_bootstrap_server, setup_dns_server, setup_ip_v4_server,
         DnsServerConfig, IpServerConfig,
@@ -1088,7 +1185,13 @@ mod service_process_message_populate_from_rdap_tests {
 #[cfg(test)]
 mod service_process_message_add_reportable_entities_tests {
     use assert_fs::fixture::TempDir;
-    use crate::data::{EmailAddresses, FulfillmentNode, Node, ReportableEntities};
+    use crate::data::{
+        EmailAddresses,
+        FulfillmentNode,
+        FulfillmentNodesContainer,
+        Node,
+        ReportableEntities
+    };
     use crate::mountebank::*;
     use crate::persistence::connect;
     use support::{cli, env_var_iterator};
@@ -1186,12 +1289,16 @@ mod service_process_message_add_reportable_entities_tests {
                     reply_to: vec![],
                     return_path: vec![]
                 },
-                fulfillment_nodes: vec![
-                    FulfillmentNode {
-                        hidden: Some(Node::new(hidden_url)),
-                        visible: Node::new(visible_url)
+                fulfillment_nodes_container:
+                    FulfillmentNodesContainer {
+                        duplicates_removed: false,
+                        nodes: vec![
+                            FulfillmentNode {
+                                hidden: Some(Node::new(hidden_url)),
+                                visible: Node::new(visible_url)
+                            }
+                        ],
                     }
-                ]
             }
         )
     }

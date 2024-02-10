@@ -12,8 +12,16 @@ use url::Url;
 mod build_mail_definitions_tests {
     use super::*;
     use crate::data::{
-        DeliveryNode, Domain, DomainCategory, EmailAddressData, FulfillmentNode, HostNode,
-        InfrastructureProvider, Node, ReportableEntities,
+        DeliveryNode,
+        Domain,
+        DomainCategory,
+        EmailAddressData,
+        FulfillmentNode,
+        FulfillmentNodesContainer,
+        HostNode,
+        InfrastructureProvider,
+        Node,
+        ReportableEntities,
     };
 
     #[test]
@@ -34,7 +42,7 @@ mod build_mail_definitions_tests {
         ReportableEntities {
             delivery_nodes: delivery_nodes(),
             email_addresses: email_addresses(),
-            fulfillment_nodes: fulfillment_nodes(),
+            fulfillment_nodes_container: fulfillment_nodes(),
         }
     }
 
@@ -47,18 +55,21 @@ mod build_mail_definitions_tests {
         }
     }
 
-    fn fulfillment_nodes() -> Vec<FulfillmentNode> {
-        vec![FulfillmentNode {
-            hidden: None,
-            visible: Node {
-                domain: None,
-                registrar: Some(Registrar {
-                    abuse_email_address: Some("abuse@regtwo.zzz".into()),
-                    name: None,
-                }),
-                url: "https://dodgy.phishing.link".into(),
-            },
-        }]
+    fn fulfillment_nodes() -> FulfillmentNodesContainer {
+        FulfillmentNodesContainer {
+            duplicates_removed: false,
+            nodes: vec![FulfillmentNode {
+                hidden: None,
+                visible: Node {
+                    domain: None,
+                    registrar: Some(Registrar {
+                        abuse_email_address: Some("abuse@regtwo.zzz".into()),
+                        name: None,
+                    }),
+                    url: "https://dodgy.phishing.link".into(),
+                },
+            }]
+        }
     }
 
     fn delivery_nodes() -> Vec<DeliveryNode> {
@@ -115,7 +126,9 @@ pub fn build_mail_definitions(entities_option: Option<&ReportableEntities>) -> V
     match entities_option {
         Some(entities) => vec![
             build_mail_definitions_from_email_addresses(&entities.email_addresses),
-            build_mail_definitions_from_fulfillment_nodes(&entities.fulfillment_nodes),
+            build_mail_definitions_from_fulfillment_nodes(
+                &entities.fulfillment_nodes_container.nodes
+            ),
             build_mail_definitions_from_delivery_nodes(&entities.delivery_nodes),
         ]
         .into_iter()

@@ -4,6 +4,7 @@ use phisher_phinder_rust::authentication_results::AuthenticationResults;
 use phisher_phinder_rust::data::{
     EmailAddressData,
     EmailAddresses,
+    FulfillmentNodesContainer,
     OutputData,
     ParsedMail,
     ReportableEntities
@@ -171,7 +172,7 @@ fn build_run(conn: &Connection, index: u8) -> i64 {
 
     let output_data = build_output_data(persisted_source);
 
-    persist_run(conn, &output_data).unwrap()
+    persist_run(conn, &output_data).unwrap().id.into()
 }
 
 fn message_source(index: u8) -> MessageSource {
@@ -218,6 +219,9 @@ fn reportable_entities() -> ReportableEntities {
     ReportableEntities {
         delivery_nodes: vec![],
         email_addresses: email_addresses("reportable@test.com"),
-        fulfillment_nodes: vec![]
+        fulfillment_nodes_container: FulfillmentNodesContainer {
+            duplicates_removed: false,
+            nodes: vec![],
+        }
     }
 }
