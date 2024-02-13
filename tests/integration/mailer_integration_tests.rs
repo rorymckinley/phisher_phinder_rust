@@ -2,6 +2,7 @@ use assert_cmd::Command;
 use phisher_phinder_rust::mail_trap::MailTrap;
 
 #[test]
+#[ignore]
 fn send_mail_to_abuse_contacts() {
     let mail_trap = MailTrap::new(mail_trap_api_token());
 

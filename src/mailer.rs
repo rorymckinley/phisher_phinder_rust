@@ -1272,6 +1272,7 @@ mod mailer_tests {
     }
 
     #[test]
+    #[ignore]
     fn it_sends_emails() {
         let mailtrap = initialise_mail_trap();
 
@@ -1303,6 +1304,7 @@ mod mailer_tests {
     }
 
     #[test]
+    #[ignore]
     fn does_not_send_emails_if_no_abuse_address() {
         let mailtrap = initialise_mail_trap();
 
@@ -1327,6 +1329,7 @@ mod mailer_tests {
     }
 
     #[test]
+    #[ignore]
     fn does_not_send_mails_if_reportable_entity_is_not_reportable() {
         let mailtrap = initialise_mail_trap();
 

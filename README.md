@@ -78,9 +78,20 @@ env $(cat .env | xargs) cargo run --bin ppr --reprocess-run <RUN_ID>
 
 ## Running tests
 
-Mailtrap account is required to run the all the tests, but a free account only allows 100 mails
-per month :( - consider a feature to disable mail testing.
+Start the mountebank container:
 
-Start the mountebank container: `docker-compose up -d`
-Run the tests: `env $(cat .env.test | xargs) cargo test --features test-mocks`
+`docker-compose up -d`
 
+To run all the tests (see below) a [Mailtrap](https://mailtrap.io/) account is required.
+
+### Running without mail-sending tests
+
+Given the current deprioritisation of mail sending as a feature, the default test run will **not**
+run the mail sending tests. This reduces the amount of traffic to the Mailtrap account, as the 
+free account only allows 100 mails per month.
+
+`env $(cat .env.test | xargs) cargo test --features test-mocks`
+
+### Running with mail-sending tests
+
+`env $(cat .env.test | xargs) cargo test --features test-mocks -- --include-ignored`
