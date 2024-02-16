@@ -16,7 +16,10 @@ fn main() {
     let run = find_run(&conn, cli.run_id).unwrap();
 
     if cli.email_addresses {
-        println!("{}", display_sender_addresses_extended(&run.data).unwrap());
+        println!(
+            "{}",
+            display_sender_addresses_extended(&run.data.parsed_mail.email_addresses).unwrap()
+        );
     }
 
     if cli.authentication_results {
