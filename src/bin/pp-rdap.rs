@@ -36,7 +36,7 @@ async fn main() {
     if cli.human {
         println!(
             "{}",
-            ui::display_sender_addresses_extended(&output).unwrap()
+            ui::display_sender_addresses_extended(&output.parsed_mail.email_addresses).unwrap()
         );
         println!();
         println!("{}", ui::display_fulfillment_nodes(&output).unwrap());

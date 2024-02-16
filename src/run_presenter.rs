@@ -12,7 +12,7 @@ pub fn present(run: Run) -> AppResult<String> {
     Ok(
         [
             display_metadata(&run)?,
-            display_sender_addresses_extended(&run.data)?,
+            display_sender_addresses_extended(&run.data.parsed_mail.email_addresses)?,
             display_authentication_results(&run.data)?,
             display_reportable_entities(&run)?
         ]

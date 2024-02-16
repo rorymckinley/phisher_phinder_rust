@@ -3,6 +3,7 @@ use crate::authentication_results::AuthenticationResults;
 use crate::data::{
     DeliveryNode,
     Domain,
+    EmailAddresses,
     EmailAddressData,
     FulfillmentNode,
     FulfillmentNodesContainer,
@@ -21,114 +22,101 @@ use regex::Regex;
 #[cfg(test)]
 mod display_sender_addresses_extended_tests {
     use super::*;
-    use crate::authentication_results::{Dkim, DkimResult, Spf, SpfResult};
     use crate::data::{
-        Domain, DomainCategory, EmailAddressData, EmailAddresses, ParsedMail, Registrar,
+        Domain, DomainCategory, EmailAddressData, EmailAddresses, Registrar,
     };
-    use crate::message_source::MessageSource;
 
     #[test]
     fn displays_extended_data_for_sender_addresses() {
-        let data = OutputData {
-            parsed_mail: ParsedMail {
-                authentication_results: authentication_results(),
-                delivery_nodes: vec![],
-                fulfillment_nodes: vec![],
-                subject: Some("Send me money now! Please?".into()),
-                email_addresses: EmailAddresses {
-                    from: vec![EmailAddressData {
-                        address: "fr@test.www".into(),
-                        domain: Some(Domain {
-                            abuse_email_address: None,
-                            category: DomainCategory::Other,
-                            name: "test.www".into(),
-                            registration_date: Some(datetime(2022, 12, 1, 2, 3, 4)),
-                            resolved_domain: None,
-                        }),
-                        registrar: Some(Registrar {
-                            abuse_email_address: Some("abuse@regone.zzz".into()),
-                            name: Some("Reg One".into()),
-                        }),
-                    }],
-                    reply_to: vec![
-                        EmailAddressData {
-                            address: "rt@test.xxx".into(),
-                            domain: Some(Domain {
-                                abuse_email_address: None,
-                                category: DomainCategory::Other,
-                                name: "test.xxx".into(),
-                                registration_date: Some(datetime(2022, 12, 2, 3, 4, 5)),
-                                resolved_domain: None,
-                            }),
-                            registrar: Some(Registrar {
-                                abuse_email_address: Some("abuse@regtwo.zzz".into()),
-                                name: Some("Reg Two".into()),
-                            }),
-                        },
-                        EmailAddressData {
-                            address: "rt@test.yyy".into(),
-                            domain: Some(Domain {
-                                abuse_email_address: None,
-                                category: DomainCategory::Other,
-                                name: "test.yyy".into(),
-                                registration_date: Some(datetime(2022, 12, 2, 3, 4, 6)),
-                                resolved_domain: None,
-                            }),
-                            registrar: Some(Registrar {
-                                abuse_email_address: Some("abuse@regthree.zzz".into()),
-                                name: Some("Reg Three".into()),
-                            }),
-                        },
-                    ],
-                    return_path: vec![EmailAddressData {
-                        address: "rp@test.zzz".into(),
-                        domain: Some(Domain {
-                            abuse_email_address: None,
-                            category: DomainCategory::Other,
-                            name: "test.zzz".into(),
-                            registration_date: Some(datetime(2022, 12, 3, 4, 5, 7)),
-                            resolved_domain: None,
-                        }),
-                        registrar: Some(Registrar {
-                            abuse_email_address: Some("abuse@regfour.zzz".into()),
-                            name: Some("Reg Four".into()),
-                        }),
-                    }],
-                    links: vec![
-                        EmailAddressData {
-                            address: "l1@test.aaa".into(),
-                            domain: Some(Domain {
-                                abuse_email_address: None,
-                                category: DomainCategory::Other,
-                                name: "test.aaa".into(),
-                                registration_date: Some(datetime(2022, 12, 4, 5, 6, 8)),
-                                resolved_domain: None,
-                            }),
-                            registrar: Some(Registrar {
-                                abuse_email_address: Some("abuse@regfive.zzz".into()),
-                                name: Some("Reg Five".into()),
-                            }),
-                        },
-                        EmailAddressData {
-                            address: "l2@test.bbb".into(),
-                            domain: Some(Domain {
-                                abuse_email_address: None,
-                                category: DomainCategory::Other,
-                                name: "test.bbb".into(),
-                                registration_date: Some(datetime(2022, 12, 4, 5, 6, 9)),
-                                resolved_domain: None,
-                            }),
-                            registrar: Some(Registrar {
-                                abuse_email_address: Some("abuse@regsix.zzz".into()),
-                                name: Some("Reg Six".into()),
-                            }),
-                        },
-                    ],
+        let email_addresses = EmailAddresses {
+            from: vec![EmailAddressData {
+                address: "fr@test.www".into(),
+                domain: Some(Domain {
+                    abuse_email_address: None,
+                    category: DomainCategory::Other,
+                    name: "test.www".into(),
+                    registration_date: Some(datetime(2022, 12, 1, 2, 3, 4)),
+                    resolved_domain: None,
+                }),
+                registrar: Some(Registrar {
+                    abuse_email_address: Some("abuse@regone.zzz".into()),
+                    name: Some("Reg One".into()),
+                }),
+            }],
+            reply_to: vec![
+                EmailAddressData {
+                    address: "rt@test.xxx".into(),
+                    domain: Some(Domain {
+                        abuse_email_address: None,
+                        category: DomainCategory::Other,
+                        name: "test.xxx".into(),
+                        registration_date: Some(datetime(2022, 12, 2, 3, 4, 5)),
+                        resolved_domain: None,
+                    }),
+                    registrar: Some(Registrar {
+                        abuse_email_address: Some("abuse@regtwo.zzz".into()),
+                        name: Some("Reg Two".into()),
+                    }),
                 },
-            },
-            message_source: MessageSource::new(""),
-            reportable_entities: None,
-            run_id: None,
+                EmailAddressData {
+                    address: "rt@test.yyy".into(),
+                    domain: Some(Domain {
+                        abuse_email_address: None,
+                        category: DomainCategory::Other,
+                        name: "test.yyy".into(),
+                        registration_date: Some(datetime(2022, 12, 2, 3, 4, 6)),
+                        resolved_domain: None,
+                    }),
+                    registrar: Some(Registrar {
+                        abuse_email_address: Some("abuse@regthree.zzz".into()),
+                        name: Some("Reg Three".into()),
+                    }),
+                },
+                ],
+                return_path: vec![EmailAddressData {
+                    address: "rp@test.zzz".into(),
+                    domain: Some(Domain {
+                        abuse_email_address: None,
+                        category: DomainCategory::Other,
+                        name: "test.zzz".into(),
+                        registration_date: Some(datetime(2022, 12, 3, 4, 5, 7)),
+                        resolved_domain: None,
+                    }),
+                    registrar: Some(Registrar {
+                        abuse_email_address: Some("abuse@regfour.zzz".into()),
+                        name: Some("Reg Four".into()),
+                    }),
+                }],
+                links: vec![
+                    EmailAddressData {
+                        address: "l1@test.aaa".into(),
+                        domain: Some(Domain {
+                            abuse_email_address: None,
+                            category: DomainCategory::Other,
+                            name: "test.aaa".into(),
+                            registration_date: Some(datetime(2022, 12, 4, 5, 6, 8)),
+                            resolved_domain: None,
+                        }),
+                        registrar: Some(Registrar {
+                            abuse_email_address: Some("abuse@regfive.zzz".into()),
+                            name: Some("Reg Five".into()),
+                        }),
+                    },
+                    EmailAddressData {
+                        address: "l2@test.bbb".into(),
+                        domain: Some(Domain {
+                            abuse_email_address: None,
+                            category: DomainCategory::Other,
+                            name: "test.bbb".into(),
+                            registration_date: Some(datetime(2022, 12, 4, 5, 6, 9)),
+                            resolved_domain: None,
+                        }),
+                        registrar: Some(Registrar {
+                            abuse_email_address: Some("abuse@regsix.zzz".into()),
+                            name: Some("Reg Six".into()),
+                        }),
+                    },
+                    ],
         };
 
         assert_eq!(
@@ -151,58 +139,47 @@ mod display_sender_addresses_extended_tests {
             |                | l2@test.bbb | Other    | Reg Six   | 2022-12-04 05:06:09 | abuse@regsix.zzz    |\n\
             +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
             "),
-            display_sender_addresses_extended(&data).unwrap()
+            display_sender_addresses_extended(&email_addresses).unwrap()
         )
     }
 
     #[test]
     fn display_extended_data_no_domain_data() {
-        let data = OutputData {
-            parsed_mail: ParsedMail {
-                authentication_results: authentication_results(),
-                delivery_nodes: vec![],
-                fulfillment_nodes: vec![],
-                subject: Some("Send me money now! Please?".into()),
-                email_addresses: EmailAddresses {
-                    from: vec![EmailAddressData {
-                        address: "fr@test.xxx".into(),
-                        domain: Some(Domain {
-                            abuse_email_address: None,
-                            category: DomainCategory::Other,
-                            name: "test.xxx".into(),
-                            registration_date: Some(datetime(2022, 12, 1, 2, 3, 4)),
-                            resolved_domain: None,
-                        }),
-                        registrar: Some(Registrar {
-                            abuse_email_address: Some("abuse@regone.zzz".into()),
-                            name: Some("Reg One".into()),
-                        }),
-                    }],
-                    reply_to: vec![EmailAddressData {
-                        address: "rt@test.yyy".into(),
-                        domain: None,
-                        registrar: None,
-                    }],
-                    return_path: vec![EmailAddressData {
-                        address: "rp@test.zzz".into(),
-                        domain: Some(Domain {
-                            abuse_email_address: None,
-                            category: DomainCategory::Other,
-                            name: "test.zzz".into(),
-                            registration_date: Some(datetime(2022, 12, 3, 4, 5, 6)),
-                            resolved_domain: None,
-                        }),
-                        registrar: Some(Registrar {
-                            abuse_email_address: Some("abuse@regthree.zzz".into()),
-                            name: Some("Reg Three".into()),
-                        }),
-                    }],
-                    links: vec![],
-                },
-            },
-            message_source: MessageSource::new(""),
-            reportable_entities: None,
-            run_id: None,
+        let email_addresses = EmailAddresses {
+            from: vec![EmailAddressData {
+                address: "fr@test.xxx".into(),
+                domain: Some(Domain {
+                    abuse_email_address: None,
+                    category: DomainCategory::Other,
+                    name: "test.xxx".into(),
+                    registration_date: Some(datetime(2022, 12, 1, 2, 3, 4)),
+                    resolved_domain: None,
+                }),
+                registrar: Some(Registrar {
+                    abuse_email_address: Some("abuse@regone.zzz".into()),
+                    name: Some("Reg One".into()),
+                }),
+            }],
+            reply_to: vec![EmailAddressData {
+                address: "rt@test.yyy".into(),
+                domain: None,
+                registrar: None,
+            }],
+            return_path: vec![EmailAddressData {
+                address: "rp@test.zzz".into(),
+                domain: Some(Domain {
+                    abuse_email_address: None,
+                    category: DomainCategory::Other,
+                    name: "test.zzz".into(),
+                    registration_date: Some(datetime(2022, 12, 3, 4, 5, 6)),
+                    resolved_domain: None,
+                }),
+                registrar: Some(Registrar {
+                    abuse_email_address: Some("abuse@regthree.zzz".into()),
+                    name: Some("Reg Three".into()),
+                }),
+            }],
+            links: vec![],
         };
 
         assert_eq!(
@@ -219,7 +196,7 @@ mod display_sender_addresses_extended_tests {
             | Return-Path    | rp@test.zzz | Other    | Reg Three | 2022-12-03 04:05:06 | abuse@regthree.zzz  |\n\
             +----------------+-------------+----------+-----------+---------------------+---------------------+\n\
             "),
-            display_sender_addresses_extended(&data).unwrap()
+            display_sender_addresses_extended(&email_addresses).unwrap()
         )
     }
 
@@ -229,26 +206,9 @@ mod display_sender_addresses_extended_tests {
             .single()
             .unwrap()
     }
-
-    fn authentication_results() -> Option<AuthenticationResults> {
-        Some(AuthenticationResults {
-            dkim: Some(Dkim {
-                result: Some(DkimResult::Fail),
-                selector: Some("".into()),
-                signature_snippet: Some("".into()),
-                user_identifier_snippet: Some("".into()),
-            }),
-            service_identifier: Some("does.not.matter".into()),
-            spf: Some(Spf {
-                ip_address: Some("".into()),
-                result: Some(SpfResult::SoftFail),
-                smtp_mailfrom: Some("".into()),
-            }),
-        })
-    }
 }
 
-pub fn display_sender_addresses_extended(data: &OutputData) -> AppResult<String> {
+pub fn display_sender_addresses_extended(addresses: &EmailAddresses) -> AppResult<String> {
     let mut table = Table::new();
 
     table.add_row(Row::new(vec![
@@ -263,8 +223,6 @@ pub fn display_sender_addresses_extended(data: &OutputData) -> AppResult<String>
         Cell::new("Registration Date"),
         Cell::new("Abuse Email Address"),
     ]));
-
-    let addresses = &data.parsed_mail.email_addresses;
 
     sender_address_row(&mut table, "From", &addresses.from);
     sender_address_row(&mut table, "Reply-To", &addresses.reply_to);
@@ -1874,21 +1832,27 @@ mod display_run_tests {
             \n\
             Reportable Entities\n\
             \n\
-            +-------------+-------------------+\n\
-            | Email Addresses                 |\n\
-            +-------------+-------------------+\n\
-            | From        | from.1@test.com   |\n\
-            |             | from.2@test.com   |\n\
-            +-------------+-------------------+\n\
-            | Links       | link.1@test.com   |\n\
-            |             | link.2@test.com   |\n\
-            +-------------+-------------------+\n\
-            | Reply-To    | reply.1@test.com  |\n\
-            |             | reply.2@test.com  |\n\
-            +-------------+-------------------+\n\
-            | Return-Path | return.1@test.com |\n\
-            |             | return.2@test.com |\n\
-            +-------------+-------------------+\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            | Email Addresses                                                                                     |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            | Address Source | Address           | Category | Registrar | Registration Date | Abuse Email Address |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            | From           | from.1@test.com   | N/A      | N/A       | N/A               | N/A                 |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            |                | from.2@test.com   | N/A      | N/A       | N/A               | N/A                 |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            | Reply-To       | reply.1@test.com  | N/A      | N/A       | N/A               | N/A                 |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            |                | reply.2@test.com  | N/A      | N/A       | N/A               | N/A                 |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            | Return-Path    | return.1@test.com | N/A      | N/A       | N/A               | N/A                 |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            |                | return.2@test.com | N/A      | N/A       | N/A               | N/A                 |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            | Links          | link.1@test.com   | N/A      | N/A       | N/A               | N/A                 |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            |                | link.2@test.com   | N/A      | N/A       | N/A               | N/A                 |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
             \n\
             +-------------------------+---------------------+-------------------------+\n\
             | Delivery Nodes                                                          |\n\
@@ -2316,21 +2280,27 @@ mod display_reportable_entities_tests {
             String::from("\
             Reportable Entities\n\
             \n\
-            +-------------+-------------------+\n\
-            | Email Addresses                 |\n\
-            +-------------+-------------------+\n\
-            | From        | from.1@test.com   |\n\
-            |             | from.2@test.com   |\n\
-            +-------------+-------------------+\n\
-            | Links       | link.1@test.com   |\n\
-            |             | link.2@test.com   |\n\
-            +-------------+-------------------+\n\
-            | Reply-To    | reply.1@test.com  |\n\
-            |             | reply.2@test.com  |\n\
-            +-------------+-------------------+\n\
-            | Return-Path | return.1@test.com |\n\
-            |             | return.2@test.com |\n\
-            +-------------+-------------------+\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            | Email Addresses                                                                                     |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            | Address Source | Address           | Category | Registrar | Registration Date | Abuse Email Address |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            | From           | from.1@test.com   | N/A      | N/A       | N/A               | N/A                 |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            |                | from.2@test.com   | N/A      | N/A       | N/A               | N/A                 |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            | Reply-To       | reply.1@test.com  | N/A      | N/A       | N/A               | N/A                 |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            |                | reply.2@test.com  | N/A      | N/A       | N/A               | N/A                 |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            | Return-Path    | return.1@test.com | N/A      | N/A       | N/A               | N/A                 |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            |                | return.2@test.com | N/A      | N/A       | N/A               | N/A                 |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            | Links          | link.1@test.com   | N/A      | N/A       | N/A               | N/A                 |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
+            |                | link.2@test.com   | N/A      | N/A       | N/A               | N/A                 |\n\
+            +----------------+-------------------+----------+-----------+-------------------+---------------------+\n\
             \n\
             +-------------------------+---------------------+-------------------------+\n\
             | Delivery Nodes                                                          |\n\
@@ -2709,76 +2679,15 @@ mod display_reportable_entities_tests {
 }
 
 fn email_addresses_details(run: &Run) -> AppResult<String> {
-    let mut table = Table::new();
-
     if let Some(reportable_entities) = &run.data.reportable_entities {
         let email_addresses = &reportable_entities.email_addresses;
-        table.add_row(
-            Row::new(vec![
-                Cell::new("Email Addresses").with_hspan(2),
-            ])
-        );
-        table.add_row(
-            build_email_addresses_row(
-                "From",
-                &email_addresses.from
-            )
-        );
-        table.add_row(
-            build_email_addresses_row(
-                "Links",
-                &email_addresses.links
-            )
-        );
-        table.add_row(
-            build_email_addresses_row(
-                "Reply-To",
-                &email_addresses.reply_to
-            )
-        );
-        table.add_row(
-            build_email_addresses_row(
-                "Return-Path",
-                &email_addresses.return_path
-            )
-        );
+        display_sender_addresses_extended(email_addresses)
+    } else {
+        let table = Table::new();
+
+        table_to_string(&table)
     }
 
-    table_to_string(&table)
-}
-
-fn build_email_addresses_row(label: &str, email_addresses: &[EmailAddressData]) -> Row {
-    let addresses_string = email_addresses
-        .iter()
-        .map(|address| address.address.as_str())
-        .collect::<Vec<&str>>()
-        .join("\n");
-
-    Row::new(vec![
-        Cell::new(label),
-        Cell::new(&addresses_string),
-    ])
-}
-
-#[cfg(test)]
-mod build_email_addresses_row_tests {
-    use super::*;
-    use crate::data::EmailAddressData;
-
-    #[test]
-    fn converts_email_addresses_into_row_of_cells() {
-        let email_addresses = vec![
-            EmailAddressData::from_email_address("address_1@test.com"),
-            EmailAddressData::from_email_address("address_2@test.com"),
-        ];
-
-        let expected = Row::new(vec![
-            Cell::new("xx"),
-            Cell::new("address_1@test.com\naddress_2@test.com"),
-        ]);
-
-        assert_eq!(expected, build_email_addresses_row("xx", &email_addresses));
-    }
 }
 
 fn delivery_nodes_details(run: &Run) -> AppResult<String> {

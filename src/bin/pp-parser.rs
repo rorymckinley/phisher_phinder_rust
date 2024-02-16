@@ -48,7 +48,7 @@ fn main() {
         println!("Sender Addresses");
         println!(
             "{}",
-            ui::display_sender_addresses_extended(&output).unwrap()
+            ui::display_sender_addresses_extended(&output.parsed_mail.email_addresses).unwrap()
         );
         println!();
         println!("Fulfillment Nodes");
