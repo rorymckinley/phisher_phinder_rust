@@ -1,5 +1,4 @@
 use crate::analyser::Analyser;
-use crate::cli::SingleCli;
 use crate::data::OutputData;
 use crate::enumerator::enumerate;
 use crate::errors::AppError;
@@ -8,316 +7,14 @@ use crate::populator::populate;
 use crate::reporter::add_reportable_entities;
 use crate::run::Run;
 use crate::run_presenter::present;
+use crate::service_configuration::Configuration;
 use crate::sources::create_from_str;
 use mail_parser::*;
 use rusqlite::Connection;
-use std::collections::HashMap;
 use std::future::Future;
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use test_friendly_rdap_client::Client;
-use thiserror::Error;
 use tokio::task::JoinError;
-
-pub trait Configuration {
-    fn db_path(&self) -> &PathBuf;
-
-    fn message_sources(&self) -> Option<&str>;
-
-    fn rdap_bootstrap_host(&self) -> Option<&str>;
-
-    fn reprocess_run_id(&self) -> Option<i64>;
-
-    fn trusted_recipient(&self)-> &str;
-}
-
-#[derive(Debug, Error, PartialEq)]
-pub enum ServiceConfigurationError {
-    #[error("{0} is a required ENV variable")]
-    MissingEnvVar(String),
-    #[error("Please pass message source to STDIN or reprocess a run.")]
-    NoMessageSource,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct ServiceConfiguration<'a> {
-    db_path: PathBuf,
-    message_source: Option<&'a str>,
-    rdap_bootstrap_host: Option<String>,
-    reprocess_run_id: Option<i64>,
-    trusted_recipient: String,
-}
-
-impl<'a> ServiceConfiguration<'a> {
-    pub fn new<I>(
-        message_source: Option<&'a str>,
-        cli_parameters: &SingleCli,
-        env_vars_iterator: I
-    ) -> Result<Self, ServiceConfigurationError>
-    where I: Iterator<Item = (String, String)>
-    {
-        if message_source.is_none() && cli_parameters.reprocess_run.is_none() {
-            return Err(ServiceConfigurationError::NoMessageSource);
-        }
-
-        let env_vars: HashMap<String, String> = env_vars_iterator.collect();
-
-        Ok(Self {
-            db_path: Path::new(&Self::extract_required_env_var(&env_vars, "PP_DB_PATH")?).to_path_buf(),
-            message_source,
-            rdap_bootstrap_host: Self::extract_optional_env_var(&env_vars, "RDAP_BOOTSTRAP_HOST"),
-            reprocess_run_id: cli_parameters.reprocess_run,
-            trusted_recipient: Self::extract_required_env_var(&env_vars, "PP_TRUSTED_RECIPIENT")?,
-        })
-    }
-
-    fn extract_required_env_var(
-        vars: &HashMap<String, String>,
-        var_name: &str,
-    ) -> Result<String, ServiceConfigurationError> {
-        if let Some(val_ref) = vars.get(var_name) {
-            if !val_ref.is_empty() {
-                Ok(val_ref.to_string())
-            } else {
-                Err(ServiceConfigurationError::MissingEnvVar(var_name.into()))
-            }
-        } else {
-            Err(ServiceConfigurationError::MissingEnvVar(var_name.into()))
-        }
-    }
-
-    fn extract_optional_env_var(
-        vars: &HashMap<String, String>,
-        var_name: &str,
-    ) -> Option<String> {
-        if let Some(val) = vars.get(var_name) {
-            if !val.is_empty() {
-                Some(val.to_string())
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-}
-
-impl<'a> Configuration for ServiceConfiguration<'a> {
-    fn db_path(&self) -> &PathBuf {
-        &self.db_path
-    }
-
-    fn message_sources(&self) -> Option<&'a str> {
-        self.message_source
-    }
-
-    fn rdap_bootstrap_host(&self) -> Option<&str> {
-        self.rdap_bootstrap_host.as_deref()
-    }
-
-    fn reprocess_run_id(&self) -> Option<i64> {
-        self.reprocess_run_id
-    }
-
-    fn trusted_recipient(&self) -> &str {
-        &self.trusted_recipient
-    }
-}
-
-#[cfg(test)]
-mod service_configuration_tests {
-    use support::{cli, env_var_iterator};
-    use super::*;
-
-    #[test]
-    fn initialises_an_instance() {
-        let config = ServiceConfiguration::new(
-            Some("message source"),
-            &cli(Some(99)),
-            env_var_iterator(Some("/path/to/db"), Some("foo.com"), None)
-        ).unwrap();
-
-        let expected = ServiceConfiguration {
-            db_path: "/path/to/db".into(),
-            message_source: Some("message source"),
-            rdap_bootstrap_host: None,
-            reprocess_run_id: Some(99),
-            trusted_recipient: "foo.com".into()
-        };
-
-        assert_eq!(expected, config);
-    }
-
-    #[test]
-    fn returns_err_if_no_db_path_env_var() {
-        let result = ServiceConfiguration::new(
-            Some("message source"),
-            &cli(Some(99)),
-            env_var_iterator(None, Some("foo.com"), None)
-        );
-
-        match result {
-            Err(ServiceConfigurationError::MissingEnvVar(e)) => {
-                assert_eq!("PP_DB_PATH", e)
-            },
-            Err(_) => panic!("Unexpected error response"),
-            Ok(_) => panic!("Did not return error")
-        }
-    }
-
-    #[test]
-    fn returns_err_if_db_path_env_var_empty_string() {
-        let result = ServiceConfiguration::new(
-            Some("message source"),
-            &cli(Some(99)),
-            env_var_iterator(Some(""), Some("foo.com"), None)
-        );
-
-        match result {
-            Err(ServiceConfigurationError::MissingEnvVar(e)) => {
-                assert_eq!("PP_DB_PATH", e)
-            },
-            Err(_) => panic!("Unexpected error response"),
-            Ok(_) => panic!("Did not return error")
-        }
-    }
-
-    #[test]
-    fn returns_err_if_no_trusted_recipient_env_var() {
-        let result = ServiceConfiguration::new(
-            Some("message source"),
-            &cli(Some(99)),
-            env_var_iterator(Some("/path/to/db"), None, None)
-        );
-
-        match result {
-            Err(ServiceConfigurationError::MissingEnvVar(e)) => {
-                assert_eq!("PP_TRUSTED_RECIPIENT", e)
-            },
-            Err(_) => panic!("Unexpected error response"),
-            Ok(_) => panic!("Did not return error")
-        }
-    }
-
-    #[test]
-    fn returns_err_if_trusted_recipient_env_var_empty_string() {
-        let result = ServiceConfiguration::new(
-            Some("message source"),
-            &cli(Some(99)),
-            env_var_iterator(Some("/path/to/db"), Some(""), None)
-        );
-
-        match result {
-            Err(ServiceConfigurationError::MissingEnvVar(e)) => {
-                assert_eq!("PP_TRUSTED_RECIPIENT", e)
-            },
-            Err(_) => panic!("Unexpected error response"),
-            Ok(_) => panic!("Did not return error")
-        }
-    }
-
-    #[test]
-    fn returns_err_if_no_message_source_or_reprocess_run() {
-        let result = ServiceConfiguration::new(
-            None,
-            &cli(None),
-            env_var_iterator(Some("/path/to/db"), Some("foo.com"), None)
-        );
-
-        match result {
-            Err(e) => assert_eq!(ServiceConfigurationError::NoMessageSource, e),
-            Ok(_) => panic!("Did not return error")
-        }
-    }
-
-    #[test]
-    fn returns_config_if_no_message_source_but_reprocess_run_id() {
-        let result = ServiceConfiguration::new(
-            None,
-            &cli(Some(99)),
-            env_var_iterator(Some("/path/to/db"), Some("foo.com"), None)
-        );
-
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn returns_config_if_message_source_but_no_reprocess_run_id() {
-        let result = ServiceConfiguration::new(
-            Some("message source"),
-            &cli(None),
-            env_var_iterator(Some("/path/to/db"), Some("foo.com"), None)
-        );
-
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn returns_db_path() {
-        let config = ServiceConfiguration::new(
-            Some("message source"),
-            &cli(None),
-            env_var_iterator(Some("/path/to/db"), Some("foo.com"), None)
-        ).unwrap();
-
-        assert_eq!(&Path::new("/path/to/db").to_path_buf(), config.db_path());
-    }
-
-    #[test]
-    fn returns_message_sources() {
-        let config = ServiceConfiguration::new(
-            Some("message source"),
-            &cli(None),
-            env_var_iterator(Some("/path/to/db"), Some("foo.com"), None)
-        ).unwrap();
-
-        assert_eq!(Some("message source"), config.message_sources());
-    }
-
-    #[test]
-    fn returns_reprocess_run_id() {
-        let config = ServiceConfiguration::new(
-            None,
-            &cli(Some(999)),
-            env_var_iterator(Some("/path/to/db"), Some("foo.com"), None)
-        ).unwrap();
-
-        assert_eq!(Some(999), config.reprocess_run_id());
-    }
-
-    #[test]
-    fn returns_trusted_recipient() {
-        let config = ServiceConfiguration::new(
-            None,
-            &cli(Some(999)),
-            env_var_iterator(Some("/path/to/db"), Some("foo.com"), None)
-        ).unwrap();
-
-        assert_eq!("foo.com", config.trusted_recipient());
-    }
-
-    #[test]
-    fn returns_rdap_bootstrap_host() {
-        let config = ServiceConfiguration::new(
-            None,
-            &cli(Some(999)),
-            env_var_iterator(Some("/path/to/db"), Some("foo.com"), Some("localhost:4545"))
-        ).unwrap();
-
-        assert_eq!(Some("localhost:4545"), config.rdap_bootstrap_host());
-    }
-
-    #[test]
-    fn returns_none_if_rdap_host_empty_string() {
-        let config = ServiceConfiguration::new(
-            None,
-            &cli(Some(999)),
-            env_var_iterator(Some("/path/to/db"), Some("foo.com"), Some(""))
-        ).unwrap();
-
-        assert_eq!(None, config.rdap_bootstrap_host());
-    }
-}
 
 pub struct Service {
 }
@@ -379,7 +76,7 @@ impl Service {
             let outputs = create_from_str(message_sources)
                 .into_iter()
                 .map(|message_source| {
-                    let persisted_source = persist_message_source(&connection, message_source);
+                    let persisted_source = persist_message_source(connection, message_source);
 
                     // TODO Better error handling
                     let parsed_mail = Message::parse(persisted_source.data.as_bytes()).unwrap();
@@ -494,6 +191,7 @@ mod service_process_message_from_stdin_tests {
     use crate::mountebank::{clear_all_impostors, setup_bootstrap_server};
     use crate::persistence::{connect, find_runs_for_message_source, get_record};
     use crate::run::Run;
+    use std::path::Path;
     use support::{build_config, sha256};
 
     use super::*;
@@ -795,6 +493,9 @@ mod service_process_message_rerun_tests {
 #[cfg(test)]
 mod service_process_message_common_errors_tests {
     use assert_fs::fixture::TempDir;
+    use crate::cli::SingleCli;
+    use crate::service_configuration::ServiceConfiguration;
+    use std::path::PathBuf;
 
     use super::*;
 
@@ -887,6 +588,8 @@ mod service_process_message_enumerate_urls_test {
     use crate::data::{FulfillmentNode, Node};
     use crate::mountebank::*;
     use crate::persistence::connect;
+    use crate::service_configuration::ServiceConfiguration;
+    use std::path::Path;
     use support::{cli, env_var_iterator};
     use super::*;
 
@@ -999,6 +702,8 @@ mod service_process_message_populate_from_rdap_tests {
         clear_all_impostors, setup_bootstrap_server, setup_dns_server, setup_ip_v4_server,
         DnsServerConfig, IpServerConfig,
     };
+    use crate::service_configuration::ServiceConfiguration;
+    use std::path::Path;
     use support::{cli, env_var_iterator};
     use super::*;
 
@@ -1194,6 +899,8 @@ mod service_process_message_add_reportable_entities_tests {
     };
     use crate::mountebank::*;
     use crate::persistence::connect;
+    use crate::service_configuration::ServiceConfiguration;
+    use std::path::Path;
     use support::{cli, env_var_iterator};
     use super::*;
 
@@ -1306,9 +1013,10 @@ mod service_process_message_add_reportable_entities_tests {
 
 #[cfg(test)]
 mod support {
+    use crate::cli::SingleCli;
+    use crate::service_configuration::ServiceConfiguration;
+    use std::path::Path;
     use sha2::{Digest, Sha256};
-
-    use super::*;
 
     pub fn sha256(text: &str) -> String {
         let mut hasher = Sha256::new();

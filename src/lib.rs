@@ -18,5 +18,6 @@ pub mod result;
 pub mod run;
 pub mod run_presenter;
 pub mod service;
+pub mod service_configuration;
 pub mod sources;
 pub mod ui;

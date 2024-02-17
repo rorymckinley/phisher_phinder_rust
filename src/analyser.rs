@@ -8,7 +8,7 @@ use crate::data::{
     ParsedMail,
     TrustedRecipientDeliveryNode,
 };
-use crate::service::Configuration;
+use crate::service_configuration::Configuration;
 use regex::Regex;
 
 pub struct Analyser<'a, T> {
