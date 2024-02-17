@@ -3,6 +3,7 @@ use crate::data::{
     DeliveryNode,
     EmailAddressData,
     EmailAddresses,
+    FulfillmentNode,
     FulfillmentNodesContainer,
     OutputData,
     ParsedMail,
@@ -86,6 +87,7 @@ mod add_reportable_entities_tests {
     fn fulfillment_nodes() -> Vec<FulfillmentNode> {
         vec![FulfillmentNode {
             hidden: None,
+            investigable: true,
             visible: Node {
                 domain: None,
                 registrar: None,
@@ -101,6 +103,7 @@ mod add_reportable_entities_tests {
         OutputData {
             parsed_mail: parsed_mail(),
             message_source: MessageSource::new(""),
+            notifications: vec![],
             reportable_entities: Some(ReportableEntities {
                 delivery_nodes,
                 email_addresses: EmailAddresses {
@@ -154,6 +157,7 @@ mod add_reportable_entities_tests {
     fn reportable_fulfillment_node() -> FulfillmentNode {
         FulfillmentNode {
             hidden: None,
+            investigable: true,
             visible: Node {
                 domain: None,
                 registrar: None,
@@ -557,18 +561,25 @@ mod filter_valid_email_addresses_tests {
 }
 
 fn extract_reportable_fulfillment_nodes(parsed_mail: &ParsedMail) -> FulfillmentNodesContainer {
-    let mut nodes =  parsed_mail.fulfillment_nodes.clone();
+    let investigable_nodes: Vec<FulfillmentNode> =  parsed_mail
+        .fulfillment_nodes
+        .clone()
+        .into_iter()
+        .filter(|f_node| f_node.investigable)
+        .collect();
 
-    nodes.sort_unstable_by(|a, b| a.functional_cmp(b));
+    let no_of_investigable_nodes = investigable_nodes.len();
 
-    nodes.dedup_by(|a, b| a.functional_eq(b));
+    let mut unique_nodes = investigable_nodes.clone();
+
+    unique_nodes.sort_unstable_by(|a, b| a.functional_cmp(b));
+
+    unique_nodes.dedup_by(|a, b| a.functional_eq(b));
 
     FulfillmentNodesContainer {
-        duplicates_removed: nodes.len() != parsed_mail.fulfillment_nodes.len(),
-        nodes,
+        duplicates_removed: unique_nodes.len() != no_of_investigable_nodes,
+        nodes: unique_nodes,
     }
-
-
 }
 
 #[cfg(test)]
@@ -579,6 +590,17 @@ mod extract_reportable_fulfillment_nodes_tests {
     #[test]
     fn returns_fulfillment_nodes() {
         let input = parsed_mail(fulfillment_nodes());
+        let expected = FulfillmentNodesContainer {
+            duplicates_removed: false,
+            nodes: fulfillment_nodes_sorted(),
+        };
+
+        assert_eq!(expected, extract_reportable_fulfillment_nodes(&input));
+    }
+
+    #[test]
+    fn does_not_include_non_investigable_nodes() {
+        let input = parsed_mail(fulfillment_nodes_with_non_investigable());
         let expected = FulfillmentNodesContainer {
             duplicates_removed: false,
             nodes: fulfillment_nodes_sorted(),
@@ -617,6 +639,16 @@ mod extract_reportable_fulfillment_nodes_tests {
         vec![
             FulfillmentNode::new("http://foo.biz"),
             FulfillmentNode::new("http://foo.baz"),
+            FulfillmentNode::new("http://foo.bar"),
+        ]
+    }
+
+    fn fulfillment_nodes_with_non_investigable() -> Vec<FulfillmentNode> {
+        vec![
+            FulfillmentNode::new("http://foo.biz"),
+            FulfillmentNode::new("file://a.b"),
+            FulfillmentNode::new("http://foo.baz"),
+            FulfillmentNode::new("file://c.d"),
             FulfillmentNode::new("http://foo.bar"),
         ]
     }

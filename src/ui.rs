@@ -13,11 +13,15 @@ use crate::data::{
     OutputData,
     Registrar,
 };
+use crate::outgoing_email::build_abuse_notifications;
 use crate::result::AppResult;
 use crate::run::Run;
+use crate::service_configuration::Configuration;
 
+use mail_parser::{Addr, HeaderValue, Message};
 use prettytable::{Cell, Row, Table};
 use regex::Regex;
+use std::borrow::Borrow;
 
 #[cfg(test)]
 mod display_sender_addresses_extended_tests {
@@ -291,6 +295,7 @@ mod display_fulfillment_nodes_tests {
                 },
             },
             message_source: MessageSource::new(""),
+            notifications: vec![],
             reportable_entities: None,
             run_id: None,
         };
@@ -323,6 +328,7 @@ mod display_fulfillment_nodes_tests {
                 registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
                 url: "https://redirect.bar".into(),
             }),
+            investigable: true,
             visible: Node {
                 domain: domain_object(
                     "foo.bar",
@@ -863,6 +869,7 @@ mod display_delivery_nodes_tests {
                 },
             },
             message_source: MessageSource::new(""),
+            notifications: vec![],
             reportable_entities: None,
             run_id: None,
         }
@@ -1162,6 +1169,7 @@ mod display_authentication_results_tests {
                 },
             },
             message_source: MessageSource::new(""),
+            notifications: vec![],
             reportable_entities: None,
             run_id: None,
         }
@@ -2128,6 +2136,7 @@ mod display_run_tests {
             created_at: Utc.with_ymd_and_hms(2023, 8, 29, 9, 41, 30).unwrap(),
             data: OutputData {
                 message_source: MessageSource::new(""),
+                notifications: vec![],
                 parsed_mail: ParsedMail {
                     authentication_results: None,
                     delivery_nodes: vec![],
@@ -2213,6 +2222,7 @@ mod display_run_tests {
     fn build_fulfillment_node(position: usize) -> FulfillmentNode {
         FulfillmentNode {
             hidden: Some(build_node("hidden", position)),
+            investigable: true,
             visible: build_node("visible", position),
         }
     }
@@ -2576,6 +2586,7 @@ mod display_reportable_entities_tests {
             created_at: Utc.with_ymd_and_hms(2023, 8, 29, 9, 41, 30).unwrap(),
             data: OutputData {
                 message_source: MessageSource::new(""),
+                notifications: vec![],
                 parsed_mail: ParsedMail {
                     authentication_results: None,
                     delivery_nodes: vec![],
@@ -2665,6 +2676,7 @@ mod display_reportable_entities_tests {
     fn build_fulfillment_node(position: usize) -> FulfillmentNode {
         FulfillmentNode {
             hidden: Some(build_node("hidden", position)),
+            investigable: true,
             visible: build_node("visible", position),
         }
     }
@@ -3112,6 +3124,7 @@ mod display_metadata_tests {
             created_at: Utc.with_ymd_and_hms(2023, 8, 29, 9, 41, 30).unwrap(),
             data: OutputData {
                 message_source: MessageSource::new(""),
+                notifications: vec![],
                 parsed_mail: ParsedMail {
                     authentication_results: None,
                     delivery_nodes: vec![],
@@ -3132,5 +3145,297 @@ mod display_metadata_tests {
                 id: Some(5678),
             }
         }
+    }
+}
+
+pub fn display_abuse_notifications<T>(run: &Run, config: &T) -> AppResult<String>
+where T: Configuration {
+    let mut table = Table::new();
+
+    table.add_row(Row::new(vec![
+        Cell::new("Abuse Notifications").with_hspan(2)
+    ]));
+
+    if let Ok(notifications) = build_abuse_notifications(run, config) {
+        for notification in notifications.iter() {
+            let email_as_text = notification.formatted();
+
+            // TODO Is it safe to use unwrap()
+            let parsed_email = Message::parse(&email_as_text).unwrap();
+
+            table.add_row(Row::new(vec![
+                    Cell::new("To"),
+                    Cell::new(get_single_address(parsed_email.to()))
+            ]));
+
+            table.add_row(Row::new(vec![
+                    Cell::new("From"),
+                    Cell::new(get_single_address(parsed_email.from()))
+            ]));
+
+            table.add_row(Row::new(vec![
+                    Cell::new("Subject"),
+                    optional_cell(parsed_email.subject())
+            ]));
+
+            table.add_row(Row::new(vec![
+                    Cell::new("Body"),
+                    Cell::new(&extract_first_body_part(&parsed_email))
+            ]));
+
+            table.add_row(Row::new(vec![
+                    Cell::new("").with_hspan(2)
+            ]));
+        }
+    } else {
+        let msg = "\
+            Abuse notifications could not be generated. \
+            This may be as a result of missing configuration settings.\
+        ";
+        table.add_row(Row::new(vec![
+            Cell::new(msg).with_hspan(2)
+        ]));
+    }
+
+    table_to_string(&table)
+}
+
+#[cfg(test)]
+mod display_abuse_notifications_tests {
+    use crate::cli::SingleCli;
+    use crate::data::{EmailAddresses, OutputData, ParsedMail};
+    use crate::mailer::Entity;
+    use crate::message_source::MessageSource;
+    use crate::notification::Notification;
+    use crate::service_configuration::ServiceConfiguration;
+    use super::*;
+
+    #[test]
+    fn displays_email_details_for_each_notification() {
+        let run = build_run();
+        let config = build_config();
+
+        assert_eq!(
+            String::from("\
+            +----------+-------------------------------------------------------------------------------------------------------------------+\n\
+            | Abuse Notifications                                                                                                          |\n\
+            +----------+-------------------------------------------------------------------------------------------------------------------+\n\
+            | To       | abuse@providerone.zzz                                                                                             |\n\
+            +----------+-------------------------------------------------------------------------------------------------------------------+\n\
+            | From     | sender@phishereagle.com                                                                                           |\n\
+            +----------+-------------------------------------------------------------------------------------------------------------------+\n\
+            | Subject  | Please investigate: scam@fake.zzz potentially involved in fraud                                                   |\n\
+            +----------+-------------------------------------------------------------------------------------------------------------------+\n\
+            | Body     | Hello                                                                                                             |\n\
+            |          |                                                                                                                   |\n\
+            |          | I recently received a phishing email that suggests that `scam@fake.zzz` may be supporting phishing activities.    |\n\
+            |          |                                                                                                                   |\n\
+            |          | The original email is attached, can you please take the appropriate action?                                       |\n\
+            +----------+-------------------------------------------------------------------------------------------------------------------+\n\
+            |                                                                                                                              |\n\
+            +----------+-------------------------------------------------------------------------------------------------------------------+\n\
+            | To       | abuse@providertwo.zzz                                                                                             |\n\
+            +----------+-------------------------------------------------------------------------------------------------------------------+\n\
+            | From     | sender@phishereagle.com                                                                                           |\n\
+            +----------+-------------------------------------------------------------------------------------------------------------------+\n\
+            | Subject  | Please investigate: https://scam.zzz potentially involved in fraud                                                |\n\
+            +----------+-------------------------------------------------------------------------------------------------------------------+\n\
+            | Body     | Hello                                                                                                             |\n\
+            |          |                                                                                                                   |\n\
+            |          | I recently received a phishing email that suggests that `https://scam.zzz` may be supporting phishing activities. |\n\
+            |          |                                                                                                                   |\n\
+            |          | The original email is attached, can you please take the appropriate action?                                       |\n\
+            +----------+-------------------------------------------------------------------------------------------------------------------+\n\
+            |                                                                                                                              |\n\
+            +----------+-------------------------------------------------------------------------------------------------------------------+\n\
+            "),
+            display_abuse_notifications(&run, &config).unwrap()
+        );
+    }
+
+    #[test]
+    fn displays_an_error_message_if_notifications_cannot_be_generated() {
+        let run = build_run();
+        let config = build_config_without_from_address();
+
+        assert_eq!(
+            String::from("\
+            +----------------------------------------------------+----------------------------------------------------+\n\
+            | Abuse Notifications                                                                                     |\n\
+            +----------------------------------------------------+----------------------------------------------------+\n\
+            | Abuse notifications could not be generated. This may be as a result of missing configuration settings.  |\n\
+            +----------------------------------------------------+----------------------------------------------------+\n\
+            "),
+            display_abuse_notifications(&run, &config).unwrap()
+        )
+    }
+
+    fn build_run() -> Run {
+        Run {
+            id: 1234,
+            created_at: Utc.with_ymd_and_hms(2023, 8, 29, 9, 41, 30).unwrap(),
+            data: OutputData {
+                message_source: MessageSource::new("original email contents"),
+                notifications: vec![
+                    Notification::via_email(
+                        Entity::EmailAddress("scam@fake.zzz".into()),
+                        "abuse@providerone.zzz".into()
+                    ),
+                    Notification::via_email(
+                        Entity::Node("https://scam.zzz".into()),
+                        "abuse@providertwo.zzz".into()
+                    ),
+                ],
+                parsed_mail: ParsedMail {
+                    authentication_results: None,
+                    delivery_nodes: vec![],
+                    email_addresses: EmailAddresses {
+                        from: vec![],
+                        links: vec![],
+                        reply_to: vec![],
+                        return_path: vec![],
+                    },
+                    fulfillment_nodes: vec![],
+                    subject: None,
+                },
+                reportable_entities: None,
+                run_id: None,
+            },
+            message_source: MessageSource {
+                data: "".into(),
+                id: Some(5678),
+            }
+        }
+    }
+
+    fn build_config<'a>() -> ServiceConfiguration<'a> {
+        ServiceConfiguration::new(
+            Some(""),
+            &SingleCli { reprocess_run: None },
+            env_var_iterator()
+        ).unwrap()
+    }
+
+    fn env_var_iterator() -> Box<dyn Iterator<Item = (String, String)>>
+    {
+        let v: Vec<(String, String)> = vec![
+            ("PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS".into(), "sender@phishereagle.com".into()),
+            ("PP_DB_PATH".into(), "does.not.matter.sqlite".into()),
+            ("PP_TRUSTED_RECIPIENT".into(), "does.not.matter".into()),
+            ("RDAP_BOOTSTRAP_HOST".into(), "does.not.matter".into())
+        ];
+
+        Box::new(v.into_iter())
+    }
+
+    fn build_config_without_from_address<'a>() -> ServiceConfiguration<'a> {
+        ServiceConfiguration::new(
+            Some(""),
+            &SingleCli { reprocess_run: None },
+            env_var_iterator_without_from_address()
+        ).unwrap()
+    }
+
+    fn env_var_iterator_without_from_address() -> Box<dyn Iterator<Item = (String, String)>>
+    {
+        let v: Vec<(String, String)> = vec![
+            ("PP_DB_PATH".into(), "does.not.matter.sqlite".into()),
+            ("PP_TRUSTED_RECIPIENT".into(), "does.not.matter".into()),
+            ("RDAP_BOOTSTRAP_HOST".into(), "does.not.matter".into())
+        ];
+
+        Box::new(v.into_iter())
+    }
+}
+
+fn get_single_address<'a>(address_header: &'a HeaderValue) -> &'a str {
+    if let HeaderValue::Address(Addr {address: Some(address_cow), ..}) = address_header {
+        address_cow.borrow()
+    } else {
+        "Unparseable"
+    }
+}
+
+#[cfg(test)]
+mod get_single_address_tests {
+    use mail_parser::Addr;
+    use std::borrow::Cow;
+
+    use super::*;
+
+    #[test]
+    fn returns_address() {
+        let address = Addr {
+            name: Some(Cow::from("name-field")),
+            address: Some(Cow::from("me@address.zzz"))
+        };
+
+        let header = HeaderValue::Address(address);
+
+        assert_eq!("me@address.zzz", get_single_address(&header));
+    }
+
+    #[test]
+    fn returns_unparseable_if_not_single_address() {
+        let addresses = vec![
+            Addr {
+                name: Some(Cow::from("name-field")),
+                address: Some(Cow::from("me@address.zzz"))
+            }
+        ];
+
+        let header = HeaderValue::AddressList(addresses);
+
+        assert_eq!("Unparseable", get_single_address(&header));
+    }
+}
+
+fn extract_first_body_part(email: &Message) -> String {
+    // I think the unwrap() here is safe, given that it will be reading emails
+    // we are generating
+    email.body_text(0).unwrap().into_owned()
+}
+
+#[cfg(test)]
+mod extract_first_body_part_tests {
+    use lettre::Message;
+    use lettre::message::SinglePart;
+    use lettre::message::header::ContentType;
+    use super::*;
+
+    #[test]
+    fn returns_the_first_text_body() {
+        let mail_text = built_mail().formatted();
+
+        let parsed = parsed_mail(&mail_text);
+
+        assert_eq!(extract_first_body_part(&parsed), String::from("html 0"));
+    }
+
+    fn built_mail() -> Message {
+        Message::builder()
+            .from("doesnot@matter.zzz".parse().unwrap())
+            .to("doesnot@matter.zzz".parse().unwrap())
+            .subject("does not matter")
+            .multipart(
+                lettre::message::MultiPart::mixed()
+                .singlepart(build_html_body("html 0"))
+                .singlepart(build_text_body("text 0"))
+                .singlepart(build_html_body("html 1"))
+                .singlepart(build_text_body("text 1"))
+            )
+            .unwrap()
+    }
+
+    fn build_text_body(contents: &str) -> lettre::message::SinglePart {
+        SinglePart::builder().header(ContentType::TEXT_PLAIN).body(String::from(contents))
+    }
+
+    fn build_html_body(contents: &str) -> lettre::message::SinglePart {
+        SinglePart::builder().header(ContentType::TEXT_HTML).body(String::from(contents))
+    }
+
+    fn parsed_mail(mail_as_text: &[u8]) -> mail_parser::Message {
+        mail_parser::Message::parse(mail_as_text).unwrap()
     }
 }

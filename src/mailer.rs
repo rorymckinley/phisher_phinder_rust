@@ -5,6 +5,7 @@ use crate::data::{
 use lettre::message::{header::ContentType, Attachment, MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use url::Url;
 
@@ -60,6 +61,7 @@ mod build_mail_definitions_tests {
             duplicates_removed: false,
             nodes: vec![FulfillmentNode {
                 hidden: None,
+                investigable: true,
                 visible: Node {
                     domain: None,
                     registrar: Some(Registrar {
@@ -239,6 +241,7 @@ mod build_mail_definitions_from_fulfillment_nodes_tests {
     fn fulfillment_node(url: &str, abuse_email_address: &str) -> FulfillmentNode {
         FulfillmentNode {
             hidden: None,
+            investigable: true,
             visible: Node {
                 domain: None,
                 registrar: Some(Registrar {
@@ -322,7 +325,7 @@ mod convert_address_data_to_definition_tests {
     }
 
     #[test]
-    fn creates_mail_definitionb_both_email_provider_and_registrar() {
+    fn creates_mail_definition_both_email_provider_and_registrar() {
         assert_eq!(
             expected_email_provider_category(),
             convert_address_data_to_definition(&input_provider_and_registrar())
@@ -630,6 +633,7 @@ mod build_mail_definitions_from_fulfillment_node_tests {
                 }),
                 url: "https://another.dodgy.phishing.link".into(),
             }),
+            investigable: true,
             visible: Node {
                 domain: None,
                 registrar: Some(Registrar {
@@ -644,6 +648,7 @@ mod build_mail_definitions_from_fulfillment_node_tests {
     fn input_no_hidden() -> FulfillmentNode {
         FulfillmentNode {
             hidden: None,
+            investigable: true,
             visible: Node {
                 domain: None,
                 registrar: Some(Registrar {
@@ -870,6 +875,7 @@ mod build_mail_definitions_from_delivery_nodes_tests {
         }
     }
 }
+
 fn build_mail_definitions_from_delivery_nodes(
     delivery_nodes: &[DeliveryNode],
 ) -> Vec<MailDefinition> {
@@ -1090,10 +1096,10 @@ mod mail_definition_tests {
 
         assert_eq!(
             MailDefinition {
-                entity: Entity::FulfillmentNode(url),
+                entity: Entity::Node(url.into()),
                 abuse_email_address: Some("abuse@regone.zzz".into())
             },
-            MailDefinition::new("https://foo.bar.baz", Some("abuse@regone.zzz"))
+            MailDefinition::new("https://foo.bar.baz/", Some("abuse@regone.zzz"))
         );
     }
 
@@ -1129,7 +1135,7 @@ mod mail_definition_tests {
 impl MailDefinition {
     fn new(entity: &str, abuse_email_address: Option<&str>) -> Self {
         let entity = match Url::parse(entity) {
-            Ok(url) => Entity::FulfillmentNode(url),
+            Ok(_) => Entity::Node(entity.into()),
             Err(_) => Entity::EmailAddress(entity.into()),
         };
 
@@ -1141,16 +1147,20 @@ impl MailDefinition {
 
     fn reportable(&self) -> bool {
         match &self.entity {
-            Entity::FulfillmentNode(url) => url.scheme() == "https" || url.scheme() == "http",
+            Entity::Node(url_string) => {
+                //TODO Add error handling here
+                let url = Url::parse(url_string).unwrap();
+                url.scheme() == "https" || url.scheme() == "http"
+            },
             Entity::EmailAddress(_) => true,
         }
     }
 }
 
-#[derive(Debug, PartialEq)]
-enum Entity {
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+pub enum Entity {
     EmailAddress(String),
-    FulfillmentNode(Url),
+    Node(String),
 }
 
 #[cfg(test)]
@@ -1168,7 +1178,7 @@ mod entity_tests {
     fn url_variant_as_string() {
         let url = "https://foo.bar.baz.com/fuzzy/wuzzy";
 
-        let entity = Entity::FulfillmentNode(url::Url::parse(url).unwrap());
+        let entity = Entity::Node(url::Url::parse(url).unwrap().into());
 
         assert_eq!(String::from(url), entity.to_string());
     }
@@ -1178,7 +1188,7 @@ mod entity_tests {
         let url = "https://user:secret@foo.bar.baz.com:1234/fuzzy/wuzzy?blah=meh#xyz";
         let expected_url = "https://foo.bar.baz.com/fuzzy/wuzzy";
 
-        let entity = Entity::FulfillmentNode(url::Url::parse(url).unwrap());
+        let entity = Entity::Node(url::Url::parse(url).unwrap().into());
 
         assert_eq!(String::from(expected_url), entity.to_string());
     }
@@ -1187,7 +1197,7 @@ mod entity_tests {
     fn url_variant_without_host_as_string() {
         let url = "file:///foo/bar";
 
-        let entity = Entity::FulfillmentNode(url::Url::parse(url).unwrap());
+        let entity = Entity::Node(url::Url::parse(url).unwrap().into());
 
         assert_eq!(String::from(url), entity.to_string());
     }
@@ -1199,15 +1209,17 @@ impl fmt::Display for Entity {
             Entity::EmailAddress(email_address) => {
                 write!(f, "{email_address}")
             }
-            Entity::FulfillmentNode(original_url) => {
-                let host = original_url.host_str().unwrap_or("");
-                let url = format!(
+            Entity::Node(url_string) => {
+                // TODO Better error handling
+                let url = Url::parse(url_string).unwrap();
+                let host = url.host_str().unwrap_or("");
+                let display_url = format!(
                     "{}://{}{}",
-                    original_url.scheme(),
+                    url.scheme(),
                     host,
-                    original_url.path()
+                    url.path()
                 );
-                write!(f, "{url}")
+                write!(f, "{display_url}")
             }
         }
     }

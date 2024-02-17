@@ -147,6 +147,7 @@ fn json_input() -> String {
                         },
                         "url": "https://visible.net",
                     },
+                    "investigable": true,
                     "hidden": {
                         "domain": {
                             "abuse_email_address": null,
@@ -169,6 +170,7 @@ fn json_input() -> String {
             "id": 9909,
             "data": "x"
         },
+        "notifications": [],
         "raw_mail": "",
         "run_id": null,
     })
@@ -306,6 +308,7 @@ fn expected_json_output() -> serde_json::Value {
                         },
                         "url": "https://visible.net",
                     },
+                    "investigable": true,
                     "hidden": {
                         "domain": {
                             "abuse_email_address": null,
@@ -363,6 +366,7 @@ fn expected_json_output() -> serde_json::Value {
                             },
                             "url": "https://visible.net",
                         },
+                        "investigable": true,
                         "hidden": {
                             "domain": {
                                 "abuse_email_address": null,
@@ -385,6 +389,7 @@ fn expected_json_output() -> serde_json::Value {
             "id": 9909,
             "data": "x"
         },
+        "notifications": [],
         "run_id": null,
     })
 }

@@ -8,7 +8,7 @@ use crate::data::{
     ParsedMail,
     TrustedRecipientDeliveryNode,
 };
-use crate::service::Configuration;
+use crate::service_configuration::Configuration;
 use regex::Regex;
 
 pub struct Analyser<'a, T> {
@@ -483,13 +483,11 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
     }
 
     pub fn sender_email_addresses(&self) -> EmailAddresses {
-        let pattern = Regex::new(r"\Amailto:").unwrap();
-
         let mut links: Vec<EmailAddressData> = self
             .parsed_mail
             .get_links()
             .iter()
-            .filter(|address_string| pattern.is_match(address_string))
+            .filter(|href| self.is_mailto_href(href))
             .flat_map(|link| {
                 if let Some((_mailto, addresses_string)) = link.split_once(':') {
                     let addresses: Vec<String> =
@@ -531,6 +529,7 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
             .get_links()
             .iter()
             .filter(|link| !link.is_empty())
+            .filter(|href| !self.is_mailto_href(href))
             .map(|url| FulfillmentNode::new(url))
             .collect();
 
@@ -555,6 +554,12 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
 
     fn convert_address(&self, address: &str) -> EmailAddressData {
         EmailAddressData::from_email_address(address)
+    }
+
+    fn is_mailto_href(&self, href: &str) -> bool {
+        let pattern = Regex::new(r"\Amailto:").unwrap();
+
+        pattern.is_match(href)
     }
 }
 
@@ -632,6 +637,24 @@ mod analyse_tests {
     fn sets_fulfillment_nodes() {
         let input_mail = build_input_mail(
             vec!["https://test-link1.com", "https://test-link2.com"],
+            vec![]
+        );
+        let analyser = Analyser::new(&input_mail);
+        let config = build_config();
+        let expected_fulfillment_nodes= vec![
+            FulfillmentNode::new("https://test-link1.com"),
+            FulfillmentNode::new("https://test-link2.com")
+        ];
+
+        let parsed_mail = analyser.analyse(&config).unwrap();
+
+        assert_eq!(expected_fulfillment_nodes, parsed_mail.fulfillment_nodes);
+    }
+
+    #[test]
+    fn excludes_mailto_links_from_fulfillment_nodes() {
+        let input_mail = build_input_mail(
+            vec!["https://test-link1.com", "mailto:link1@test.com", "https://test-link2.com"],
             vec![]
         );
         let analyser = Analyser::new(&input_mail);
@@ -730,6 +753,10 @@ mod analyse_tests {
     }
 
     impl Configuration for TestConfig {
+        fn abuse_notifications_from_address(&self) -> Option<&str> {
+            None
+        }
+
         fn db_path(&self) -> &PathBuf {
             &self.db_path
         }

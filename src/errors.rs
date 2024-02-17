@@ -18,4 +18,6 @@ pub enum AppError {
     Rusqlite(#[from] rusqlite::Error),
     #[error("PersistenceError: {0}")]
     Persistence(String),
+    #[error("Can not generate abuse notifications without PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS")]
+    NoFromAddressForNotifications,
 }
