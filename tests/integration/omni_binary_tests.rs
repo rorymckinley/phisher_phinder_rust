@@ -191,6 +191,7 @@ fn message_source(index: u8) -> MessageSource {
 fn build_output_data(message_source: MessageSource) -> OutputData {
     OutputData {
         message_source,
+        notifications: vec![],
         parsed_mail: parsed_mail(),
         reportable_entities: Some(reportable_entities()),
         run_id: None

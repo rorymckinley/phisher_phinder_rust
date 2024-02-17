@@ -238,6 +238,7 @@ mod populate_tests {
                 },
             },
             message_source: MessageSource::new("raw mail text goes here"),
+            notifications: vec![],
             reportable_entities: None,
             run_id: None,
         }

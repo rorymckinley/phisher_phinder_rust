@@ -101,6 +101,7 @@ mod add_reportable_entities_tests {
         OutputData {
             parsed_mail: parsed_mail(),
             message_source: MessageSource::new(""),
+            notifications: vec![],
             reportable_entities: Some(ReportableEntities {
                 delivery_nodes,
                 email_addresses: EmailAddresses {

@@ -102,6 +102,7 @@ mod present_tests {
                     fulfillment_nodes: vec![],
                     subject: None,
                 },
+                notifications: vec![],
                 reportable_entities: Some(reportable_entities),
                 run_id: None,
             },

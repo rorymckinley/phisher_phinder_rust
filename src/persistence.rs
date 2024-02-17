@@ -389,6 +389,7 @@ mod persist_run_tests {
                 id: Some(message_source_id),
                 data: "x".into(),
             },
+            notifications: vec![],
             parsed_mail: ParsedMail::new(
                 None,
                 vec![],

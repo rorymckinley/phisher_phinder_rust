@@ -1,4 +1,5 @@
 use chrono::prelude::*;
+use crate::notification::Notification;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -14,6 +15,7 @@ use crate::message_source::MessageSource;
 pub struct OutputData {
     pub parsed_mail: ParsedMail,
     pub message_source: MessageSource,
+    pub notifications: Vec<Notification>,
     pub reportable_entities: Option<ReportableEntities>,
     pub run_id: Option<i64>,
 }
@@ -23,6 +25,7 @@ impl OutputData {
         Self {
             parsed_mail,
             message_source,
+            notifications: vec![],
             reportable_entities: None,
             run_id: None,
         }

@@ -328,6 +328,7 @@ fn input(message_source_id: u32, message_source_data: &str) -> String {
             "id": message_source_id,
             "data": message_source_data
         },
+        "notifications": []
     })
     .to_string()
 }
@@ -542,6 +543,7 @@ fn expected_json_output(message_source_id: u32, message_source_data: &str) -> Va
             "id": message_source_id,
             "data": message_source_data
         },
+        "notifications": [],
         "run_id": 1
     })
 }

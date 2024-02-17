@@ -108,6 +108,7 @@ fn json_input() -> String {
             "id": 9909,
             "data": "x"
         },
+        "notifications": [],
         "reportable_entities": null,
         "run_id": null,
     })
@@ -200,6 +201,7 @@ fn json_output() -> serde_json::Value {
             "id": 9909,
             "data": "x"
         },
+        "notifications": [],
         "reportable_entities": null,
         "run_id": null,
     })

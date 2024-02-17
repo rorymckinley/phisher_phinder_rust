@@ -446,6 +446,7 @@ mod service_process_message_rerun_tests {
         OutputData {
             message_source,
             parsed_mail: parsed_mail(),
+            notifications: vec![],
             reportable_entities: Some(reportable_entities()),
             run_id: None
         }
@@ -1008,6 +1009,98 @@ mod service_process_message_add_reportable_entities_tests {
                     }
             }
         )
+    }
+}
+
+#[cfg(test)]
+mod service_process_message_add_notifications_tests {
+    use assert_fs::fixture::TempDir;
+    use crate::mountebank::*;
+    use crate::notification::Notification;
+    use crate::persistence::connect;
+    use crate::service_configuration::ServiceConfiguration;
+    use std::path::Path;
+    use support::{cli, env_var_iterator};
+    use super::*;
+
+    #[test]
+    fn adds_reportable_entities() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+
+        let temp = TempDir::new().unwrap();
+        let db_path = temp.path().join("pp.sqlite3");
+
+        setup_head_impostor(4560, true, Some("https://re.direct.one"));
+        setup_head_impostor(4561, true, Some("https://re.direct.two"));
+
+        let input = multiple_source_input();
+
+        let config = build_config(&input, &db_path);
+
+        tokio_test::block_on(Service::process_message(&config)).unwrap();
+
+        let conn = connect(&db_path).unwrap();
+        let run_1 = find_run(&conn, 1).unwrap();
+        let run_2 = find_run(&conn, 2).unwrap();
+
+        assert_eq!(run_1.data.notifications, notifications_for("http://localhost:4560"));
+
+        assert_eq!(run_2.data.notifications, notifications_for("http://localhost:4561"));
+    }
+
+    fn build_config<'a>(message: &'a str, db_path: &Path) -> ServiceConfiguration<'a> {
+        ServiceConfiguration::new(
+            Some(message),
+            &cli(None),
+            env_var_iterator(
+                Some(db_path.to_str().unwrap()),
+                Some("foo.com"),
+                Some("http://localhost:4545")
+            )
+        ).unwrap()
+    }
+
+    fn multiple_source_input() -> String {
+        format!("{}\r\n{}", entry_1(), entry_2())
+    }
+
+    fn entry_1() -> String {
+        format!(
+            "From 123@xxx Sun Jun 11 20:53:34 +0000 2023\r\n{}",
+            mail_body_1()
+        )
+    }
+
+    fn entry_2() -> String {
+        format!(
+            "From 456@xxx Sun Jun 11 20:53:35 +0000 2023\r\n{}",
+            mail_body_2()
+        )
+    }
+
+    fn mail_body_1() -> String {
+        format!(
+            "{}\r\n{}\r\n{}\r\n\r\n{}",
+            "Delivered-To: victim1@test.zzz",
+            "Subject: Dodgy Subject 1",
+            "Content-Type: text/html",
+            "<a href=\"http://localhost:4560\">Click Me</a>",
+        )
+    }
+
+    fn mail_body_2() -> String {
+        format!(
+            "{}\r\n{}\r\n{}\r\n\r\n{}",
+            "Delivered-To: victim1@test.zzz",
+            "Subject: Dodgy Subject 2",
+            "Content-Type: text/html",
+            "<a href=\"http://localhost:4561\">Click Me</a>",
+        )
+    }
+
+    fn notifications_for(url: &str) -> Vec<Notification> {
+        vec![]
     }
 }
 

@@ -291,6 +291,7 @@ mod display_fulfillment_nodes_tests {
                 },
             },
             message_source: MessageSource::new(""),
+            notifications: vec![],
             reportable_entities: None,
             run_id: None,
         };
@@ -863,6 +864,7 @@ mod display_delivery_nodes_tests {
                 },
             },
             message_source: MessageSource::new(""),
+            notifications: vec![],
             reportable_entities: None,
             run_id: None,
         }
@@ -1162,6 +1164,7 @@ mod display_authentication_results_tests {
                 },
             },
             message_source: MessageSource::new(""),
+            notifications: vec![],
             reportable_entities: None,
             run_id: None,
         }
@@ -2128,6 +2131,7 @@ mod display_run_tests {
             created_at: Utc.with_ymd_and_hms(2023, 8, 29, 9, 41, 30).unwrap(),
             data: OutputData {
                 message_source: MessageSource::new(""),
+                notifications: vec![],
                 parsed_mail: ParsedMail {
                     authentication_results: None,
                     delivery_nodes: vec![],
@@ -2576,6 +2580,7 @@ mod display_reportable_entities_tests {
             created_at: Utc.with_ymd_and_hms(2023, 8, 29, 9, 41, 30).unwrap(),
             data: OutputData {
                 message_source: MessageSource::new(""),
+                notifications: vec![],
                 parsed_mail: ParsedMail {
                     authentication_results: None,
                     delivery_nodes: vec![],
@@ -3112,6 +3117,7 @@ mod display_metadata_tests {
             created_at: Utc.with_ymd_and_hms(2023, 8, 29, 9, 41, 30).unwrap(),
             data: OutputData {
                 message_source: MessageSource::new(""),
+                notifications: vec![],
                 parsed_mail: ParsedMail {
                     authentication_results: None,
                     delivery_nodes: vec![],
