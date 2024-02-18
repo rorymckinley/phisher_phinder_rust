@@ -1668,14 +1668,14 @@ impl TrustedRecipientDeliveryNode {
     }
 }
 
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct ReportableEntities {
     pub delivery_nodes: Vec<DeliveryNode>,
     pub email_addresses: EmailAddresses,
     pub fulfillment_nodes_container: FulfillmentNodesContainer,
 }
 
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct FulfillmentNodesContainer {
     pub duplicates_removed: bool,
     pub nodes: Vec<FulfillmentNode>,

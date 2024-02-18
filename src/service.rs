@@ -2,6 +2,7 @@ use crate::analyser::Analyser;
 use crate::data::OutputData;
 use crate::enumerator::enumerate;
 use crate::errors::AppError;
+use crate::notification::add_notifications;
 use crate::persistence::{connect, find_run, persist_message_source, persist_run};
 use crate::populator::populate;
 use crate::reporter::add_reportable_entities;
@@ -55,7 +56,11 @@ impl Service {
 
         let records_with_reportable_entities = Self::add_reportable_entities(populate_tasks).await;
 
-        let run_result = Self::persist_runs(&connection, records_with_reportable_entities)?;
+        let records_with_notifications = Self::add_notifications_for_records(
+            records_with_reportable_entities
+        );
+
+        let run_result = Self::persist_runs(&connection, records_with_notifications)?;
 
         // TODO The error in the Result is a tuple of (Connection, Error)
         // Add error conversion for this
@@ -176,6 +181,13 @@ impl Service {
             let path = config.db_path().to_str().unwrap();
             AppError::DatabasePathIncorrect(path.into())
         })
+    }
+
+    fn add_notifications_for_records(records: Vec<OutputData>) -> Vec<OutputData> {
+       records
+           .into_iter()
+           .map(add_notifications)
+           .collect()
     }
 }
 
@@ -1015,6 +1027,8 @@ mod service_process_message_add_reportable_entities_tests {
 #[cfg(test)]
 mod service_process_message_add_notifications_tests {
     use assert_fs::fixture::TempDir;
+    use chrono::*;
+    use crate::mailer::Entity;
     use crate::mountebank::*;
     use crate::notification::Notification;
     use crate::persistence::connect;
@@ -1025,14 +1039,9 @@ mod service_process_message_add_notifications_tests {
 
     #[test]
     fn adds_reportable_entities() {
-        clear_all_impostors();
-        setup_bootstrap_server();
-
+        setup_mountebank();
         let temp = TempDir::new().unwrap();
         let db_path = temp.path().join("pp.sqlite3");
-
-        setup_head_impostor(4560, true, Some("https://re.direct.one"));
-        setup_head_impostor(4561, true, Some("https://re.direct.two"));
 
         let input = multiple_source_input();
 
@@ -1044,9 +1053,15 @@ mod service_process_message_add_notifications_tests {
         let run_1 = find_run(&conn, 1).unwrap();
         let run_2 = find_run(&conn, 2).unwrap();
 
-        assert_eq!(run_1.data.notifications, notifications_for("http://localhost:4560"));
+        assert_eq!(
+            run_1.data.notifications,
+            notifications_for("http://localhost:4560", "abuse@regone.zzz")
+        );
 
-        assert_eq!(run_2.data.notifications, notifications_for("http://localhost:4561"));
+        assert_eq!(
+            run_2.data.notifications,
+            notifications_for("http://localhost:4561", "abuse@regsix.zzz")
+        );
     }
 
     fn build_config<'a>(message: &'a str, db_path: &Path) -> ServiceConfiguration<'a> {
@@ -1059,6 +1074,33 @@ mod service_process_message_add_notifications_tests {
                 Some("http://localhost:4545")
             )
         ).unwrap()
+    }
+
+    fn setup_mountebank() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+
+        setup_head_impostor(4560, true, Some("https://re.direct.one"));
+        setup_head_impostor(4561, true, Some("https://re.direct.two"));
+
+        setup_dns_server(vec![
+            DnsServerConfig {
+                domain_name: "re.direct.one",
+                handle: None,
+                registrar: Some("Reg One"),
+                abuse_email: Some("abuse@regone.zzz"),
+                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
+                response_code: 200,
+            },
+            DnsServerConfig {
+                domain_name: "re.direct.two",
+                handle: None,
+                registrar: Some("Reg Six"),
+                abuse_email: Some("abuse@regsix.zzz"),
+                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap()),
+                response_code: 200,
+            },
+        ]);
     }
 
     fn multiple_source_input() -> String {
@@ -1099,8 +1141,8 @@ mod service_process_message_add_notifications_tests {
         )
     }
 
-    fn notifications_for(url: &str) -> Vec<Notification> {
-        vec![]
+    fn notifications_for(entity: &str, email_address: &str) -> Vec<Notification> {
+        vec![Notification::Email(Entity::EmailAddress(entity.into()), String::from(email_address))]
     }
 }
 
