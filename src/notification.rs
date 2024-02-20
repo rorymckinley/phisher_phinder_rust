@@ -1,4 +1,4 @@
-use crate::data::{EmailAddressData, EmailAddresses, OutputData};
+use crate::data::{EmailAddressData, EmailAddresses, FulfillmentNode, OutputData};
 use crate::mailer::Entity;
 use serde::{Deserialize, Serialize};
 
@@ -12,9 +12,9 @@ pub fn add_notifications(data: OutputData) -> OutputData {
 
     let notifications = vec![
         build_notifications_from_email_addresses(&entities.email_addresses),
-        // build_notifications_from_fulfillment_nodes(
-        //     &entities.fulfillment_nodes_container.nodes
-        // ),
+        build_notifications_from_fulfillment_nodes(
+            &entities.fulfillment_nodes_container.nodes
+        ),
         // build_notifications_from_delivery_nodes(&entities.delivery_nodes),
     ]
     .into_iter()
@@ -28,7 +28,7 @@ pub fn add_notifications(data: OutputData) -> OutputData {
 }
 
 #[cfg(test)]
-mod add_notification_test {
+mod add_notifications_tests {
     use crate::data::{
         DeliveryNode,
         Domain,
@@ -196,12 +196,8 @@ fn build_notifications_from_email_addresses(addresses: &EmailAddresses) -> Vec<N
     ]
     .iter()
     .flatten()
-    .map(|address_data| build_notification_from_email_address(address_data).unwrap())
+    .filter_map(|address_data| build_notification_from_email_address(address_data))
     .collect()
-    // .iter()
-    // .flatten()
-    // .map(|address_data| build_notification_from_email_address(&address_data).unwrap())
-    // .collect()
 }
 
 fn to_refs(data: &[EmailAddressData]) -> Vec<&EmailAddressData> {
@@ -416,4 +412,145 @@ mod build_notification_from_email_address_tests {
             registrar: None,
         }
     }
+}
+
+fn build_notifications_from_fulfillment_nodes(nodes: &[FulfillmentNode]) -> Vec<Notification> {
+    nodes
+        .iter()
+        .map(|node| build_notification_from_fulfillment_node(node).unwrap())
+        .collect()
+}
+
+#[cfg(test)]
+mod build_notifications_from_fufillment_nodes_tests {
+    use crate::data::{Node, Registrar};
+    use super::*;
+
+    #[test]
+    fn builds_notifications_for_each_node() {
+        assert_eq!(
+            expected(),
+            build_notifications_from_fulfillment_nodes(&input())
+        )
+    }
+
+    fn input() -> Vec<FulfillmentNode> {
+        vec![
+            fulfillment_node("https://dodgy.phishing.link", "abuse@regone.zzz"),
+            fulfillment_node("https://also.dodgy.phishing.link", "abuse@regtwo.zzz"),
+        ]
+    }
+
+    fn expected() -> Vec<Notification> {
+        vec![
+            Notification::Email(
+                Entity::Node("https://dodgy.phishing.link".into()), "abuse@regone.zzz".into()
+            ),
+            Notification::Email(
+                Entity::Node("https://also.dodgy.phishing.link".into()), "abuse@regtwo.zzz".into()
+            ),
+        ]
+    }
+
+    fn fulfillment_node(url: &str, abuse_email_address: &str) -> FulfillmentNode {
+        FulfillmentNode {
+            hidden: None,
+            visible: Node {
+                domain: None,
+                registrar: Some(Registrar {
+                    abuse_email_address: Some(abuse_email_address.into()),
+                    name: None,
+                }),
+                url: url.into(),
+            },
+        }
+    }
+}
+
+fn build_notification_from_fulfillment_node(node: &FulfillmentNode) -> Option<Notification> {
+    let hidden = node.hidden.clone().unwrap();
+
+    Some(
+        Notification::Email(Entity::Node(hidden.url), hidden.registrar.unwrap().abuse_email_address.unwrap())
+    )
+}
+
+#[cfg(test)]
+mod build_notification_from_fulfillment_node_tests {
+    use crate::data::{Node, Registrar};
+    use super::*;
+
+    #[test]
+    fn builds_notification_from_fulfillment_node_both_hidden_and_visible() {
+        let node = hidden_fulfillment_node();
+        let notification = Notification::Email(
+            Entity::Node("https://hidden.phishing.link".into()), "abuse@reghidden.zzz".into()
+        );
+
+        assert_eq!(
+            Some(notification),
+            build_notification_from_fulfillment_node(&node)
+        );
+    }
+
+    #[test]
+    fn builds_notification_from_fulfillment_node_only_visible() {
+        let node = visible_only_fulfillment_node();
+        let notification = Notification::Email(
+            Entity::Node("https://visible.phishing.link".into()), "abuse@regvisible.zzz".into()
+        );
+
+        assert_eq!(
+            Some(notification),
+            build_notification_from_fulfillment_node(&node)
+        );
+    }
+
+    fn hidden_fulfillment_node() -> FulfillmentNode {
+        FulfillmentNode {
+            hidden: Some(Node {
+                domain: None,
+                registrar: Some(Registrar {
+                    abuse_email_address: Some("abuse@reghidden.zzz".into()),
+                    name: None,
+                }),
+                url: "https://hidden.phishing.link".into(),
+            }),
+            visible: Node {
+                domain: None,
+                registrar: Some(Registrar {
+                    abuse_email_address: Some("abuse@regvisible.zzz".into()),
+                    name: None,
+                }),
+                url: "https://visible.phishing.link".into(),
+            },
+        }
+    }
+
+    fn visible_only_fulfillment_node() -> FulfillmentNode {
+        FulfillmentNode {
+            hidden: None,
+            visible: Node {
+                domain: None,
+                registrar: Some(Registrar {
+                    abuse_email_address: Some("abuse@regvisible.zzz".into()),
+                    name: None,
+                }),
+                url: "https://visible.phishing.link".into(),
+            },
+        }
+    }
+    // fn fulfillment_node(url: &str, abuse_email_address_option: Option<&str>) -> FulfillmentNode {
+    //     FulfillmentNode {
+    //         hidden: None,
+    //         visible: Node {
+    //             domain: None,
+    //             registrar: Some(Registrar {
+    //                 abuse_email_address: abuse_email_address_option.map(|v| v.into()),
+    //                 name: None,
+    //             }),
+    //             url: url.into(),
+    //         },
+    //     }
+    // }
 }
