@@ -1,4 +1,13 @@
-use crate::data::{EmailAddressData, EmailAddresses, FulfillmentNode, OutputData};
+use crate::data::{
+    DeliveryNode,
+    EmailAddressData,
+    EmailAddresses,
+    FulfillmentNode,
+    HostNode,
+    InfrastructureProvider,
+    OutputData,
+    Registrar
+};
 use crate::mailer::Entity;
 use serde::{Deserialize, Serialize};
 
@@ -8,22 +17,129 @@ pub enum Notification {
 }
 
 pub fn add_notifications(data: OutputData) -> OutputData {
-    let entities = data.reportable_entities.clone().unwrap();
+    if let Some(entities) = &data.reportable_entities {
+        let notifications = vec![
+            build_notifications_from_email_addresses(&entities.email_addresses),
+            build_notifications_from_fulfillment_nodes(
+                &entities.fulfillment_nodes_container.nodes
+            ),
+            build_notifications_from_delivery_nodes(&entities.delivery_nodes),
+        ]
+            .into_iter()
+            .flatten()
+            .collect();
 
-    let notifications = vec![
-        build_notifications_from_email_addresses(&entities.email_addresses),
-        build_notifications_from_fulfillment_nodes(
-            &entities.fulfillment_nodes_container.nodes
-        ),
-        // build_notifications_from_delivery_nodes(&entities.delivery_nodes),
+        OutputData {
+            notifications,
+            ..data
+        }
+    } else {
+        data
+    }
+}
+
+fn build_notifications_from_email_addresses(addresses: &EmailAddresses) -> Vec<Notification> {
+    [
+        to_refs(&addresses.from),
+        to_refs(&addresses.links),
+        to_refs(&addresses.reply_to),
+        to_refs(&addresses.return_path)
     ]
-    .into_iter()
+    .iter()
     .flatten()
-    .collect();
+    .filter_map(|address_data| build_notification_from_email_address(address_data))
+    .collect()
+}
 
-    OutputData {
-        notifications,
-        ..data
+fn to_refs(data: &[EmailAddressData]) -> Vec<&EmailAddressData> {
+    data.iter().collect()
+}
+
+fn build_notification_from_email_address(data: &EmailAddressData) -> Option<Notification> {
+    build_notification_for_registrar(
+        data.registrar.as_ref(),
+        Entity::EmailAddress(data.address.clone())
+    )
+}
+
+fn build_notifications_from_fulfillment_nodes(nodes: &[FulfillmentNode]) -> Vec<Notification> {
+    nodes
+        .iter()
+        .filter_map(&build_notification_from_fulfillment_node)
+        .collect()
+}
+
+fn build_notification_from_fulfillment_node(node: &FulfillmentNode) -> Option<Notification> {
+    match &node.hidden {
+        Some(node) => {
+            build_notification_for_registrar(
+                node.registrar.as_ref(),
+                Entity::Node(node.url.clone())
+            )
+        },
+        None => {
+            build_notification_for_registrar(
+                node.visible.registrar.as_ref(),
+                Entity::Node(node.visible.url.clone())
+            )
+        }
+    }
+}
+
+fn build_notifications_from_delivery_nodes(nodes: &[DeliveryNode]) -> Vec<Notification> {
+    nodes
+        .iter()
+        .flat_map(build_notifications_for_delivery_node)
+        .collect()
+}
+
+fn build_notifications_for_delivery_node(node: &DeliveryNode) -> Vec<Notification> {
+    if let Some(sender) = &node.observed_sender {
+        [ 
+            build_notification_for_delivery_node_domain(sender),
+            build_notification_for_delivery_node_ip(sender),
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
+    } else {
+        vec![]
+    }
+}
+
+fn build_notification_for_delivery_node_domain(sender: &HostNode) -> Option<Notification> {
+    if let Some(domain) = &sender.domain {
+        let entity = Entity::Node(domain.name.clone());
+
+        build_notification_for_registrar(sender.registrar.as_ref(), entity)
+    } else {
+        None
+    }
+}
+
+fn build_notification_for_delivery_node_ip(sender: &HostNode) -> Option<Notification> {
+    if let Some(InfrastructureProvider {
+        abuse_email_address: Some(address),
+        ..
+    }) = sender.infrastructure_provider.as_ref() {
+        sender.ip_address.as_ref().map(|ip_address| {
+            Notification::Email(Entity::Node(ip_address.into()), address.into())
+        })
+    } else {
+        None
+    }
+}
+
+fn build_notification_for_registrar(
+    registrar_option: Option<&Registrar>, entity: Entity
+) -> Option<Notification> {
+    match registrar_option {
+        Some(registrar) => {
+            registrar.abuse_email_address.as_ref().map(|address| {
+                Notification::Email(entity, address.into())
+            })
+        },
+        None => None
     }
 }
 
@@ -48,7 +164,7 @@ mod add_notifications_tests {
     use super::*;
 
     #[test]
-    fn adds_a_notification_for_a_reportable_email() {
+    fn adds_a_notifications_for_reportable_entities() {
        let data = build_output_data();
 
        let data_with_notifications = add_notifications(data);
@@ -57,6 +173,17 @@ mod add_notifications_tests {
            expected_output_data(build_output_data()),
            data_with_notifications
        );
+    }
+
+    #[test]
+    fn returns_empty_list_if_no_reportable_entities() {
+       let data = build_output_data_sans_entities();
+
+       let data_with_notifications = add_notifications(data);
+
+       let expected: Vec<Notification> = vec![];
+
+       assert_eq!(expected, data_with_notifications.notifications);
     }
 
     fn build_output_data() -> OutputData {
@@ -69,6 +196,16 @@ mod add_notifications_tests {
                 email_addresses: reportable_email_addresses(),
                 fulfillment_nodes_container: fulfillment_nodes(),
             }),
+            run_id: None
+        }
+    }
+
+    fn build_output_data_sans_entities() -> OutputData {
+        OutputData {
+            parsed_mail: parsed_mail(),
+            message_source: MessageSource::new(""),
+            notifications: vec![],
+            reportable_entities: None,
             run_id: None
         }
     }
@@ -187,22 +324,6 @@ mod add_notifications_tests {
     }
 }
 
-fn build_notifications_from_email_addresses(addresses: &EmailAddresses) -> Vec<Notification> {
-    [
-        to_refs(&addresses.from),
-        to_refs(&addresses.links),
-        to_refs(&addresses.reply_to),
-        to_refs(&addresses.return_path)
-    ]
-    .iter()
-    .flatten()
-    .filter_map(|address_data| build_notification_from_email_address(address_data))
-    .collect()
-}
-
-fn to_refs(data: &[EmailAddressData]) -> Vec<&EmailAddressData> {
-    data.iter().collect()
-}
 
 #[cfg(test)]
 mod build_notifications_from_email_addresses_tests {
@@ -220,7 +341,7 @@ mod build_notifications_from_email_addresses_tests {
 
        assert_eq!(
            expected_notifications(),
-           build_notifications_from_email_addresses(&addresses) 
+           build_notifications_from_email_addresses(&addresses)
        );
     }
 
@@ -230,7 +351,7 @@ mod build_notifications_from_email_addresses_tests {
 
        assert_eq!(
            expected_notifications(),
-           build_notifications_from_email_addresses(&addresses) 
+           build_notifications_from_email_addresses(&addresses)
        );
     }
 
@@ -337,19 +458,6 @@ mod build_notifications_from_email_addresses_tests {
     }
 }
 
-fn build_notification_from_email_address(data: &EmailAddressData) -> Option<Notification> {
-    if let Some(registrar) = &data.registrar {
-        registrar.abuse_email_address.as_ref().map(|abuse_email_address| {
-            Notification::Email(
-                Entity::EmailAddress(data.address.clone()),
-                abuse_email_address.into()
-            )
-        })
-    } else {
-        None
-    }
-}
-
 #[cfg(test)]
 mod build_notification_from_email_address_tests {
     use crate::data::{Domain, Registrar};
@@ -370,14 +478,7 @@ mod build_notification_from_email_address_tests {
     }
 
     #[test]
-    fn registrar_does_not_have_abuse_email_address() {
-        let data = email_address_data_no_abuse_address();
-
-        assert_eq!(None, build_notification_from_email_address(&data));
-    }
-
-    #[test]
-    fn email_address_data_does_not_have_registrar() {
+    fn returns_none_if_registrar_can_not_be_notified() {
         let data = email_address_data_no_registrar();
 
         assert_eq!(None, build_notification_from_email_address(&data));
@@ -394,17 +495,6 @@ mod build_notification_from_email_address_tests {
         }
     }
 
-    fn email_address_data_no_abuse_address() -> EmailAddressData {
-        EmailAddressData {
-            address: "foo@test.com".into(),
-            domain: Domain::from_email_address("foo@test.com"),
-            registrar: Some(Registrar {
-                abuse_email_address: None,
-                name: None,
-            }),
-        }
-    }
-
     fn email_address_data_no_registrar() -> EmailAddressData {
         EmailAddressData {
             address: "foo@test.com".into(),
@@ -412,13 +502,6 @@ mod build_notification_from_email_address_tests {
             registrar: None,
         }
     }
-}
-
-fn build_notifications_from_fulfillment_nodes(nodes: &[FulfillmentNode]) -> Vec<Notification> {
-    nodes
-        .iter()
-        .map(|node| build_notification_from_fulfillment_node(node).unwrap())
-        .collect()
 }
 
 #[cfg(test)]
@@ -434,9 +517,25 @@ mod build_notifications_from_fufillment_nodes_tests {
         )
     }
 
+    #[test]
+    fn excludes_nodes_that_cannot_have_notifications() {
+        assert_eq!(
+            expected(),
+            build_notifications_from_fulfillment_nodes(&input_with_nodes_that_cannot_be_notified())
+        )
+    }
+
     fn input() -> Vec<FulfillmentNode> {
         vec![
             fulfillment_node("https://dodgy.phishing.link", "abuse@regone.zzz"),
+            fulfillment_node("https://also.dodgy.phishing.link", "abuse@regtwo.zzz"),
+        ]
+    }
+
+    fn input_with_nodes_that_cannot_be_notified() -> Vec<FulfillmentNode> {
+        vec![
+            fulfillment_node("https://dodgy.phishing.link", "abuse@regone.zzz"),
+            fulfillment_node_that_cannot_be_notified("https://nonotify.phishing.link"),
             fulfillment_node("https://also.dodgy.phishing.link", "abuse@regtwo.zzz"),
         ]
     }
@@ -465,14 +564,17 @@ mod build_notifications_from_fufillment_nodes_tests {
             },
         }
     }
-}
 
-fn build_notification_from_fulfillment_node(node: &FulfillmentNode) -> Option<Notification> {
-    let hidden = node.hidden.clone().unwrap();
-
-    Some(
-        Notification::Email(Entity::Node(hidden.url), hidden.registrar.unwrap().abuse_email_address.unwrap())
-    )
+    fn fulfillment_node_that_cannot_be_notified(url: &str) -> FulfillmentNode {
+        FulfillmentNode {
+            hidden: None,
+            visible: Node {
+                domain: None,
+                registrar: None,
+                url: url.into(),
+            },
+        }
+    }
 }
 
 #[cfg(test)]
@@ -504,6 +606,13 @@ mod build_notification_from_fulfillment_node_tests {
             Some(notification),
             build_notification_from_fulfillment_node(&node)
         );
+    }
+
+    #[test]
+    fn returns_none_if_notification_cannot_be_built() {
+        let node = visible_fulfillment_node_no_registrar();
+
+        assert_eq!(None, build_notification_from_fulfillment_node(&node));
     }
 
     fn hidden_fulfillment_node() -> FulfillmentNode {
@@ -540,17 +649,432 @@ mod build_notification_from_fulfillment_node_tests {
             },
         }
     }
-    // fn fulfillment_node(url: &str, abuse_email_address_option: Option<&str>) -> FulfillmentNode {
-    //     FulfillmentNode {
-    //         hidden: None,
-    //         visible: Node {
-    //             domain: None,
-    //             registrar: Some(Registrar {
-    //                 abuse_email_address: abuse_email_address_option.map(|v| v.into()),
-    //                 name: None,
-    //             }),
-    //             url: url.into(),
-    //         },
-    //     }
-    // }
+
+    fn visible_fulfillment_node_no_registrar() -> FulfillmentNode {
+        FulfillmentNode {
+            hidden: None,
+            visible: Node {
+                domain: None,
+                registrar: None,
+                url: "https://visible.phishing.link".into(),
+            },
+        }
+    }
+}
+
+#[cfg(test)]
+mod build_notifications_from_delivery_nodes_tests {
+    use crate::data::{DeliveryNode, Domain, DomainCategory, HostNode};
+
+    use super::*;
+
+    #[test]
+    fn builds_notifications_for_delivery_nodes() {
+        assert_eq!(
+            expected(), build_notifications_from_delivery_nodes(&input())
+        );
+    }
+
+    fn input() -> Vec<DeliveryNode> {
+        vec![
+            delivery_node("node1.zzz", "abuse@regone.zzz"),
+            delivery_node("node2.zzz", "abuse@regtwo.zzz"),
+        ]
+    }
+
+    fn delivery_node(name: &str, abuse_email_address: &str) -> DeliveryNode {
+        DeliveryNode {
+            advertised_sender: None,
+            observed_sender: Some(HostNode {
+                domain: Some(Domain {
+                    abuse_email_address: None,
+                    category: DomainCategory::Other,
+                    name: name.into(),
+                    registration_date: None,
+                    resolved_domain: None,
+                }),
+                host: None,
+                infrastructure_provider: None,
+                ip_address: None,
+                registrar: Some(Registrar {
+                    abuse_email_address: Some(abuse_email_address.into()),
+                    name: None,
+                }),
+            }),
+            position: 0,
+            recipient: None,
+            time: None,
+            trusted: true,
+        }
+    }
+
+    fn expected() -> Vec<Notification> {
+        vec![
+            Notification::Email(Entity::Node("node1.zzz".into()), "abuse@regone.zzz".into()),
+            Notification::Email(Entity::Node("node2.zzz".into()), "abuse@regtwo.zzz".into()),
+        ]
+    }
+}
+
+#[cfg(test)]
+mod build_notifications_for_delivery_node_tests {
+    use crate::data::{Domain, DomainCategory, InfrastructureProvider};
+    use super::*;
+
+    #[test]
+    fn returns_notifications_for_delivery_node() {
+        assert_eq!(
+            vec![
+                Notification::Email(Entity::Node("phishing.zzz".into()), "abuse@regone.zzz".into()),
+                Notification::Email(
+                    Entity::Node("10.10.10.10".into()),
+                    "abuse@providerone.zzz".into()
+                ),
+            ],
+            build_notifications_for_delivery_node(&delivery_node())
+        );
+    }
+
+    #[test]
+    fn excludes_notifications_that_result_in_none() {
+        let expected: Vec<Notification> = vec![];
+
+        assert_eq!(
+            expected,
+            build_notifications_for_delivery_node(&delivery_node_no_provider_no_registrar())
+        );
+    }
+
+    #[test]
+    fn returns_empty_collection_if_no_observed_sender() {
+        let expected: Vec<Notification> = vec![];
+
+        assert_eq!(
+            expected,
+            build_notifications_for_delivery_node(&delivery_node_no_observed_sender())
+        );
+    }
+
+    fn delivery_node() -> DeliveryNode {
+        DeliveryNode {
+            advertised_sender: Some(HostNode{
+                domain: Some(Domain {
+                    abuse_email_address: None,
+                    category: DomainCategory::Other,
+                    name: "fake.zzz".into(),
+                    registration_date: None,
+                    resolved_domain: None,
+                }),
+                host: None,
+                infrastructure_provider: Some(InfrastructureProvider {
+                    abuse_email_address: Some("abuse@fakeproviderone.zzz".into()),
+                    name: None,
+                }),
+                ip_address: Some("100.100.100.100".into()),
+                registrar: Some(Registrar {
+                    abuse_email_address: Some("abuse@fakeregone.zzz".into()),
+                    name: None,
+                }),
+            }),
+            observed_sender: Some(HostNode {
+                domain: Some(Domain {
+                    abuse_email_address: None,
+                    category: DomainCategory::Other,
+                    name: "phishing.zzz".into(),
+                    registration_date: None,
+                    resolved_domain: None,
+                }),
+                host: None,
+                infrastructure_provider: Some(InfrastructureProvider {
+                    abuse_email_address: Some("abuse@providerone.zzz".into()),
+                    name: None,
+                }),
+                ip_address: Some("10.10.10.10".into()),
+                registrar: Some(Registrar {
+                    abuse_email_address: Some("abuse@regone.zzz".into()),
+                    name: None,
+                }),
+            }),
+            position: 0,
+            recipient: None,
+            time: None,
+            trusted: true,
+        }
+    }
+
+    fn delivery_node_no_provider_no_registrar() -> DeliveryNode {
+        DeliveryNode {
+            advertised_sender: Some(HostNode{
+                domain: Some(Domain {
+                    abuse_email_address: None,
+                    category: DomainCategory::Other,
+                    name: "fake.zzz".into(),
+                    registration_date: None,
+                    resolved_domain: None,
+                }),
+                host: None,
+                infrastructure_provider: Some(InfrastructureProvider {
+                    abuse_email_address: Some("abuse@fakeproviderone.zzz".into()),
+                    name: None,
+                }),
+                ip_address: Some("100.100.100.100".into()),
+                registrar: Some(Registrar {
+                    abuse_email_address: Some("abuse@fakeregone.zzz".into()),
+                    name: None,
+                }),
+            }),
+            observed_sender: Some(HostNode {
+                domain: Some(Domain {
+                    abuse_email_address: None,
+                    category: DomainCategory::Other,
+                    name: "phishing.zzz".into(),
+                    registration_date: None,
+                    resolved_domain: None,
+                }),
+                host: None,
+                infrastructure_provider: None,
+                ip_address: Some("10.10.10.10".into()),
+                registrar: None,
+            }),
+            position: 0,
+            recipient: None,
+            time: None,
+            trusted: true,
+        }
+    }
+
+    fn delivery_node_no_observed_sender() -> DeliveryNode {
+        DeliveryNode {
+            advertised_sender: Some(HostNode{
+                domain: Some(Domain {
+                    abuse_email_address: None,
+                    category: DomainCategory::Other,
+                    name: "fake.zzz".into(),
+                    registration_date: None,
+                    resolved_domain: None,
+                }),
+                host: None,
+                infrastructure_provider: Some(InfrastructureProvider {
+                    abuse_email_address: Some("abuse@fakeproviderone.zzz".into()),
+                    name: None,
+                }),
+                ip_address: Some("100.100.100.100".into()),
+                registrar: Some(Registrar {
+                    abuse_email_address: Some("abuse@fakeregone.zzz".into()),
+                    name: None,
+                }),
+            }),
+            observed_sender: None,
+            position: 0,
+            recipient: None,
+            time: None,
+            trusted: true,
+        }
+    }
+}
+
+#[cfg(test)]
+mod build_notification_for_delivery_node_domain_tests {
+    use crate::data::{Domain, DomainCategory};
+    use super::*;
+
+    #[test]
+    fn returns_notification_for_domain() {
+        let notification = Notification::Email(
+            Entity::Node("phishing.zzz".into()),
+            "abuse@regone.zzz".into()
+        );
+        assert_eq!(
+            Some(notification),
+            build_notification_for_delivery_node_domain(&host_node())
+        );
+    }
+
+    #[test]
+    fn returns_none_if_registrar_cannot_be_notified() {
+        assert!(build_notification_for_delivery_node_domain(&host_node_sans_registrar()).is_none())
+    }
+
+    #[test]
+    fn returns_none_if_no_domain() {
+        assert!(build_notification_for_delivery_node_domain(&host_node_sans_domain()).is_none())
+    }
+
+    fn host_node() -> HostNode {
+        HostNode {
+            domain: Some(Domain {
+                abuse_email_address: None,
+                category: DomainCategory::Other,
+                name: "phishing.zzz".into(),
+                registration_date: None,
+                resolved_domain: None,
+            }),
+            host: None,
+            infrastructure_provider: None,
+            ip_address: None,
+            registrar: Some(Registrar {
+                abuse_email_address: Some("abuse@regone.zzz".into()),
+                name: None,
+            }),
+        }
+    }
+
+    fn host_node_sans_domain() -> HostNode {
+        HostNode {
+            domain: None,
+            host: None,
+            infrastructure_provider: None,
+            ip_address: None,
+            registrar: None,
+        }
+    }
+
+    fn host_node_sans_registrar() -> HostNode {
+        HostNode {
+            domain: Some(Domain {
+                abuse_email_address: None,
+                category: DomainCategory::Other,
+                name: "phishing.zzz".into(),
+                registration_date: None,
+                resolved_domain: None,
+            }),
+            host: None,
+            infrastructure_provider: None,
+            ip_address: None,
+            registrar: None
+        }
+    }
+}
+
+#[cfg(test)]
+mod build_notification_for_delivery_node_ip_tests {
+    use crate::data::InfrastructureProvider;
+    use super::*;
+
+    #[test]
+    fn returns_notification_for_ip_address() {
+        let notification = Notification::Email(
+            Entity::Node("10.10.10.10".into()), "abuse@providerone.zzz".into()
+        );
+
+        assert_eq!(
+            Some(notification),
+            build_notification_for_delivery_node_ip(&host_node())
+        );
+    }
+
+    #[test]
+    fn returns_none_if_no_infrastructure_provider() {
+        assert!(
+            build_notification_for_delivery_node_ip(
+                &host_node_sans_infrastructure_provider()
+            ).is_none()
+        );
+    }
+
+    #[test]
+    fn returns_none_if_no_abuse_email_address() {
+        assert!(
+            build_notification_for_delivery_node_ip(
+                &host_node_sans_abuse_address()
+            ).is_none()
+        );
+    }
+
+    #[test]
+    fn returns_none_if_no_ip_address() {
+        assert!(
+            build_notification_for_delivery_node_ip(
+                &host_node_sans_ip_address()
+            ).is_none()
+        );
+    }
+
+    fn host_node() -> HostNode {
+        HostNode {
+            domain: None,
+            host: None,
+            infrastructure_provider: Some(InfrastructureProvider {
+                abuse_email_address: Some("abuse@providerone.zzz".into()),
+                name: None,
+            }),
+            ip_address: Some("10.10.10.10".into()),
+            registrar: None,
+        }
+    }
+
+    fn host_node_sans_ip_address() -> HostNode {
+        HostNode {
+            domain: None,
+            host: None,
+            infrastructure_provider: Some(InfrastructureProvider {
+                abuse_email_address: Some("abuse@providerone.zzz".into()),
+                name: None,
+            }),
+            ip_address: None,
+            registrar: None,
+        }
+    }
+
+    fn host_node_sans_infrastructure_provider() -> HostNode {
+        HostNode {
+            domain: None,
+            host: None,
+            infrastructure_provider: None,
+            ip_address: Some("10.10.10.10".into()),
+            registrar: None,
+        }
+    }
+
+    fn host_node_sans_abuse_address() -> HostNode {
+        HostNode {
+            domain: None,
+            host: None,
+            infrastructure_provider: Some(InfrastructureProvider {
+                abuse_email_address: None,
+                name: None,
+            }),
+            ip_address: Some("10.10.10.10".into()),
+            registrar: None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod build_notification_for_registrar {
+    use super::*;
+
+    #[test]
+    fn returns_notification_if_registrar_has_abuse_email_address() {
+        let registrar = build_registrar(Some("abuse@registrar.zzz"));
+        let notification = Notification::Email(entity(), "abuse@registrar.zzz".into());
+
+        assert_eq!(
+            Some(notification),
+            build_notification_for_registrar(Some(&registrar), entity())
+        );
+    }
+
+    #[test]
+    fn returns_none_if_registrar_has_no_abuse_email_address() {
+        let registrar = build_registrar(None);
+
+        assert!(build_notification_for_registrar(Some(&registrar), entity()).is_none());
+    }
+
+    #[test]
+    fn returns_none_if_no_registrar() {
+        assert!(build_notification_for_registrar(None, entity()).is_none());
+    }
+
+    fn build_registrar(abuse_email_address: Option<&str>) -> Registrar {
+        Registrar {
+            abuse_email_address: abuse_email_address.map(|v| v.into()),
+            name: None,
+        }
+    }
+
+    fn entity() -> Entity {
+        Entity::Node("https://phishing.link".into())
+    }
 }

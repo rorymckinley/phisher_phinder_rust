@@ -1038,7 +1038,7 @@ mod service_process_message_add_notifications_tests {
     use super::*;
 
     #[test]
-    fn adds_reportable_entities() {
+    fn adds_notifications_reportable_entities() {
         setup_mountebank();
         let temp = TempDir::new().unwrap();
         let db_path = temp.path().join("pp.sqlite3");
@@ -1055,12 +1055,12 @@ mod service_process_message_add_notifications_tests {
 
         assert_eq!(
             run_1.data.notifications,
-            notifications_for("http://localhost:4560", "abuse@regone.zzz")
+            notifications_for("http://re.directone.net", "abuse@regone.zzz")
         );
 
         assert_eq!(
             run_2.data.notifications,
-            notifications_for("http://localhost:4561", "abuse@regsix.zzz")
+            notifications_for("http://re.directtwo.net", "abuse@regsix.zzz")
         );
     }
 
@@ -1080,12 +1080,12 @@ mod service_process_message_add_notifications_tests {
         clear_all_impostors();
         setup_bootstrap_server();
 
-        setup_head_impostor(4560, true, Some("https://re.direct.one"));
-        setup_head_impostor(4561, true, Some("https://re.direct.two"));
+        setup_head_impostor(4560, true, Some("http://re.directone.net"));
+        setup_head_impostor(4561, true, Some("http://re.directtwo.net"));
 
         setup_dns_server(vec![
             DnsServerConfig {
-                domain_name: "re.direct.one",
+                domain_name: "re.directone.net",
                 handle: None,
                 registrar: Some("Reg One"),
                 abuse_email: Some("abuse@regone.zzz"),
@@ -1093,7 +1093,7 @@ mod service_process_message_add_notifications_tests {
                 response_code: 200,
             },
             DnsServerConfig {
-                domain_name: "re.direct.two",
+                domain_name: "re.directtwo.net",
                 handle: None,
                 registrar: Some("Reg Six"),
                 abuse_email: Some("abuse@regsix.zzz"),
@@ -1142,7 +1142,7 @@ mod service_process_message_add_notifications_tests {
     }
 
     fn notifications_for(entity: &str, email_address: &str) -> Vec<Notification> {
-        vec![Notification::Email(Entity::EmailAddress(entity.into()), String::from(email_address))]
+        vec![Notification::Email(Entity::Node(entity.into()), String::from(email_address))]
     }
 }
 

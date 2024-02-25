@@ -1094,7 +1094,7 @@ mod mail_definition_tests {
                 entity: Entity::Node(url.into()),
                 abuse_email_address: Some("abuse@regone.zzz".into())
             },
-            MailDefinition::new("https://foo.bar.baz", Some("abuse@regone.zzz"))
+            MailDefinition::new("https://foo.bar.baz/", Some("abuse@regone.zzz"))
         );
     }
 
