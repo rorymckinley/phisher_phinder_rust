@@ -871,6 +871,7 @@ mod build_mail_definitions_from_delivery_nodes_tests {
         }
     }
 }
+
 fn build_mail_definitions_from_delivery_nodes(
     delivery_nodes: &[DeliveryNode],
 ) -> Vec<MailDefinition> {

@@ -1,5 +1,6 @@
 use crate::data::{
     DeliveryNode,
+    Domain,
     EmailAddressData,
     EmailAddresses,
     FulfillmentNode,
@@ -56,10 +57,20 @@ fn to_refs(data: &[EmailAddressData]) -> Vec<&EmailAddressData> {
 }
 
 fn build_notification_from_email_address(data: &EmailAddressData) -> Option<Notification> {
-    build_notification_for_registrar(
-        data.registrar.as_ref(),
-        Entity::EmailAddress(data.address.clone())
-    )
+    let entity = Entity::EmailAddress(data.address.clone());
+    if let Some(domain) = data.domain.as_ref() {
+        let domain_notification = build_notification_for_domain(
+            domain, Entity::EmailAddress(data.address.clone())
+        );
+
+        if domain_notification.is_some() {
+            domain_notification
+        } else {
+            build_notification_for_registrar(data.registrar.as_ref(), entity)
+        }
+    } else {
+        build_notification_for_registrar(data.registrar.as_ref(), entity)
+    }
 }
 
 fn build_notifications_from_fulfillment_nodes(nodes: &[FulfillmentNode]) -> Vec<Notification> {
@@ -141,6 +152,13 @@ fn build_notification_for_registrar(
         },
         None => None
     }
+}
+
+fn build_notification_for_domain(domain: &Domain, entity: Entity) -> Option<Notification> {
+    domain
+        .abuse_email_address
+        .as_ref()
+        .map(|address| Notification::Email(entity, address.into()))
 }
 
 #[cfg(test)]
@@ -460,17 +478,45 @@ mod build_notifications_from_email_addresses_tests {
 
 #[cfg(test)]
 mod build_notification_from_email_address_tests {
-    use crate::data::{Domain, Registrar};
+    use crate::data::{Domain, DomainCategory, Registrar};
     use super::*;
 
     #[test]
-    fn builds_notification_from_email_address_data() {
-        let data = email_address_data();
+    fn builds_notification_using_registrar_data_if_no_domain_abuse_address() {
+        let data = email_address_data_no_domain_abuse_address();
 
         let expected_response = Some(
             Notification::Email(
                 Entity::EmailAddress("foo@test.com".into()),
                 "abuse@regone.zzz".into()
+            )
+        );
+
+        assert_eq!(expected_response, build_notification_from_email_address(&data));
+    }
+
+    #[test]
+    fn builds_notification_using_registrar_data_if_no_domain() {
+        let data = email_address_data_no_domain();
+
+        let expected_response = Some(
+            Notification::Email(
+                Entity::EmailAddress("foo@test.com".into()),
+                "abuse@regone.zzz".into()
+            )
+        );
+
+        assert_eq!(expected_response, build_notification_from_email_address(&data));
+    }
+
+    #[test]
+    fn prefers_to_notify_using_domain_abuse_address() {
+        let data = email_address_data_with_domain_abuse_address();
+
+        let expected_response = Some(
+            Notification::Email(
+                Entity::EmailAddress("foo@test.com".into()),
+                "abuse@test.com".into()
             )
         );
 
@@ -484,7 +530,7 @@ mod build_notification_from_email_address_tests {
         assert_eq!(None, build_notification_from_email_address(&data));
     }
 
-    fn email_address_data() -> EmailAddressData {
+    fn email_address_data_no_domain_abuse_address() -> EmailAddressData {
         EmailAddressData {
             address: "foo@test.com".into(),
             domain: Domain::from_email_address("foo@test.com"),
@@ -492,6 +538,38 @@ mod build_notification_from_email_address_tests {
                 abuse_email_address: Some("abuse@regone.zzz".into()),
                 name: None,
             }),
+        }
+    }
+
+    fn email_address_data_no_domain() -> EmailAddressData {
+        EmailAddressData {
+            address: "foo@test.com".into(),
+            domain: None,
+            registrar: Some(Registrar {
+                abuse_email_address: Some("abuse@regone.zzz".into()),
+                name: None,
+            }),
+        }
+    }
+
+    fn email_address_data_with_domain_abuse_address() -> EmailAddressData {
+        EmailAddressData {
+            address: "foo@test.com".into(),
+            domain: Some(domain_with_abuse_address()),
+            registrar: Some(Registrar {
+                abuse_email_address: Some("abuse@regone.zzz".into()),
+                name: None,
+            }),
+        }
+    }
+
+    fn domain_with_abuse_address() -> Domain {
+        Domain {
+            abuse_email_address: Some("abuse@test.com".into()),
+            category: DomainCategory::OpenEmailProvider,
+            name: "test.com".into(),
+            registration_date: None,
+            resolved_domain: None,
         }
     }
 
@@ -1041,7 +1119,7 @@ mod build_notification_for_delivery_node_ip_tests {
 }
 
 #[cfg(test)]
-mod build_notification_for_registrar {
+mod build_notification_for_registrar_tests {
     use super::*;
 
     #[test]
@@ -1076,5 +1154,54 @@ mod build_notification_for_registrar {
 
     fn entity() -> Entity {
         Entity::Node("https://phishing.link".into())
+    }
+}
+
+#[cfg(test)]
+mod build_notification_for_domain_tests {
+    use crate::data::DomainCategory;
+
+    use super::*;
+
+    #[test]
+    fn returns_notification_for_domain() {
+        let domain = domain_with_abuse_address();
+
+        assert_eq!(
+            Some(Notification::Email(entity(), "abuse@test.com".into())),
+            build_notification_for_domain(&domain, entity())
+        );
+    }
+
+    #[test]
+    fn returns_none_if_domain_has_no_email_address() {
+        let domain = domain_without_email_address();
+        let notification = build_notification_for_domain(&domain, entity());
+
+        assert!(notification.is_none());
+    }
+    
+    fn entity() -> Entity {
+        Entity::EmailAddress("foo@test.com".into())
+    }
+
+    fn domain_with_abuse_address() -> Domain {
+        Domain {
+            abuse_email_address: Some("abuse@test.com".into()),
+            category: DomainCategory::OpenEmailProvider,
+            name: "test.com".into(),
+            registration_date: None,
+            resolved_domain: None,
+        }
+    }
+
+    fn domain_without_email_address() -> Domain {
+        Domain {
+            abuse_email_address: None,
+            category: DomainCategory::Other,
+            name: "test.com".into(),
+            registration_date: None,
+            resolved_domain: None,
+        }
     }
 }
