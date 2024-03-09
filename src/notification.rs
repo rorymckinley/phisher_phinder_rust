@@ -6,6 +6,7 @@ use crate::data::{
     FulfillmentNode,
     HostNode,
     InfrastructureProvider,
+    Node,
     OutputData,
     Registrar
 };
@@ -76,24 +77,38 @@ fn build_notification_from_email_address(data: &EmailAddressData) -> Option<Noti
 fn build_notifications_from_fulfillment_nodes(nodes: &[FulfillmentNode]) -> Vec<Notification> {
     nodes
         .iter()
-        .filter_map(&build_notification_from_fulfillment_node)
+        .flat_map(build_notifications_from_fulfillment_node)
         .collect()
 }
 
-fn build_notification_from_fulfillment_node(node: &FulfillmentNode) -> Option<Notification> {
-    match &node.hidden {
-        Some(node) => {
+fn build_notifications_from_fulfillment_node(f_node: &FulfillmentNode) -> Vec<Notification> {
+    vec![
+        build_notification_for_node(f_node.hidden.as_ref()),
+        build_notification_for_node(Some(&f_node.visible)),
+    ]
+    .into_iter()
+    .flatten()
+    .collect()
+}
+
+fn build_notification_for_node(node_option: Option<&Node>) -> Option<Notification> {
+    if let Some(node) = node_option {
+        if let Some(domain) = node.domain.as_ref() {
+            match build_notification_for_domain(domain, build_node_entity(&node.url)) {
+                None => {
+                    build_notification_for_registrar(
+                        node.registrar.as_ref(), build_node_entity(&node.url)
+                    )
+                }
+                notification => notification,
+            }
+        } else {
             build_notification_for_registrar(
-                node.registrar.as_ref(),
-                Entity::Node(node.url.clone())
-            )
-        },
-        None => {
-            build_notification_for_registrar(
-                node.visible.registrar.as_ref(),
-                Entity::Node(node.visible.url.clone())
+                node.registrar.as_ref(), build_node_entity(&node.url)
             )
         }
+    } else {
+        None
     }
 }
 
@@ -159,6 +174,10 @@ fn build_notification_for_domain(domain: &Domain, entity: Entity) -> Option<Noti
         .abuse_email_address
         .as_ref()
         .map(|address| Notification::Email(entity, address.into()))
+}
+
+fn build_node_entity(url: &str) -> Entity {
+    Entity::Node(url.into())
 }
 
 #[cfg(test)]
@@ -656,44 +675,46 @@ mod build_notifications_from_fufillment_nodes_tests {
 }
 
 #[cfg(test)]
-mod build_notification_from_fulfillment_node_tests {
+mod build_notifications_from_fulfillment_node_tests {
     use crate::data::{Node, Registrar};
     use super::*;
 
     #[test]
-    fn builds_notification_from_fulfillment_node_both_hidden_and_visible() {
-        let node = hidden_fulfillment_node();
-        let notification = Notification::Email(
-            Entity::Node("https://hidden.phishing.link".into()), "abuse@reghidden.zzz".into()
-        );
+    fn hidden_and_visible_builds_notifications_for_both() {
+        let f_node = fulfillment_node_both();
+        let expected = vec![
+            Notification::Email(
+                Entity::Node("https://hidden.phishing.link".into()), "abuse@reghidden.zzz".into()
+            ),
+            Notification::Email(
+                Entity::Node("https://visible.phishing.link".into()), "abuse@regvisible.zzz".into()
+            ),
+        ];
 
-        assert_eq!(
-            Some(notification),
-            build_notification_from_fulfillment_node(&node)
-        );
+        assert_eq!(expected, build_notifications_from_fulfillment_node(&f_node));
     }
 
     #[test]
-    fn builds_notification_from_fulfillment_node_only_visible() {
-        let node = visible_only_fulfillment_node();
-        let notification = Notification::Email(
-            Entity::Node("https://visible.phishing.link".into()), "abuse@regvisible.zzz".into()
-        );
+    fn visible_only_builds_notifications_for_visible() {
+        let f_node = fulfillment_node_visible_only();
+        let expected = vec![
+            Notification::Email(
+                Entity::Node("https://visible.phishing.link".into()), "abuse@regvisible.zzz".into()
+            ),
+        ];
 
-        assert_eq!(
-            Some(notification),
-            build_notification_from_fulfillment_node(&node)
-        );
+        assert_eq!(expected, build_notifications_from_fulfillment_node(&f_node));
     }
 
     #[test]
-    fn returns_none_if_notification_cannot_be_built() {
-        let node = visible_fulfillment_node_no_registrar();
+    fn no_notifiable_nodes_returns_empty_collection() {
+        let f_node = fulfillment_node_no_notifiable_nodes();
+        let expected: Vec<Notification> = vec![];
 
-        assert_eq!(None, build_notification_from_fulfillment_node(&node));
+        assert_eq!(expected, build_notifications_from_fulfillment_node(&f_node))
     }
 
-    fn hidden_fulfillment_node() -> FulfillmentNode {
+    fn fulfillment_node_both() -> FulfillmentNode {
         FulfillmentNode {
             hidden: Some(Node {
                 domain: None,
@@ -714,7 +735,7 @@ mod build_notification_from_fulfillment_node_tests {
         }
     }
 
-    fn visible_only_fulfillment_node() -> FulfillmentNode {
+    fn fulfillment_node_visible_only() -> FulfillmentNode {
         FulfillmentNode {
             hidden: None,
             visible: Node {
@@ -728,9 +749,13 @@ mod build_notification_from_fulfillment_node_tests {
         }
     }
 
-    fn visible_fulfillment_node_no_registrar() -> FulfillmentNode {
+    fn fulfillment_node_no_notifiable_nodes() -> FulfillmentNode {
         FulfillmentNode {
-            hidden: None,
+            hidden: Some(Node {
+                domain: None,
+                registrar: None,
+                url: "https://hidden.phishing.link".into(),
+            }),
             visible: Node {
                 domain: None,
                 registrar: None,
@@ -738,6 +763,74 @@ mod build_notification_from_fulfillment_node_tests {
             },
         }
     }
+
+    // fn fulfillment_node_hidden_with_domain() -> FulfillmentNode {
+    //     FulfillmentNode {
+    //         hidden: Some(Node {
+    //             domain: Some(Domain {
+    //             }),
+    //             registrar: Some(Registrar {
+    //                 abuse_email_address: Some("abuse@reghidden.zzz".into()),
+    //                 name: None,
+    //             }),
+    //             url: "https://hidden.phishing.link".into(),
+    //         }),
+    //         visible: Node {
+    //             domain: None,
+    //             registrar: Some(Registrar {
+    //                 abuse_email_address: Some("abuse@regvisible.zzz".into()),
+    //                 name: None,
+    //             }),
+    //             url: "https://visible.phishing.link".into(),
+    //         },
+    //     }
+    // }
+    //
+    // fn hidden_fulfillment_node() -> FulfillmentNode {
+    //     FulfillmentNode {
+    //         hidden: Some(Node {
+    //             domain: None,
+    //             registrar: Some(Registrar {
+    //                 abuse_email_address: Some("abuse@reghidden.zzz".into()),
+    //                 name: None,
+    //             }),
+    //             url: "https://hidden.phishing.link".into(),
+    //         }),
+    //         visible: Node {
+    //             domain: None,
+    //             registrar: Some(Registrar {
+    //                 abuse_email_address: Some("abuse@regvisible.zzz".into()),
+    //                 name: None,
+    //             }),
+    //             url: "https://visible.phishing.link".into(),
+    //         },
+    //     }
+    // }
+    //
+    // fn visible_only_fulfillment_node() -> FulfillmentNode {
+    //     FulfillmentNode {
+    //         hidden: None,
+    //         visible: Node {
+    //             domain: None,
+    //             registrar: Some(Registrar {
+    //                 abuse_email_address: Some("abuse@regvisible.zzz".into()),
+    //                 name: None,
+    //             }),
+    //             url: "https://visible.phishing.link".into(),
+    //         },
+    //     }
+    // }
+    //
+    // fn visible_fulfillment_node_no_registrar() -> FulfillmentNode {
+    //     FulfillmentNode {
+    //         hidden: None,
+    //         visible: Node {
+    //             domain: None,
+    //             registrar: None,
+    //             url: "https://visible.phishing.link".into(),
+    //         },
+    //     }
+    // }
 }
 
 #[cfg(test)]
@@ -1202,6 +1295,137 @@ mod build_notification_for_domain_tests {
             name: "test.com".into(),
             registration_date: None,
             resolved_domain: None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod build_notification_for_node_tests {
+    use crate::data::DomainCategory;
+    use super::*;
+
+    #[test]
+    fn notifies_on_domain_abuse_address_if_both_node_and_domain() {
+        let node = node_with_domain_and_registrar();
+        let expected = Some(Notification::Email(
+            Entity::Node( "https://hidden.phishing.link".into()),
+            "abuse@domainowner.zzz".into()
+        ));
+
+        assert_eq!(expected, build_notification_for_node(Some(&node)));
+    }
+
+    #[test]
+    fn notifies_on_registrar_abuse_address_if_no_domain_notification() {
+        let node = node_with_no_notifiable_domain();
+        let expected = Some(Notification::Email(
+            Entity::Node( "https://hidden.phishing.link".into()),
+            "abuse@reghidden.zzz".into()
+        ));
+
+        assert_eq!(expected, build_notification_for_node(Some(&node)));
+    }
+
+    #[test]
+    fn notifies_on_registrar_abuse_address_if_no_domain() {
+        let node = node_with_no_domain();
+        let expected = Some(Notification::Email(
+            Entity::Node( "https://hidden.phishing.link".into()),
+            "abuse@reghidden.zzz".into()
+        ));
+
+        assert_eq!(expected, build_notification_for_node(Some(&node)));
+    }
+
+    #[test]
+    fn does_not_notify_if_no_domain_and_no_notifiable_registrar() {
+        let node = node_with_no_domain_no_notifiable_registrar();
+
+        assert_eq!(None, build_notification_for_node(Some(&node)));
+    }
+
+    #[test]
+    fn does_not_notify_if_no_notifiable_domain_and_no_notifiable_registrar() {
+        let node = node_with_no_notifiable_domain_no_notifiable_registrar();
+
+        assert_eq!(None, build_notification_for_node(Some(&node)));
+    }
+
+    #[test]
+    fn does_not_notify_if_no_node() {
+        assert_eq!(None, build_notification_for_node(None));
+    }
+
+    fn node_with_domain_and_registrar() -> Node {
+        Node {
+            domain: Some(Domain {
+                abuse_email_address: Some("abuse@domainowner.zzz".into()),
+                category: DomainCategory::UrlShortener,
+                name: "phishing.link".into(),
+                registration_date: None,
+                resolved_domain: None
+            }),
+            registrar: Some(Registrar {
+                abuse_email_address: Some("abuse@reghidden.zzz".into()),
+                name: None,
+            }),
+            url: "https://hidden.phishing.link".into(),
+        }
+    }
+
+    fn node_with_no_notifiable_domain() -> Node {
+        Node {
+            domain: Some(Domain {
+                abuse_email_address: None,
+                category: DomainCategory::UrlShortener,
+                name: "phishing.link".into(),
+                registration_date: None,
+                resolved_domain: None
+            }),
+            registrar: Some(Registrar {
+                abuse_email_address: Some("abuse@reghidden.zzz".into()),
+                name: None,
+            }),
+            url: "https://hidden.phishing.link".into(),
+        }
+    }
+
+    fn node_with_no_domain() -> Node {
+        Node {
+            domain: None,
+            registrar: Some(Registrar {
+                abuse_email_address: Some("abuse@reghidden.zzz".into()),
+                name: None,
+            }),
+            url: "https://hidden.phishing.link".into(),
+        }
+    }
+
+    fn node_with_no_domain_no_notifiable_registrar() -> Node {
+        Node {
+            domain: None,
+            registrar: Some(Registrar {
+                abuse_email_address: None,
+                name: None,
+            }),
+            url: "https://hidden.phishing.link".into(),
+        }
+    }
+
+    fn node_with_no_notifiable_domain_no_notifiable_registrar() -> Node {
+        Node {
+            domain: Some(Domain {
+                abuse_email_address: None,
+                category: DomainCategory::UrlShortener,
+                name: "phishing.link".into(),
+                registration_date: None,
+                resolved_domain: None
+            }),
+            registrar: Some(Registrar {
+                abuse_email_address: None,
+                name: None,
+            }),
+            url: "https://hidden.phishing.link".into(),
         }
     }
 }
