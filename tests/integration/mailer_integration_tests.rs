@@ -73,8 +73,9 @@ fn json_input() -> String {
                 "links": [],
                 "reply_to": [],
                 "return_path": []
-            }
+            },
         },
+        "notifications": [],
         "reportable_entities": {
             "delivery_nodes": [],
             "email_addresses": {

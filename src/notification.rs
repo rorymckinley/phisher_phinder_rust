@@ -121,7 +121,7 @@ fn build_notifications_from_delivery_nodes(nodes: &[DeliveryNode]) -> Vec<Notifi
 
 fn build_notifications_for_delivery_node(node: &DeliveryNode) -> Vec<Notification> {
     if let Some(sender) = &node.observed_sender {
-        [ 
+        [
             build_notification_for_delivery_node_domain(sender),
             build_notification_for_delivery_node_ip(sender),
         ]
@@ -337,6 +337,7 @@ mod add_notifications_tests {
             duplicates_removed: false,
             nodes: vec![FulfillmentNode {
                 hidden: None,
+                investigable: true,
                 visible: Node {
                     domain: None,
                     registrar: Some(Registrar {
@@ -651,6 +652,7 @@ mod build_notifications_from_fufillment_nodes_tests {
     fn fulfillment_node(url: &str, abuse_email_address: &str) -> FulfillmentNode {
         FulfillmentNode {
             hidden: None,
+            investigable: true,
             visible: Node {
                 domain: None,
                 registrar: Some(Registrar {
@@ -665,6 +667,7 @@ mod build_notifications_from_fufillment_nodes_tests {
     fn fulfillment_node_that_cannot_be_notified(url: &str) -> FulfillmentNode {
         FulfillmentNode {
             hidden: None,
+            investigable: true,
             visible: Node {
                 domain: None,
                 registrar: None,
@@ -724,6 +727,7 @@ mod build_notifications_from_fulfillment_node_tests {
                 }),
                 url: "https://hidden.phishing.link".into(),
             }),
+            investigable: true,
             visible: Node {
                 domain: None,
                 registrar: Some(Registrar {
@@ -738,6 +742,7 @@ mod build_notifications_from_fulfillment_node_tests {
     fn fulfillment_node_visible_only() -> FulfillmentNode {
         FulfillmentNode {
             hidden: None,
+            investigable: true,
             visible: Node {
                 domain: None,
                 registrar: Some(Registrar {
@@ -756,6 +761,7 @@ mod build_notifications_from_fulfillment_node_tests {
                 registrar: None,
                 url: "https://hidden.phishing.link".into(),
             }),
+            investigable: true,
             visible: Node {
                 domain: None,
                 registrar: None,
@@ -1273,7 +1279,7 @@ mod build_notification_for_domain_tests {
 
         assert!(notification.is_none());
     }
-    
+
     fn entity() -> Entity {
         Entity::EmailAddress("foo@test.com".into())
     }

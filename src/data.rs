@@ -614,6 +614,7 @@ mod fulfillment_node_tests {
 
         let expected = FulfillmentNode {
             hidden: None,
+            investigable: true,
             visible: Node {
                 domain: Some(Domain {
                     abuse_email_address: None,
@@ -634,6 +635,7 @@ mod fulfillment_node_tests {
     fn visible_url_test() {
         let f_node = FulfillmentNode {
             hidden: Some(Node::new("https://foo.bar")),
+            investigable: false,
             visible: Node::new("https://foo.baz"),
         };
 
@@ -720,7 +722,8 @@ mod fulfillment_node_tests {
     fn build_node(visible: &str, hidden: Option<&str>) -> FulfillmentNode {
         FulfillmentNode {
             visible: Node::new(visible),
-            hidden: hidden.map(Node::new)
+            hidden: hidden.map(Node::new),
+            investigable: false,
         }
     }
 }
@@ -728,6 +731,7 @@ mod fulfillment_node_tests {
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct FulfillmentNode {
     pub hidden: Option<Node>,
+    pub investigable: bool,
     pub visible: Node,
 }
 
@@ -735,6 +739,7 @@ impl FulfillmentNode {
     pub fn new(visible_url: &str) -> Self {
         Self {
             hidden: None,
+            investigable: true,
             visible: Node::new(visible_url),
         }
     }

@@ -249,6 +249,7 @@ fn input(message_source_id: u32, message_source_data: &str) -> String {
                         },
                         "url": "https://visible.net",
                     },
+                    "investigable": true,
                     "hidden": {
                         "domain": {
                             "abuse_email_address": null,
@@ -306,6 +307,7 @@ fn input(message_source_id: u32, message_source_data: &str) -> String {
                             },
                             "url": "https://visible.net",
                         },
+                        "investigable": true,
                         "hidden": {
                             "domain": {
                                 "abuse_email_address": null,
@@ -464,6 +466,7 @@ fn expected_json_output(message_source_id: u32, message_source_data: &str) -> Va
                         },
                         "url": "https://visible.net",
                     },
+                    "investigable": true,
                     "hidden": {
                         "domain": {
                             "abuse_email_address": null,
@@ -521,6 +524,7 @@ fn expected_json_output(message_source_id: u32, message_source_data: &str) -> Va
                             },
                             "url": "https://visible.net",
                         },
+                        "investigable": true,
                         "hidden": {
                             "domain": {
                                 "abuse_email_address": null,

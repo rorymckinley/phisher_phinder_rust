@@ -324,6 +324,7 @@ mod display_fulfillment_nodes_tests {
                 registrar: registrar_object("Reg One", Some("abuse@regone.zzz")),
                 url: "https://redirect.bar".into(),
             }),
+            investigable: true,
             visible: Node {
                 domain: domain_object(
                     "foo.bar",
@@ -2217,6 +2218,7 @@ mod display_run_tests {
     fn build_fulfillment_node(position: usize) -> FulfillmentNode {
         FulfillmentNode {
             hidden: Some(build_node("hidden", position)),
+            investigable: true,
             visible: build_node("visible", position),
         }
     }
@@ -2670,6 +2672,7 @@ mod display_reportable_entities_tests {
     fn build_fulfillment_node(position: usize) -> FulfillmentNode {
         FulfillmentNode {
             hidden: Some(build_node("hidden", position)),
+            investigable: true,
             visible: build_node("visible", position),
         }
     }

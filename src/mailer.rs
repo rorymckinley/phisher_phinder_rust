@@ -61,6 +61,7 @@ mod build_mail_definitions_tests {
             duplicates_removed: false,
             nodes: vec![FulfillmentNode {
                 hidden: None,
+                investigable: true,
                 visible: Node {
                     domain: None,
                     registrar: Some(Registrar {
@@ -240,6 +241,7 @@ mod build_mail_definitions_from_fulfillment_nodes_tests {
     fn fulfillment_node(url: &str, abuse_email_address: &str) -> FulfillmentNode {
         FulfillmentNode {
             hidden: None,
+            investigable: true,
             visible: Node {
                 domain: None,
                 registrar: Some(Registrar {
@@ -631,6 +633,7 @@ mod build_mail_definitions_from_fulfillment_node_tests {
                 }),
                 url: "https://another.dodgy.phishing.link".into(),
             }),
+            investigable: true,
             visible: Node {
                 domain: None,
                 registrar: Some(Registrar {
@@ -645,6 +648,7 @@ mod build_mail_definitions_from_fulfillment_node_tests {
     fn input_no_hidden() -> FulfillmentNode {
         FulfillmentNode {
             hidden: None,
+            investigable: true,
             visible: Node {
                 domain: None,
                 registrar: Some(Registrar {

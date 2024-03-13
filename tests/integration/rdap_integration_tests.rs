@@ -110,6 +110,7 @@ fn json_input() -> String {
                         "registrar": null,
                         "url": "https://visible.net",
                     },
+                    "investigable": true,
                     "hidden": {
                         "domain": {
                             "abuse_email_address": null,
@@ -337,6 +338,7 @@ fn expected_json_output() -> serde_json::Value {
                         },
                         "url": "https://visible.net",
                     },
+                    "investigable": true,
                     "hidden": {
                         "domain": {
                             "abuse_email_address": null,

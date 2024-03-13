@@ -1015,6 +1015,7 @@ mod service_process_message_add_reportable_entities_tests {
                         nodes: vec![
                             FulfillmentNode {
                                 hidden: Some(Node::new(hidden_url)),
+                                investigable: true,
                                 visible: Node::new(visible_url)
                             }
                         ],

@@ -86,6 +86,7 @@ mod add_reportable_entities_tests {
     fn fulfillment_nodes() -> Vec<FulfillmentNode> {
         vec![FulfillmentNode {
             hidden: None,
+            investigable: true,
             visible: Node {
                 domain: None,
                 registrar: None,
@@ -155,6 +156,7 @@ mod add_reportable_entities_tests {
     fn reportable_fulfillment_node() -> FulfillmentNode {
         FulfillmentNode {
             hidden: None,
+            investigable: true,
             visible: Node {
                 domain: None,
                 registrar: None,
