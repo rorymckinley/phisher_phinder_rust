@@ -632,6 +632,27 @@ mod fulfillment_node_tests {
     }
 
     #[test]
+    fn new_wth_non_http_s_is_not_investigable() {
+        let f_node = FulfillmentNode::new("file://https.stuff");
+
+        assert!(!f_node.investigable);
+    }
+
+    #[test]
+    fn new_wth_http_is_investigable() {
+        let f_node = FulfillmentNode::new("http://foo.bar");
+
+        assert!(f_node.investigable);
+    }
+
+    #[test]
+    fn new_wth_https_is_investigable() {
+        let f_node = FulfillmentNode::new("https://foo.bar");
+
+        assert!(f_node.investigable);
+    }
+
+    #[test]
     fn visible_url_test() {
         let f_node = FulfillmentNode {
             hidden: Some(Node::new("https://foo.bar")),
@@ -739,7 +760,7 @@ impl FulfillmentNode {
     pub fn new(visible_url: &str) -> Self {
         Self {
             hidden: None,
-            investigable: true,
+            investigable: Self::is_investigable(visible_url),
             visible: Node::new(visible_url),
         }
     }
@@ -775,6 +796,12 @@ impl FulfillmentNode {
         self
             .functional_node()
             .functional_cmp(other.functional_node())
+    }
+
+    fn is_investigable(url: &str) -> bool {
+        let pattern = Regex::new(r"\Ahttps?:").unwrap();
+
+        pattern.is_match(url)
     }
 }
 
