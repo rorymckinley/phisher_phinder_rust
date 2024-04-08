@@ -11,6 +11,8 @@ pub mod mailer;
 pub mod message_source;
 #[cfg(feature = "test-mocks")]
 pub mod mountebank;
+pub mod notification;
+pub mod outgoing_email;
 pub mod persistence;
 pub mod populator;
 pub mod reporter;
@@ -18,5 +20,6 @@ pub mod result;
 pub mod run;
 pub mod run_presenter;
 pub mod service;
+pub mod service_configuration;
 pub mod sources;
 pub mod ui;

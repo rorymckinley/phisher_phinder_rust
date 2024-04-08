@@ -1,20 +1,24 @@
 use crate::result::AppResult;
 use crate::run::Run;
+use crate::service_configuration::Configuration;
 use crate::ui::{
     display_authentication_results,
     display_metadata,
+    display_abuse_notifications,
     display_reportable_entities,
     display_sender_addresses_extended
 };
 
-pub fn present(run: Run) -> AppResult<String> {
+pub fn present<T>(run: Run, config: &T) -> AppResult<String>
+where T: Configuration {
     // TODO Large overlap with ui::display_run - resolve
     Ok(
         [
             display_metadata(&run)?,
             display_sender_addresses_extended(&run.data.parsed_mail.email_addresses)?,
             display_authentication_results(&run.data)?,
-            display_reportable_entities(&run)?
+            display_reportable_entities(&run)?,
+            display_abuse_notifications(&run, config)?
         ]
         .join("\n")
     )
@@ -22,6 +26,7 @@ pub fn present(run: Run) -> AppResult<String> {
 
 #[cfg(test)]
 mod present_tests {
+    use crate::cli::SingleCli;
     use crate::data::{
         DeliveryNode,
         Domain,
@@ -36,36 +41,44 @@ mod present_tests {
         ReportableEntities,
     };
     use crate::message_source::MessageSource;
+    use crate::service_configuration::ServiceConfiguration;
     use super::*;
 
     use chrono::prelude::*;
 
     #[test]
     fn returns_string_including_sender_addresses() {
-        let output = present(build_run()).unwrap();
+        let output = present(build_run(), &build_config()).unwrap();
 
         assert!(output.contains("Address Source"))
     }
 
     #[test]
     fn returns_string_containing_authentication_results() {
-        let output = present(build_run()).unwrap();
+        let output = present(build_run(), &build_config()).unwrap();
 
         assert!(output.contains("DKIM"))
     }
 
     #[test]
     fn returns_string_containing_reportable_entities() {
-        let output = present(build_run()).unwrap();
+        let output = present(build_run(), &build_config()).unwrap();
 
         assert!(output.contains("Delivery Nodes"))
     }
 
     #[test]
     fn returns_string_containing_run_metadata() {
-        let output = present(build_run()).unwrap();
+        let output = present(build_run(), &build_config()).unwrap();
 
         assert!(output.contains("Run ID"))
+    }
+
+    #[test]
+    fn returns_string_containing_notification_emails() {
+        let output = present(build_run(), &build_config()).unwrap();
+
+        assert!(output.contains("Abuse Notifications"))
     }
 
     fn build_run() -> Run {
@@ -102,6 +115,7 @@ mod present_tests {
                     fulfillment_nodes: vec![],
                     subject: None,
                 },
+                notifications: vec![],
                 reportable_entities: Some(reportable_entities),
                 run_id: None,
             },
@@ -173,5 +187,25 @@ mod present_tests {
             abuse_email_address: Some(format!("r.{sender_type}.{position}@test.com")),
             name: Some(format!("Registrar {sender_type} {position}")),
         }
+    }
+
+    pub fn build_config<'a>() -> ServiceConfiguration<'a> {
+        ServiceConfiguration::new(
+            Some(""),
+            &SingleCli { reprocess_run: None },
+            env_var_iterator()
+        ).unwrap()
+    }
+
+    pub fn env_var_iterator() -> Box<dyn Iterator<Item = (String, String)>>
+    {
+        let v: Vec<(String, String)> = vec![
+            ("PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS".into(), "sender@phishereagle.com".into()),
+            ("PP_DB_PATH".into(), "does.not.matter.sqlite".into()),
+            ("PP_TRUSTED_RECIPIENT".into(), "does.not.matter".into()),
+            ("RDAP_BOOTSTRAP_HOST".into(), "does.not.matter".into())
+        ];
+
+        Box::new(v.into_iter())
     }
 }

@@ -21,6 +21,19 @@ mod enumerate_tests {
         assert_eq!(sorted(output()), sorted(actual));
     }
 
+    #[test]
+    fn does_not_enumerate_nodes_that_are_not_investigable() {
+        clear_all_impostors();
+        setup_head_impostor(4545, true, Some("https://re.direct.one"));
+        setup_head_impostor(4546, true, Some("https://re.direct.two"));
+
+        let input_data = input_with_non_investigable();
+
+        let actual = tokio_test::block_on(enumerate(input_data));
+
+        assert_eq!(sorted(output_with_non_investigable()), sorted(actual));
+    }
+
     fn input() -> OutputData {
         OutputData::new(
             ParsedMail::new(
@@ -37,6 +50,27 @@ mod enumerate_tests {
         )
     }
 
+    fn input_with_non_investigable() -> OutputData {
+        let non_investigable_node = FulfillmentNode {
+            investigable: false,
+            ..FulfillmentNode::new("http://localhost:4546")
+        };
+
+        OutputData::new(
+            ParsedMail::new(
+                authentication_results(),
+                vec![],
+                email_addresses(),
+                vec![
+                    FulfillmentNode::new("http://localhost:4545"),
+                    non_investigable_node,
+                ],
+                None,
+            ),
+            MessageSource::new("raw mail text"),
+        )
+    }
+
     fn output() -> OutputData {
         let f_nodes = vec![
             FulfillmentNode {
@@ -45,6 +79,30 @@ mod enumerate_tests {
             },
             FulfillmentNode {
                 hidden: Some(Node::new("https://re.direct.two")),
+                ..FulfillmentNode::new("http://localhost:4546")
+            },
+        ];
+
+        OutputData::new(
+            ParsedMail::new(
+                authentication_results(),
+                vec![],
+                email_addresses(),
+                f_nodes,
+                None,
+            ),
+            MessageSource::new("raw mail text"),
+        )
+    }
+
+    fn output_with_non_investigable() -> OutputData {
+        let f_nodes = vec![
+            FulfillmentNode {
+                hidden: Some(Node::new("https://re.direct.one")),
+                ..FulfillmentNode::new("http://localhost:4545")
+            },
+            FulfillmentNode {
+                investigable: false,
                 ..FulfillmentNode::new("http://localhost:4546")
             },
         ];
@@ -101,11 +159,18 @@ pub async fn enumerate(data: OutputData) -> OutputData {
 
     let mut set: JoinSet<FulfillmentNode> = JoinSet::new();
 
-    for node in data.parsed_mail.fulfillment_nodes.into_iter() {
+    let (investigable, non_investigable) = data
+        .parsed_mail
+        .fulfillment_nodes
+        .into_iter()
+        .partition(|f_node| f_node.investigable);
+        
+
+    for node in investigable {
         set.spawn(async move { enumerate_visible_url(node).await });
     }
 
-    let mut fulfillment_nodes = vec![];
+    let mut fulfillment_nodes: Vec<FulfillmentNode> = non_investigable;
 
     while let Some(res) = set.join_next().await {
         fulfillment_nodes.push(res.unwrap())

@@ -1,6 +1,7 @@
 use clap::Parser;
 use phisher_phinder_rust::cli::SingleCli;
-use phisher_phinder_rust::service::{Service, ServiceConfiguration};
+use phisher_phinder_rust::service::Service;
+use phisher_phinder_rust::service_configuration::ServiceConfiguration;
 use std::io::{IsTerminal, stdin};
 use std::process::exit;
 

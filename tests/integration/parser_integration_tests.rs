@@ -214,6 +214,7 @@ fn json_output_as_value(source_data: String) -> serde_json::Value {
                         "registrar": null,
                         "url": "https://foo.bar/baz",
                     },
+                    "investigable": true,
                     "hidden": null,
                 }
             ],
@@ -223,6 +224,7 @@ fn json_output_as_value(source_data: String) -> serde_json::Value {
             "id": 9909,
             "data": source_data
         },
+        "notifications": [],
         "reportable_entities": null,
         "run_id": null
     })

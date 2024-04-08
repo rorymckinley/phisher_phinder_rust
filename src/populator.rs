@@ -144,6 +144,7 @@ mod populate_tests {
         assert_eq!(
             vec![FulfillmentNode {
                 hidden: None,
+                investigable: true,
                 visible: Node {
                     domain: domain_object(
                         "iamascamsite.com",
@@ -238,6 +239,7 @@ mod populate_tests {
                 },
             },
             message_source: MessageSource::new("raw mail text goes here"),
+            notifications: vec![],
             reportable_entities: None,
             run_id: None,
         }
@@ -625,6 +627,7 @@ mod lookup_fulfillment_nodes_from_rdap_tests {
         vec![
             FulfillmentNode {
                 hidden: None,
+                investigable: true,
                 visible: Node {
                     domain: domain_object(
                         "fake.net",
@@ -636,6 +639,7 @@ mod lookup_fulfillment_nodes_from_rdap_tests {
             },
             FulfillmentNode {
                 hidden: None,
+                investigable: true,
                 visible: Node {
                     domain: domain_object(
                         "possiblynotfake.com",
@@ -960,6 +964,7 @@ mod lookup_fulfillment_node_tests {
                 registrar: registrar_object("Reg Two", Some("abuse@regtwo.zzz")),
                 url: "https://possiblynotfake.com".into(),
             }),
+            investigable: true,
             visible: Node {
                 domain: domain_object(
                     "fake.net",
@@ -1024,6 +1029,7 @@ async fn lookup_fulfillment_node(
 
     FulfillmentNode {
         hidden,
+        investigable: true,
         visible: visible.unwrap(),
     }
 }

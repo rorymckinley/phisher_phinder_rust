@@ -73,6 +73,7 @@ mod persisted_record_tests {
                 "data": "xx",
                 "id": 1001,
             },
+            "notifications": [],
             "reportable_entities": null,
             "run_id": null,
         }).to_string()

@@ -1,4 +1,5 @@
 use chrono::prelude::*;
+use crate::notification::Notification;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -14,6 +15,7 @@ use crate::message_source::MessageSource;
 pub struct OutputData {
     pub parsed_mail: ParsedMail,
     pub message_source: MessageSource,
+    pub notifications: Vec<Notification>,
     pub reportable_entities: Option<ReportableEntities>,
     pub run_id: Option<i64>,
 }
@@ -23,6 +25,7 @@ impl OutputData {
         Self {
             parsed_mail,
             message_source,
+            notifications: vec![],
             reportable_entities: None,
             run_id: None,
         }
@@ -611,6 +614,7 @@ mod fulfillment_node_tests {
 
         let expected = FulfillmentNode {
             hidden: None,
+            investigable: true,
             visible: Node {
                 domain: Some(Domain {
                     abuse_email_address: None,
@@ -628,9 +632,31 @@ mod fulfillment_node_tests {
     }
 
     #[test]
+    fn new_wth_non_http_s_is_not_investigable() {
+        let f_node = FulfillmentNode::new("file://https.stuff");
+
+        assert!(!f_node.investigable);
+    }
+
+    #[test]
+    fn new_wth_http_is_investigable() {
+        let f_node = FulfillmentNode::new("http://foo.bar");
+
+        assert!(f_node.investigable);
+    }
+
+    #[test]
+    fn new_wth_https_is_investigable() {
+        let f_node = FulfillmentNode::new("https://foo.bar");
+
+        assert!(f_node.investigable);
+    }
+
+    #[test]
     fn visible_url_test() {
         let f_node = FulfillmentNode {
             hidden: Some(Node::new("https://foo.bar")),
+            investigable: false,
             visible: Node::new("https://foo.baz"),
         };
 
@@ -717,7 +743,8 @@ mod fulfillment_node_tests {
     fn build_node(visible: &str, hidden: Option<&str>) -> FulfillmentNode {
         FulfillmentNode {
             visible: Node::new(visible),
-            hidden: hidden.map(Node::new)
+            hidden: hidden.map(Node::new),
+            investigable: false,
         }
     }
 }
@@ -725,6 +752,7 @@ mod fulfillment_node_tests {
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct FulfillmentNode {
     pub hidden: Option<Node>,
+    pub investigable: bool,
     pub visible: Node,
 }
 
@@ -732,6 +760,7 @@ impl FulfillmentNode {
     pub fn new(visible_url: &str) -> Self {
         Self {
             hidden: None,
+            investigable: Self::is_investigable(visible_url),
             visible: Node::new(visible_url),
         }
     }
@@ -767,6 +796,12 @@ impl FulfillmentNode {
         self
             .functional_node()
             .functional_cmp(other.functional_node())
+    }
+
+    fn is_investigable(url: &str) -> bool {
+        let pattern = Regex::new(r"\Ahttps?:").unwrap();
+
+        pattern.is_match(url)
     }
 }
 
@@ -1665,14 +1700,14 @@ impl TrustedRecipientDeliveryNode {
     }
 }
 
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct ReportableEntities {
     pub delivery_nodes: Vec<DeliveryNode>,
     pub email_addresses: EmailAddresses,
     pub fulfillment_nodes_container: FulfillmentNodesContainer,
 }
 
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct FulfillmentNodesContainer {
     pub duplicates_removed: bool,
     pub nodes: Vec<FulfillmentNode>,
