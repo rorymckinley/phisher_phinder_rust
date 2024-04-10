@@ -94,6 +94,7 @@ fn json_output_as_value(source_data: String) -> serde_json::Value {
                 "spf": {
                     "ip_address": "10.10.10.10",
                     "result": "Pass",
+                    "smtp_helo": null,
                     "smtp_mailfrom": "info@xxx.fr"
                 }
             },

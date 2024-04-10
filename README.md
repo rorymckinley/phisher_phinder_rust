@@ -57,7 +57,7 @@ Counterintuitively, you need to provide the id of a run linked to the message so
 the id of the message source.
 
 ```
-env $(cat .env | xargs) cargo run --bin ppr --reprocess-run <RUN_ID>
+env $(cat .env | xargs) cargo run --bin ppr -- --reprocess-run <RUN_ID>
 ```
 
 ## env files

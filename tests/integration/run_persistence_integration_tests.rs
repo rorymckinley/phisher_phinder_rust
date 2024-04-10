@@ -190,6 +190,7 @@ fn input(message_source_id: u32, message_source_data: &str) -> String {
                 "spf": {
                     "ip_address": "10.10.10.10",
                     "result": "Pass",
+                    "smtp_helo": null,
                     "smtp_mailfrom": "info@xxx.fr"
                 }
             },
@@ -407,6 +408,7 @@ fn expected_json_output(message_source_id: u32, message_source_data: &str) -> Va
                 "spf": {
                     "ip_address": "10.10.10.10",
                     "result": "Pass",
+                    "smtp_helo": null,
                     "smtp_mailfrom": "info@xxx.fr"
                 }
             },
@@ -559,7 +561,7 @@ fn has_run_record(conn: &Connection, message_source_id: u32) -> bool {
 
     let row_result = stmt.query_row([message_source_id], |row| row.get::<usize, u32>(0));
 
-    matches!(row_result, Ok(_))
+    row_result.is_ok()
 }
 
 fn assert_json_output(assert: Assert, expected_output: Value) {

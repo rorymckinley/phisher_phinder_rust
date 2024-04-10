@@ -278,6 +278,7 @@ mod populate_tests {
             spf: Some(Spf {
                 ip_address: Some("".into()),
                 result: Some(SpfResult::SoftFail),
+                smtp_helo: None,
                 smtp_mailfrom: Some("".into()),
             }),
         })

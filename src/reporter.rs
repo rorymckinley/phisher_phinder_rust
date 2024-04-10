@@ -55,6 +55,7 @@ mod add_reportable_entities_tests {
             spf: Some(Spf {
                 ip_address: None,
                 result: Some(SpfResult::Pass),
+                smtp_helo: None,
                 smtp_mailfrom: Some("from@test.com".into()),
             }),
         }
