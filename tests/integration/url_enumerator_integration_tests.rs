@@ -46,6 +46,7 @@ fn json_input() -> String {
                 "spf": {
                     "ip_address": "10.10.10.10",
                     "result": "Pass",
+                    "smtp_helo": null,
                     "smtp_mailfrom": "info@xxx.fr"
                 }
             },
@@ -130,6 +131,7 @@ fn json_output() -> serde_json::Value {
                 "spf": {
                     "ip_address": "10.10.10.10",
                     "result": "Pass",
+                    "smtp_helo": null,
                     "smtp_mailfrom": "info@xxx.fr"
                 }
             },

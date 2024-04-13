@@ -369,6 +369,7 @@ mod display_fulfillment_nodes_tests {
             spf: Some(Spf {
                 ip_address: Some("".into()),
                 result: Some(SpfResult::SoftFail),
+                smtp_helo: None,
                 smtp_mailfrom: Some("".into()),
             }),
         })
@@ -994,6 +995,7 @@ mod display_delivery_nodes_tests {
             spf: Some(Spf {
                 ip_address: Some("".into()),
                 result: Some(SpfResult::SoftFail),
+                smtp_helo: None,
                 smtp_mailfrom: Some("".into()),
             }),
         })
@@ -1114,9 +1116,9 @@ mod display_authentication_results_tests {
             +--------------------+------------+-----------+-----------------+\n\
             | SPF                                                           |\n\
             +--------------------+------------+-----------+-----------------+\n\
-            | Result             | IP Address | Mail From                   |\n\
+            | Result             | IP Address | Mail From | Helo            |\n\
             +--------------------+------------+-----------+-----------------+\n\
-            | N/A                | N/A        | N/A                         |\n\
+            | N/A                | N/A        | N/A       | N/A             |\n\
             +--------------------+------------+-----------+-----------------+\n\
             "
             ),
@@ -1144,9 +1146,9 @@ mod display_authentication_results_tests {
             +--------------------+---------------+----------------+-----------------+\n\
             | SPF                                                                   |\n\
             +--------------------+---------------+----------------+-----------------+\n\
-            | Result             | IP Address    | Mail From                        |\n\
+            | Result             | IP Address    | Mail From      | Helo            |\n\
             +--------------------+---------------+----------------+-----------------+\n\
-            | SoftFail           | 10.10.10.10   | mailfrom                         |\n\
+            | SoftFail           | 10.10.10.10   | mailfrom       | helo            |\n\
             +--------------------+---------------+----------------+-----------------+\n\
             "
             ),
@@ -1187,6 +1189,7 @@ mod display_authentication_results_tests {
             spf: Some(Spf {
                 ip_address: Some("10.10.10.10".into()),
                 result: Some(SpfResult::SoftFail),
+                smtp_helo: Some("helo".into()).into(),
                 smtp_mailfrom: Some("mailfrom".into()),
             }),
         })
@@ -1223,13 +1226,15 @@ pub fn display_authentication_results(data: &OutputData) -> AppResult<String> {
     table.add_row(Row::new(vec![
         Cell::new("Result"),
         Cell::new("IP Address"),
-        Cell::new("Mail From").with_hspan(2),
+        Cell::new("Mail From"),
+        Cell::new("Helo"),
     ]));
 
     table.add_row(Row::new(vec![
         authentication_results_spf_result(auth_results),
         authentication_results_spf_ip_address(auth_results),
-        authentication_results_spf_mailfrom(auth_results).with_hspan(2),
+        authentication_results_spf_mailfrom(auth_results),
+        authentication_results_spf_helo(auth_results),
     ]));
 
     table_to_string(&table)
@@ -1640,6 +1645,7 @@ mod authentication_results_spf_result_tests {
         let spf = Spf {
             ip_address: None,
             result: Some(SpfResult::HardFail),
+            smtp_helo: None,
             smtp_mailfrom: None,
         };
 
@@ -1698,6 +1704,7 @@ mod authentication_results_spf_ip_address_tests {
         let spf = Spf {
             ip_address: Some("10.10.10.10".into()),
             result: None,
+            smtp_helo: None,
             smtp_mailfrom: None,
         };
 
@@ -1753,6 +1760,7 @@ mod authentication_results_spf_mailfrom_tests {
         let spf = Spf {
             ip_address: None,
             result: None,
+            smtp_helo: None,
             smtp_mailfrom: Some("foo".into()),
         };
 
@@ -1776,6 +1784,60 @@ fn authentication_results_spf_mailfrom(results_option: Option<&AuthenticationRes
             None => optional_cell(None),
         },
         None => optional_cell(None),
+    }
+}
+
+#[cfg(test)]
+mod authentication_results_spf_helo_tests {
+    use crate::authentication_results::Spf;
+    use super::*;
+
+    #[test]
+    fn returns_na_if_no_authentication_results() {
+        assert_eq!(Cell::new("N/A"), authentication_results_spf_helo(None));
+    }
+
+    #[test]
+    fn returns_na_if_no_spf() {
+        let results = AuthenticationResults {
+            dkim: None,
+            service_identifier: None,
+            spf: None,
+        };
+
+        assert_eq!(
+            Cell::new("N/A"),
+            authentication_results_spf_helo(Some(&results))
+        );
+    }
+
+    #[test]
+    fn returns_helo() {
+        let spf = Spf {
+            ip_address: None,
+            result: None,
+            smtp_helo: Some("foo".into()),
+            smtp_mailfrom: None,
+        };
+
+        let results = AuthenticationResults {
+            dkim: None,
+            service_identifier: None,
+            spf: Some(spf),
+        };
+
+        assert_eq!(
+            Cell::new("foo"),
+            authentication_results_spf_helo(Some(&results))
+        );
+    }
+}
+
+fn authentication_results_spf_helo(results_option: Option<&AuthenticationResults>) -> Cell {
+    if let Some(AuthenticationResults {spf: Some(spf), ..}) = results_option {
+        optional_cell(spf.smtp_helo.as_deref())
+    } else {
+        Cell::new("N/A")
     }
 }
 

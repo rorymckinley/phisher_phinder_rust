@@ -70,6 +70,7 @@ mod parse_header_tests {
             spf: Some(Spf {
                 ip_address: Some("10.10.10.10".into()),
                 result: Some(SpfResult::Pass),
+                smtp_helo: None,
                 smtp_mailfrom: Some("info@xxx.fr".into()),
             }),
         }
@@ -151,6 +152,7 @@ mod authentication_results_valid_tests {
             spf: Some(Spf {
                 ip_address: None,
                 result: Some(SpfResult::Pass),
+                smtp_helo: None,
                 smtp_mailfrom: Some("from@test.com".into()),
             }),
         }
@@ -181,6 +183,7 @@ mod authentication_results_valid_tests {
             spf: Some(Spf {
                 ip_address: None,
                 result: Some(SpfResult::Pass),
+                smtp_helo: None,
                 smtp_mailfrom: Some("recipient@not.com".into()),
             }),
         }
@@ -698,23 +701,47 @@ mod spf_new_tests {
     use super::*;
 
     #[test]
-    fn creates_instance_from_header() {
-        let input = header();
+    fn creates_instance_from_header_with_mailfrom() {
+        let input = header_with_mailfrom();
         let expected = Spf {
             ip_address: Some("10.10.10.10".into()),
             result: Some(SpfResult::Pass),
+            smtp_helo: None,
             smtp_mailfrom: Some("info@xxx.fr".into()),
         };
 
         assert_eq!(expected, Spf::new(&input));
     }
 
-    fn header() -> String {
+    #[test]
+    fn creates_instance_from_header_with_helo() {
+        let input = header_with_helo();
+        let expected = Spf {
+            ip_address: Some("10.10.10.10".into()),
+            result: Some(SpfResult::Pass),
+            smtp_helo: Some("xxx.fr".into()),
+            smtp_mailfrom: None,
+        };
+
+        assert_eq!(expected, Spf::new(&input));
+    }
+
+    fn header_with_mailfrom() -> String {
         let from = "info@xxx.fr";
         let ip = "10.10.10.10";
         let parens = format!("(google.com: domain of {from} designates {ip} as permitted sender)");
 
         format!("spf=pass {parens} smtp.mailfrom={from}")
+    }
+
+    fn header_with_helo() -> String {
+        let helo = "xxx.fr";
+        let ip = "10.10.10.10";
+        let parens = format!(
+            "(google.com: domain of postmaster@{helo} designates {ip} as permitted sender)"
+        );
+
+        format!("spf=pass {parens} smtp.helo={helo}")
     }
 }
 
@@ -799,6 +826,41 @@ mod spf_extract_mailfrom_tests {
 }
 
 #[cfg(test)]
+mod spf_extract_helo_tests {
+    use super::*;
+
+    #[test]
+    fn returns_helo() {
+        let input = header();
+
+        assert_eq!(
+            Some(String::from("xxx.fr")),
+            Spf::extract_helo(&input)
+        );
+    }
+
+    #[test]
+    fn returns_none_if_unparseable_header() {
+        let input = broken_header();
+
+        assert_eq!(None, Spf::extract_helo(&input))
+    }
+
+    fn header() -> String {
+        let helo = "xxx.fr";
+        let ip = "10.10.10.10";
+        let parens = format!(
+            "(google.com: domain of postmaster@{helo} designates {ip} as permitted sender)");
+
+        format!("spf=hardfail {parens} smtp.helo={helo}")
+    }
+
+    fn broken_header() -> String {
+        "xxxxx".into()
+    }
+}
+
+#[cfg(test)]
 mod spf_extract_ip_address_tests {
     use super::*;
 
@@ -837,45 +899,57 @@ mod spf_valid_tests {
     use super::*;
 
     #[test]
-    fn returns_false_if_no_result() {
-        let spf = spf_no_result();
-
-        assert!(!spf.valid("recipient@test.com"));
-    }
-
-    #[test]
-    fn returns_false_if_no_smtp_mailfrom() {
-        let spf = spf_no_smtp_mailfrom();
-
-        assert!(!spf.valid("recipient@test.com"));
-    }
-
-    #[test]
-    fn returns_true_if_pass_with_matching_mailfrom() {
+    fn returns_true_if_spf_pass_and_mailfrom_matches() {
         let spf = spf_pass_matching_mailfrom();
 
         assert!(spf.valid("recipient@test.com"));
     }
 
     #[test]
-    fn returns_false_if_not_pass_with_matching_mailfrom() {
-        let spf = spf_no_pass_matching_mailfrom();
+    fn returns_true_if_spf_pass_and_helo_matches() {
+        let spf = spf_pass_matching_helo();
 
-        assert!(!spf.valid("recipient@test.com"))
+        assert!(spf.valid("recipient@test.com"));
     }
 
     #[test]
-    fn returns_false_if_pass_with_nonmatching_mailfrom() {
-        let spf = spf_pass_no_matching_mailfrom();
+    fn returns_false_if_not_pass() {
+        let spf = spf_no_result_valid_mailfrom();
+        assert!(!spf.valid("recipient@test.com"));
+
+        let spf = spf_no_result_valid_helo();
+        assert!(!spf.valid("recipient@test.com"));
+    }
+
+    #[test]
+    fn returns_false_if_invalid_mailfrom() {
+        let spf = spf_no_smtp_mailfrom();
+
+        assert!(!spf.valid("recipient@test.com"));
+    }
+
+    #[test]
+    fn returns_false_if_invalid_helo() {
+        let spf = spf_no_smtp_helo();
 
         assert!(!spf.valid("recipient@test.com"))
     }
 
-    fn spf_no_result() -> Spf {
+    fn spf_no_result_valid_mailfrom() -> Spf {
         Spf {
             ip_address: None,
             result: None,
+            smtp_helo: None,
             smtp_mailfrom: Some("recipient@test.com".into()),
+        }
+    }
+
+    fn spf_no_result_valid_helo() -> Spf {
+        Spf {
+            ip_address: None,
+            result: None,
+            smtp_helo: Some("test.com".into()),
+            smtp_mailfrom: None,
         }
     }
 
@@ -883,6 +957,16 @@ mod spf_valid_tests {
         Spf {
             ip_address: None,
             result: Some(SpfResult::Pass),
+            smtp_helo: None,
+            smtp_mailfrom: None,
+        }
+    }
+
+    fn spf_no_smtp_helo() -> Spf {
+        Spf {
+            ip_address: None,
+            result: Some(SpfResult::Pass),
+            smtp_helo: None,
             smtp_mailfrom: None,
         }
     }
@@ -891,23 +975,177 @@ mod spf_valid_tests {
         Spf {
             ip_address: None,
             result: Some(SpfResult::Pass),
+            smtp_helo: None,
             smtp_mailfrom: Some("recipient@test.com".into()),
         }
     }
 
-    fn spf_no_pass_matching_mailfrom() -> Spf {
-        Spf {
-            ip_address: None,
-            result: Some(SpfResult::Policy),
-            smtp_mailfrom: Some("recipient@test.com".into()),
-        }
-    }
-
-    fn spf_pass_no_matching_mailfrom() -> Spf {
+    fn spf_pass_matching_helo() -> Spf {
         Spf {
             ip_address: None,
             result: Some(SpfResult::Pass),
-            smtp_mailfrom: Some("not-recipient@test.com".into()),
+            smtp_helo: Some("test.com".into()),
+            smtp_mailfrom: None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod spf_valid_result_tests {
+    use super::*;
+
+    #[test]
+    fn is_true_if_result_is_pass() {
+        assert!(spf_pass_result().valid_result())
+    }
+
+    #[test]
+    fn is_false_if_no_result() {
+        assert!(!spf_no_result().valid_result())
+    }
+
+    #[test]
+    fn is_false_if_result_is_not_pass() {
+        assert!(!spf_policy_result().valid_result())
+    }
+
+    fn spf_pass_result() -> Spf {
+        Spf {
+            ip_address: None,
+            result: Some(SpfResult::Pass),
+            smtp_helo: None,
+            smtp_mailfrom: None
+        }
+    }
+
+    fn spf_no_result() -> Spf {
+        Spf {
+            ip_address: None,
+            result: None,
+            smtp_helo: None,
+            smtp_mailfrom: None
+        }
+    }
+
+    fn spf_policy_result() -> Spf {
+        Spf {
+            ip_address: None,
+            result: Some(SpfResult::Policy),
+            smtp_helo: None,
+            smtp_mailfrom: None
+        }
+    }
+}
+
+#[cfg(test)]
+mod spf_valid_mailfrom_tests {
+    use super::*;
+
+    #[test]
+    fn is_false_if_no_mailfrom() {
+        let email_address = "foo@test.zzz";
+
+        assert!(!spf_no_mailfrom().valid_mailfrom(email_address))        
+    }
+
+    #[test]
+    fn is_true_if_mailfrom_matches() {
+        let email_address = "foo@test.zzz";
+
+        assert!(spf_mailfrom_matches().valid_mailfrom(email_address))        
+    }
+
+    #[test]
+    fn is_false_if_mailfrom_does_not_match() {
+        let email_address = "foo@test.zzz";
+
+        assert!(!spf_mailfrom_does_not_match().valid_mailfrom(email_address))        
+    }
+
+    fn spf_no_mailfrom() -> Spf {
+        Spf {
+            ip_address: None,
+            result: None,
+            smtp_helo: None,
+            smtp_mailfrom: None
+        }
+    }
+
+    fn spf_mailfrom_matches() -> Spf {
+        Spf {
+            ip_address: None,
+            result: None,
+            smtp_helo: None,
+            smtp_mailfrom: Some("foo@test.zzz".into())
+        }
+    }
+
+    fn spf_mailfrom_does_not_match() -> Spf {
+        Spf {
+            ip_address: None,
+            result: None,
+            smtp_helo: None,
+            smtp_mailfrom: Some("not-foo@test.zzz".into())
+        }
+    }
+}
+
+#[cfg(test)]
+mod spf_valid_helo_tests {
+    use super::*;
+
+    #[test]
+    fn returns_false_if_none() {
+        let spf = spf_no_helo();
+
+        assert!(!spf.valid_helo("recipient@test.com"))
+    }
+
+    #[test]
+    fn returns_true_if_helo_matches_email_address_domain() {
+        let spf = spf_helo_match();
+
+        assert!(spf.valid_helo("recipient@test.com"))
+    }
+
+    #[test]
+    fn returns_false_if_helo_does_not_match_email_address_domain() {
+        let spf = spf_helo_mismatch();
+
+        assert!(!spf.valid_helo("recipient@test.com"))
+    }
+
+    #[test]
+    fn returns_false_if_email_address_is_broken() {
+        let spf = spf_helo_match();
+
+        assert!(!spf.valid_helo("recipienttest.com"))
+    }
+
+    fn spf_no_helo() -> Spf {
+        Spf {
+            ip_address: None,
+            result: None,
+            smtp_helo: None,
+            smtp_mailfrom: None
+        }
+    }
+
+    fn spf_helo_match() -> Spf {
+        Spf {
+            ip_address: None,
+            result: None,
+            smtp_helo: Some("test.com".into()),
+            smtp_mailfrom: None
+        }
+    }
+
+    fn spf_helo_mismatch() -> Spf {
+        Spf {
+            ip_address: None,
+            result: None,
+            smtp_helo: Some("not-test.com".into()),
+            smtp_mailfrom: None
         }
     }
 }
@@ -916,6 +1154,7 @@ mod spf_valid_tests {
 pub struct Spf {
     pub ip_address: Option<String>,
     pub result: Option<SpfResult>,
+    pub smtp_helo: Option<String>,
     pub smtp_mailfrom: Option<String>,
 }
 
@@ -924,6 +1163,7 @@ impl Spf {
         Self {
             ip_address: Self::extract_ip_address(header),
             result: Self::map_to_result(header),
+            smtp_helo: Self::extract_helo(header),
             smtp_mailfrom: Self::extract_mailfrom(header),
         }
     }
@@ -953,15 +1193,41 @@ impl Spf {
             .map(|captures| String::from(&captures[1]))
     }
 
+    fn extract_helo(header: &str) -> Option<String> {
+        let pattern = Regex::new(r"smtp.helo=(.+)\z").unwrap();
+
+        pattern
+            .captures(header)
+            .map(|captures| String::from(&captures[1]))
+    }
+
     fn valid(&self, email_address: &str) -> bool {
-        matches!(self.result, Some(SpfResult::Pass)) && self.valid_mailfrom(email_address)
+        self.valid_result() &&
+            (self.valid_mailfrom(email_address) || self.valid_helo(email_address))
     }
 
     fn valid_mailfrom(&self, email_address: &str) -> bool {
-        match self.smtp_mailfrom.as_ref() {
-            Some(address) => address == email_address,
-            None => false,
+        if let Some(mailfrom_address) = &self.smtp_mailfrom {
+            email_address == mailfrom_address
+        } else {
+            false
         }
+    }
+
+    fn valid_helo(&self, email_address: &str) -> bool {
+        if let Some(helo) = &self.smtp_helo {
+            if let Some(domain) = email_address.split('@').collect::<Vec<&str>>().pop() {
+                domain == helo
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
+    fn valid_result(&self) -> bool {
+        matches!(self.result, Some(SpfResult::Pass))
     }
 }
 

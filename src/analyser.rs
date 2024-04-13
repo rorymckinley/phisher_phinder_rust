@@ -349,6 +349,7 @@ mod authentication_results_tests {
             spf: Some(Spf {
                 ip_address: Some("10.10.10.10".into()),
                 result: Some(SpfResult::Pass),
+                smtp_helo: None,
                 smtp_mailfrom: Some("info@xxx.fr".into()),
             }),
         };
