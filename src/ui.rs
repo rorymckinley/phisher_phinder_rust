@@ -3293,6 +3293,9 @@ mod display_abuse_notifications_tests {
             |          | I recently received a phishing email that suggests that `scam@fake.zzz` may be supporting phishing activities.    |\n\
             |          |                                                                                                                   |\n\
             |          | The original email is attached, can you please take the appropriate action?                                       |\n\
+            |          |                                                                                                                   |\n\
+            |          | Thank you,                                                                                                        |\n\
+            |          | Jo Bloggs                                                                                                         |\n\
             +----------+-------------------------------------------------------------------------------------------------------------------+\n\
             |                                                                                                                              |\n\
             +----------+-------------------------------------------------------------------------------------------------------------------+\n\
@@ -3307,6 +3310,9 @@ mod display_abuse_notifications_tests {
             |          | I recently received a phishing email that suggests that `https://scam.zzz` may be supporting phishing activities. |\n\
             |          |                                                                                                                   |\n\
             |          | The original email is attached, can you please take the appropriate action?                                       |\n\
+            |          |                                                                                                                   |\n\
+            |          | Thank you,                                                                                                        |\n\
+            |          | Jo Bloggs                                                                                                         |\n\
             +----------+-------------------------------------------------------------------------------------------------------------------+\n\
             |                                                                                                                              |\n\
             +----------+-------------------------------------------------------------------------------------------------------------------+\n\
@@ -3381,6 +3387,7 @@ mod display_abuse_notifications_tests {
     fn env_var_iterator() -> Box<dyn Iterator<Item = (String, String)>>
     {
         let v: Vec<(String, String)> = vec![
+            ("PP_ABUSE_NOTIFICATIONS_AUTHOR_NAME".into(), "Jo Bloggs".into()),
             ("PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS".into(), "sender@phishereagle.com".into()),
             ("PP_DB_PATH".into(), "does.not.matter.sqlite".into()),
             ("PP_TRUSTED_RECIPIENT".into(), "does.not.matter".into()),

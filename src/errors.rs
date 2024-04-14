@@ -20,4 +20,6 @@ pub enum AppError {
     Persistence(String),
     #[error("Can not generate abuse notifications without PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS")]
     NoFromAddressForNotifications,
+    #[error("Can not generate abuse notifications without PP_ABUSE_NOTIFICATIONS_AUTHOR_NAME")]
+    NoAuthorNameForNotifications,
 }

@@ -573,6 +573,10 @@ mod service_process_message_common_errors_tests {
     struct EmptyInputConfiguration<'a> { db_path: PathBuf, message_source: Option<&'a str> }
 
     impl<'a> Configuration for EmptyInputConfiguration<'a> {
+        fn abuse_notifications_author_name(&self) -> Option<&'a str> {
+            None
+        }
+
         fn abuse_notifications_from_address(&self) -> Option<&'a str> {
             None
         }

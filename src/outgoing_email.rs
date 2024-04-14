@@ -9,6 +9,7 @@ use lettre::message::header::ContentType;
 use lettre::message::{Attachment, MultiPart, SinglePart};
 
 struct EmailConfiguration<'a> {
+    pub author_name: &'a str,
     pub entity: &'a Entity,
     pub message_source: &'a str,
     pub recipient_address: &'a str,
@@ -18,26 +19,32 @@ struct EmailConfiguration<'a> {
 pub fn build_abuse_notifications<T>(run: &Run, application_config: &T) -> AppResult<Vec<Message>>
 where T: Configuration {
 
-    if let Some(sender_address) = application_config.abuse_notifications_from_address() {
-        let notifications = run.data.notifications
-            .iter()
-            .map(|notification| {
-                let Notification::Email(entity, recipient_address) = notification;
+    let author_name_option = application_config.abuse_notifications_author_name();
+    let sender_name_option = application_config.abuse_notifications_from_address();
 
-                let email_config = EmailConfiguration {
-                    entity,
-                    message_source: &run.message_source.data,
-                    recipient_address,
-                    sender_address
-                };
+    match (author_name_option, sender_name_option) {
+        (Some(author_name), Some(sender_address)) => {
+            let notifications = run.data.notifications
+                .iter()
+                .map(|notification| {
+                    let Notification::Email(entity, recipient_address) = notification;
 
-                build_email_to_provider(email_config)
-            })
-        .collect();
+                    let email_config = EmailConfiguration {
+                        author_name,
+                        entity,
+                        message_source: &run.message_source.data,
+                        recipient_address,
+                        sender_address
+                    };
 
-        Ok(notifications)
-    } else {
-        Err(AppError::NoFromAddressForNotifications)
+                    build_email_to_provider(email_config)
+                })
+            .collect();
+
+            Ok(notifications)
+        },
+        (None, _) => Err(AppError::NoAuthorNameForNotifications),
+        (_, None) => Err(AppError::NoFromAddressForNotifications)
     }
 }
 
@@ -53,14 +60,14 @@ fn build_email_to_provider(config: EmailConfiguration) -> Message {
         .subject(format!("Please investigate: {entity} potentially involved in fraud"))
         .multipart(
             MultiPart::mixed()
-            .singlepart(build_body(entity))
+            .singlepart(build_body(entity, config.author_name))
             .singlepart(build_attachment(config.message_source)),
         )
         .unwrap()
 
 }
 
-fn build_body(entity: &str) -> SinglePart {
+fn build_body(entity: &str, author_name: &str) -> SinglePart {
     let text = format!(
         "\
         Hello\n\n\
@@ -68,6 +75,9 @@ fn build_body(entity: &str) -> SinglePart {
         may be supporting phishing activities.\n\n\
         The original email is attached, can you \
         please take the appropriate action?\n\
+        \n\
+        Thank you,\n\
+        {author_name}\n\
         "
     );
 
@@ -123,6 +133,25 @@ mod build_abuse_notifications_tests {
         );
         assert_eq!(extract_attachment_body(&email_1), message_source_contents("\r\n"));
         assert_eq!(get_address(email_1.from()), "sender@phishereagle.com");
+
+        let email_1_body = extract_body_from(email_1);
+        assert!(email_1_body.contains(&author_name()));
+    }
+
+    #[test]
+    fn returns_an_error_if_no_author_name_set() {
+        let run = build_run();
+        let config = build_config_without_author_name();
+
+        match build_abuse_notifications(&run, &config) {
+            Ok(_) => panic!("Did not return an error"),
+            Err(e) => {
+                match e {
+                    AppError::NoAuthorNameForNotifications => (),
+                    _ => panic!("Unexpected error: {e}")
+                }
+            }
+        }
     }
 
     #[test]
@@ -176,6 +205,10 @@ mod build_abuse_notifications_tests {
         }
     }
 
+    fn author_name() -> String {
+        "Jo Bloggs".into()
+    }
+
     fn build_config<'a>() -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(""),
@@ -187,6 +220,7 @@ mod build_abuse_notifications_tests {
     fn env_var_iterator() -> Box<dyn Iterator<Item = (String, String)>>
     {
         let v: Vec<(String, String)> = vec![
+            ("PP_ABUSE_NOTIFICATIONS_AUTHOR_NAME".into(), author_name()),
             ("PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS".into(), "sender@phishereagle.com".into()),
             ("PP_DB_PATH".into(), "does.not.matter.sqlite".into()),
             ("PP_TRUSTED_RECIPIENT".into(), "does.not.matter".into()),
@@ -207,6 +241,27 @@ mod build_abuse_notifications_tests {
     fn env_var_iterator_without_from_address() -> Box<dyn Iterator<Item = (String, String)>>
     {
         let v: Vec<(String, String)> = vec![
+            ("PP_ABUSE_NOTIFICATIONS_AUTHOR_NAME".into(), author_name()),
+            ("PP_DB_PATH".into(), "does.not.matter.sqlite".into()),
+            ("PP_TRUSTED_RECIPIENT".into(), "does.not.matter".into()),
+            ("RDAP_BOOTSTRAP_HOST".into(), "does.not.matter".into())
+        ];
+
+        Box::new(v.into_iter())
+    }
+
+    fn build_config_without_author_name<'a>() -> ServiceConfiguration<'a> {
+        ServiceConfiguration::new(
+            Some(""),
+            &SingleCli { reprocess_run: None },
+            env_var_iterator_without_author_name()
+        ).unwrap()
+    }
+
+    fn env_var_iterator_without_author_name() -> Box<dyn Iterator<Item = (String, String)>>
+    {
+        let v: Vec<(String, String)> = vec![
+            ("PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS".into(), "sender@phishereagle.com".into()),
             ("PP_DB_PATH".into(), "does.not.matter.sqlite".into()),
             ("PP_TRUSTED_RECIPIENT".into(), "does.not.matter".into()),
             ("RDAP_BOOTSTRAP_HOST".into(), "does.not.matter".into())
@@ -230,6 +285,7 @@ mod build_email_to_provider_tests {
         let source = message_source();
 
         let config = EmailConfiguration {
+            author_name: "Jo Bloggs",
             entity: &entity,
             message_source: &source.data,
             recipient_address: "abuse@providerone.zzz",
@@ -249,6 +305,7 @@ mod build_email_to_provider_tests {
         let source = message_source();
 
         let config = EmailConfiguration {
+            author_name: "Jo Bloggs",
             entity: &entity,
             message_source: &source.data,
             recipient_address: "abuse@providerone.zzz",
@@ -268,6 +325,7 @@ mod build_email_to_provider_tests {
         let source = message_source();
 
         let config = EmailConfiguration {
+            author_name: "Jo Bloggs",
             entity: &entity,
             message_source: &source.data,
             recipient_address: "abuse@providerone.zzz",
@@ -290,6 +348,7 @@ mod build_email_to_provider_tests {
         let source = message_source();
 
         let config = EmailConfiguration {
+            author_name: "Jo Bloggs",
             entity: &entity,
             message_source: &source.data,
             recipient_address: "abuse@providerone.zzz",
@@ -312,6 +371,7 @@ mod build_email_to_provider_tests {
         let source = message_source();
 
         let config = EmailConfiguration {
+            author_name: "Jo Bloggs",
             entity: &entity,
             message_source: &source.data,
             recipient_address: "abuse@providerone.zzz",
@@ -334,6 +394,7 @@ mod build_email_to_provider_tests {
         let source = message_source();
 
         let config = EmailConfiguration {
+            author_name: "Jo Bloggs",
             entity: &entity,
             message_source: &source.data,
             recipient_address: "abuse@providerone.zzz",
@@ -356,6 +417,7 @@ mod build_email_to_provider_tests {
         let source = message_source();
 
         let config = EmailConfiguration {
+            author_name: "Jo Bloggs",
             entity: &entity,
             message_source: &source.data,
             recipient_address: "abuse@providerone.zzz",
@@ -385,11 +447,10 @@ mod build_email_to_provider_tests {
             `{entity}` may be supporting phishing activities.\n\
             \n\
             The original email is attached, can you please take the appropriate action?\n\
+            \n\
+            Thank you,\n\
+            Jo Bloggs\n\
         ")
-    }
-
-    fn extract_body_from(mail: Message) -> String {
-       mail.body_text(0).unwrap().into_owned()
     }
 
     fn get_attachment_name(mail: &Message) -> String {
@@ -413,6 +474,10 @@ mod test_support {
         } else {
             "notthedroidyouarelookingfor"
         }
+    }
+
+    pub fn extract_body_from(mail: Message) -> String {
+       mail.body_text(0).unwrap().into_owned()
     }
 
     pub fn extract_attachment_body(mail: &Message) -> String {

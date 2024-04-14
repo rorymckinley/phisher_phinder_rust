@@ -754,6 +754,10 @@ mod analyse_tests {
     }
 
     impl Configuration for TestConfig {
+        fn abuse_notifications_author_name(&self) -> Option<&str> {
+            None
+        }
+
         fn abuse_notifications_from_address(&self) -> Option<&str> {
             None
         }
