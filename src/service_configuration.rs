@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 pub trait Configuration {
+    fn abuse_notifications_author_name(&self) -> Option<&str>;
+
     fn abuse_notifications_from_address(&self) -> Option<&str>;
 
     fn db_path(&self) -> &PathBuf;
@@ -27,6 +29,7 @@ pub enum ServiceConfigurationError {
 
 #[derive(Debug, PartialEq)]
 pub struct ServiceConfiguration<'a> {
+    abuse_notifications_author_name: Option<String>,
     abuse_notifications_from_address: Option<String>,
     db_path: PathBuf,
     message_source: Option<&'a str>,
@@ -50,6 +53,8 @@ impl<'a> ServiceConfiguration<'a> {
         let env_vars: HashMap<String, String> = env_vars_iterator.collect();
 
         Ok(Self {
+            abuse_notifications_author_name:
+                Self::extract_optional_env_var(&env_vars, "PP_ABUSE_NOTIFICATIONS_AUTHOR_NAME"),
             abuse_notifications_from_address:
                 Self::extract_optional_env_var(&env_vars, "PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS"),
             db_path: Path::new(
@@ -94,6 +99,10 @@ impl<'a> ServiceConfiguration<'a> {
 }
 
 impl<'a> Configuration for ServiceConfiguration<'a> {
+    fn abuse_notifications_author_name(&self) -> Option<&str> {
+        self.abuse_notifications_author_name.as_deref()
+    }
+
     fn abuse_notifications_from_address(&self) -> Option<&str> {
         self.abuse_notifications_from_address.as_deref()
     }
@@ -131,6 +140,7 @@ mod service_configuration_tests {
             &cli(Some(99)),
             env_var_iterator(
                 EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
                     abuse_notifications_from_address_option: None,
                     db_path_option: Some("/path/to/db"),
                     rdap_bootstrap_host_option: None,
@@ -140,6 +150,7 @@ mod service_configuration_tests {
         ).unwrap();
 
         let expected = ServiceConfiguration {
+            abuse_notifications_author_name: None,
             abuse_notifications_from_address: None,
             db_path: "/path/to/db".into(),
             message_source: Some("message source"),
@@ -158,6 +169,7 @@ mod service_configuration_tests {
             &cli(Some(99)),
             env_var_iterator(
                 EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
                     abuse_notifications_from_address_option: None,
                     db_path_option: None,
                     rdap_bootstrap_host_option: None,
@@ -182,6 +194,7 @@ mod service_configuration_tests {
             &cli(Some(99)),
             env_var_iterator(
                 EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
                     abuse_notifications_from_address_option: None,
                     db_path_option: Some(""),
                     rdap_bootstrap_host_option: None,
@@ -206,6 +219,7 @@ mod service_configuration_tests {
             &cli(Some(99)),
             env_var_iterator(
                 EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
                     abuse_notifications_from_address_option: None,
                     db_path_option: Some("/path/to/db"),
                     rdap_bootstrap_host_option: None,
@@ -230,6 +244,7 @@ mod service_configuration_tests {
             &cli(Some(99)),
             env_var_iterator(
                 EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
                     abuse_notifications_from_address_option: None,
                     db_path_option: Some("/path/to/db"),
                     rdap_bootstrap_host_option: None,
@@ -254,6 +269,7 @@ mod service_configuration_tests {
             &cli(None),
             env_var_iterator(
                 EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
                     abuse_notifications_from_address_option: None,
                     db_path_option: Some("/path/to/db"),
                     rdap_bootstrap_host_option: None,
@@ -275,6 +291,7 @@ mod service_configuration_tests {
             &cli(Some(99)),
             env_var_iterator(
                 EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
                     abuse_notifications_from_address_option: None,
                     db_path_option: Some("/path/to/db"),
                     rdap_bootstrap_host_option: None,
@@ -293,6 +310,7 @@ mod service_configuration_tests {
             &cli(None),
             env_var_iterator(
                 EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
                     abuse_notifications_from_address_option: None,
                     db_path_option: Some("/path/to/db"),
                     rdap_bootstrap_host_option: None,
@@ -311,6 +329,7 @@ mod service_configuration_tests {
             &cli(None),
             env_var_iterator(
                 EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
                     abuse_notifications_from_address_option: None,
                     db_path_option: Some("/path/to/db"),
                     rdap_bootstrap_host_option: None,
@@ -329,6 +348,7 @@ mod service_configuration_tests {
             &cli(None),
             env_var_iterator(
                 EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
                     abuse_notifications_from_address_option: None,
                     db_path_option: Some("/path/to/db"),
                     rdap_bootstrap_host_option: None,
@@ -347,6 +367,7 @@ mod service_configuration_tests {
             &cli(Some(999)),
             env_var_iterator(
                 EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
                     abuse_notifications_from_address_option: None,
                     db_path_option: Some("/path/to/db"),
                     rdap_bootstrap_host_option: None,
@@ -365,6 +386,7 @@ mod service_configuration_tests {
             &cli(Some(999)),
             env_var_iterator(
                 EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
                     abuse_notifications_from_address_option: None,
                     db_path_option: Some("/path/to/db"),
                     rdap_bootstrap_host_option: None,
@@ -383,6 +405,7 @@ mod service_configuration_tests {
             &cli(Some(999)),
             env_var_iterator(
                 EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
                     abuse_notifications_from_address_option: None,
                     db_path_option: Some("/path/to/db"),
                     rdap_bootstrap_host_option: Some("localhost:4545"),
@@ -401,6 +424,7 @@ mod service_configuration_tests {
             &cli(Some(999)),
             env_var_iterator(
                 EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
                     abuse_notifications_from_address_option: None,
                     db_path_option: Some("/path/to/db"),
                     rdap_bootstrap_host_option: Some(""),
@@ -419,6 +443,7 @@ mod service_configuration_tests {
             &cli(Some(999)),
             env_var_iterator(
                 EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
                     abuse_notifications_from_address_option: None,
                     db_path_option: Some("/path/to/db"),
                     rdap_bootstrap_host_option: None,
@@ -437,6 +462,7 @@ mod service_configuration_tests {
             &cli(Some(999)),
             env_var_iterator(
                 EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
                     abuse_notifications_from_address_option: Some("report@phishereagle.com"),
                     db_path_option: Some("/path/to/db"),
                     rdap_bootstrap_host_option: Some(""),
@@ -455,6 +481,7 @@ mod service_configuration_tests {
             &cli(Some(999)),
             env_var_iterator(
                 EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
                     abuse_notifications_from_address_option: None,
                     db_path_option: Some("/path/to/db"),
                     rdap_bootstrap_host_option: Some(""),
@@ -473,6 +500,7 @@ mod service_configuration_tests {
             &cli(Some(999)),
             env_var_iterator(
                 EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
                     abuse_notifications_from_address_option: Some(""),
                     db_path_option: Some("/path/to/db"),
                     rdap_bootstrap_host_option: Some(""),
@@ -483,6 +511,63 @@ mod service_configuration_tests {
 
         assert_eq!(None, config.abuse_notifications_from_address());
     }
+
+    #[test]
+    fn returns_abuse_notifications_author_name() {
+        let config = ServiceConfiguration::new(
+            None,
+            &cli(Some(999)),
+            env_var_iterator(
+                EnvVarConfig {
+                    abuse_notifications_author_name_option: Some("Jo Bloggs"),
+                    abuse_notifications_from_address_option: Some("report@phishereagle.com"),
+                    db_path_option: Some("/path/to/db"),
+                    rdap_bootstrap_host_option: Some(""),
+                    trusted_recipient_option: Some("foo.com"),
+                }
+            )
+        ).unwrap();
+
+        assert_eq!(Some("Jo Bloggs"), config.abuse_notifications_author_name())
+    }
+
+    #[test]
+    fn returns_none_if_no_abuse_notifications_author_name() {
+        let config = ServiceConfiguration::new(
+            None,
+            &cli(Some(999)),
+            env_var_iterator(
+                EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
+                    abuse_notifications_from_address_option: Some("report@phishereagle.com"),
+                    db_path_option: Some("/path/to/db"),
+                    rdap_bootstrap_host_option: Some(""),
+                    trusted_recipient_option: Some("foo.com"),
+                }
+            )
+        ).unwrap();
+        
+        assert_eq!(None, config.abuse_notifications_author_name())
+    }
+
+    #[test]
+    fn returns_none_if_empty_string_abuse_notifications_author_name() {
+        let config = ServiceConfiguration::new(
+            None,
+            &cli(Some(999)),
+            env_var_iterator(
+                EnvVarConfig {
+                    abuse_notifications_author_name_option: Some(""),
+                    abuse_notifications_from_address_option: Some("report@phishereagle.com"),
+                    db_path_option: Some("/path/to/db"),
+                    rdap_bootstrap_host_option: Some(""),
+                    trusted_recipient_option: Some("foo.com"),
+                }
+            )
+        ).unwrap();
+        
+        assert_eq!(None, config.abuse_notifications_author_name())
+    }
 }
 
 #[cfg(test)]
@@ -490,6 +575,7 @@ mod support {
     use super::*;
 
     pub struct EnvVarConfig<'a> {
+        pub abuse_notifications_author_name_option: Option<&'a str>,
         pub abuse_notifications_from_address_option: Option<&'a str>,
         pub db_path_option: Option<&'a str>,
         pub rdap_bootstrap_host_option: Option<&'a str>,
@@ -499,11 +585,18 @@ mod support {
     pub fn env_var_iterator(config: EnvVarConfig) -> Box<dyn Iterator<Item = (String, String)>> {
         let mut v: Vec<(String, String)> = vec![];
 
+        if let Some(abuse_notifications_author_name) =
+            config.abuse_notifications_author_name_option {
+            v.push((
+                "PP_ABUSE_NOTIFICATIONS_AUTHOR_NAME".into(), abuse_notifications_author_name.into()
+            ));
+        }
+
         if let Some(abuse_notifications_from_address) =
             config.abuse_notifications_from_address_option {
             v.push((
-                    "PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS".into(),
-                    abuse_notifications_from_address.into()
+                "PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS".into(),
+                abuse_notifications_from_address.into()
             ));
         }
 
