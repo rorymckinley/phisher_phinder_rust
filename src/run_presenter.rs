@@ -26,7 +26,7 @@ where T: Configuration {
 
 #[cfg(test)]
 mod present_tests {
-    use crate::cli::SingleCli;
+    use crate::cli::{ProcessArgs, SingleCli, SingleCliCommands};
     use crate::data::{
         DeliveryNode,
         Domain,
@@ -189,15 +189,15 @@ mod present_tests {
         }
     }
 
-    pub fn build_config<'a>() -> ServiceConfiguration<'a> {
+    fn build_config<'a>() -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(""),
-            &SingleCli { reprocess_run: None },
+            &cli(),
             env_var_iterator()
         ).unwrap()
     }
 
-    pub fn env_var_iterator() -> Box<dyn Iterator<Item = (String, String)>>
+    fn env_var_iterator() -> Box<dyn Iterator<Item = (String, String)>>
     {
         let v: Vec<(String, String)> = vec![
             ("PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS".into(), "sender@phishereagle.com".into()),
@@ -207,5 +207,13 @@ mod present_tests {
         ];
 
         Box::new(v.into_iter())
+    }
+
+    pub fn cli() -> SingleCli {
+        SingleCli {
+            command: SingleCliCommands::Process(ProcessArgs {
+                reprocess_run: None,
+            })
+        }
     }
 }

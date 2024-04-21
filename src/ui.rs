@@ -3264,7 +3264,7 @@ where T: Configuration {
 
 #[cfg(test)]
 mod display_abuse_notifications_tests {
-    use crate::cli::SingleCli;
+    use crate::cli::{ProcessArgs, SingleCli, SingleCliCommands};
     use crate::data::{EmailAddresses, OutputData, ParsedMail};
     use crate::mailer::Entity;
     use crate::message_source::MessageSource;
@@ -3379,7 +3379,7 @@ mod display_abuse_notifications_tests {
     fn build_config<'a>() -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(""),
-            &SingleCli { reprocess_run: None },
+            &cli(),
             env_var_iterator()
         ).unwrap()
     }
@@ -3400,7 +3400,7 @@ mod display_abuse_notifications_tests {
     fn build_config_without_from_address<'a>() -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(""),
-            &SingleCli { reprocess_run: None },
+            &cli(),
             env_var_iterator_without_from_address()
         ).unwrap()
     }
@@ -3414,6 +3414,14 @@ mod display_abuse_notifications_tests {
         ];
 
         Box::new(v.into_iter())
+    }
+
+    fn cli() -> SingleCli {
+        SingleCli {
+            command: SingleCliCommands::Process(ProcessArgs {
+                reprocess_run: None,
+            })
+        }
     }
 }
 

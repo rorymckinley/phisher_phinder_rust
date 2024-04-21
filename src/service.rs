@@ -506,7 +506,7 @@ mod service_process_message_rerun_tests {
 #[cfg(test)]
 mod service_process_message_common_errors_tests {
     use assert_fs::fixture::TempDir;
-    use crate::cli::SingleCli;
+    use crate::cli::{ProcessArgs, SingleCli, SingleCliCommands};
     use crate::service_configuration::ServiceConfiguration;
     use std::path::PathBuf;
 
@@ -567,7 +567,11 @@ mod service_process_message_common_errors_tests {
     }
 
     fn cli(reprocess_run: Option<i64>) -> SingleCli {
-        SingleCli { reprocess_run }
+        SingleCli {
+            command: SingleCliCommands::Process(ProcessArgs{
+                reprocess_run
+            })
+        }
     }
 
     struct EmptyInputConfiguration<'a> { db_path: PathBuf, message_source: Option<&'a str> }
@@ -1157,7 +1161,7 @@ mod service_process_message_add_notifications_tests {
 
 #[cfg(test)]
 mod support {
-    use crate::cli::SingleCli;
+    use crate::cli::{ProcessArgs, SingleCli, SingleCliCommands};
     use crate::service_configuration::ServiceConfiguration;
     use std::path::Path;
     use sha2::{Digest, Sha256};
@@ -1212,6 +1216,10 @@ mod support {
     }
 
     pub fn cli(reprocess_run: Option<i64>) -> SingleCli {
-        SingleCli { reprocess_run }
+        SingleCli {
+            command: SingleCliCommands::Process(ProcessArgs {
+                reprocess_run,
+            })
+        }
     }
 }
