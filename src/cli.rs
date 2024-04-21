@@ -34,6 +34,7 @@ pub struct SingleCli {
 
 #[derive(Subcommand)]
 pub enum SingleCliCommands {
+    Config(ConfigArgs),
     Process(ProcessArgs)
 }
 
@@ -41,4 +42,10 @@ pub enum SingleCliCommands {
 pub struct ProcessArgs {
     #[arg(long, value_name = "RUN_ID")]
     pub reprocess_run: Option<i64>,
+}
+
+#[derive(Args)]
+pub struct ConfigArgs {
+    #[arg(long)]
+    pub location: bool,
 }

@@ -1,6 +1,6 @@
 use clap::Parser;
 use phisher_phinder_rust::cli::SingleCli;
-use phisher_phinder_rust::service::Service;
+use phisher_phinder_rust::service;
 use phisher_phinder_rust::service_configuration::ServiceConfiguration;
 use std::io::{IsTerminal, stdin};
 use std::process::exit;
@@ -11,7 +11,7 @@ async fn main() {
 
     match ServiceConfiguration::new(read_from_stdin().as_deref(), &cli, std::env::vars()) {
         Ok(config) => {
-            match Service::process_message(&config).await {
+            match service::execute_command(&config).await {
                 Ok(output) => {
                     println!("{output}");
                     exit(0)

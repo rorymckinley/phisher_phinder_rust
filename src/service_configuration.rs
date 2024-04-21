@@ -8,7 +8,7 @@ pub trait Configuration {
 
     fn abuse_notifications_from_address(&self) -> Option<&str>;
 
-    fn db_path(&self) -> &PathBuf;
+    fn db_path(&self) -> Option<&PathBuf>;
 
     fn message_sources(&self) -> Option<&str>;
 
@@ -16,7 +16,9 @@ pub trait Configuration {
 
     fn reprocess_run_id(&self) -> Option<i64>;
 
-    fn trusted_recipient(&self)-> &str;
+    fn service_type(&self) -> &ServiceType;
+
+    fn trusted_recipient(&self)-> Option<&str>;
 }
 
 #[derive(Debug, Error, PartialEq)]
@@ -25,17 +27,26 @@ pub enum ServiceConfigurationError {
     MissingEnvVar(String),
     #[error("Please pass message source to STDIN or reprocess a run.")]
     NoMessageSource,
+    #[error("Fallthrough")]
+    FallthroughError
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ServiceType {
+    Config,
+    ProcessMessage,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct ServiceConfiguration<'a> {
     abuse_notifications_author_name: Option<String>,
     abuse_notifications_from_address: Option<String>,
-    db_path: PathBuf,
+    db_path: Option<PathBuf>,
     message_source: Option<&'a str>,
     rdap_bootstrap_host: Option<String>,
     reprocess_run_id: Option<i64>,
-    trusted_recipient: String,
+    trusted_recipient: Option<String>,
+    service_type: ServiceType,
 }
 
 impl<'a> ServiceConfiguration<'a> {
@@ -46,31 +57,63 @@ impl<'a> ServiceConfiguration<'a> {
     ) -> Result<Self, ServiceConfigurationError>
     where I: Iterator<Item = (String, String)>
     {
-        let SingleCli {command: SingleCliCommands::Process(args), ..} = cli_parameters;
+        match  cli_parameters {
+            SingleCli {command: SingleCliCommands::Process(args), ..} => {
+                if message_source.is_none() && args.reprocess_run.is_none() {
+                    return Err(ServiceConfigurationError::NoMessageSource);
+                }
 
-        if message_source.is_none() && args.reprocess_run.is_none() {
-            return Err(ServiceConfigurationError::NoMessageSource);
+                let env_vars: HashMap<String, String> = env_vars_iterator.collect();
+
+                Ok(
+                    Self {
+                        abuse_notifications_author_name:
+                            Self::extract_optional_env_var(
+                                &env_vars,
+                                "PP_ABUSE_NOTIFICATIONS_AUTHOR_NAME"
+                            ),
+                        abuse_notifications_from_address:
+                            Self::extract_optional_env_var(
+                                &env_vars,
+                                "PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS"
+                            ),
+                        db_path: Some(
+                            Path::new(
+                                &Self::extract_required_env_var(&env_vars, "PP_DB_PATH")?
+                            ).to_path_buf(),
+                        ),
+                        message_source,
+                        rdap_bootstrap_host:
+                            Self::extract_optional_env_var(
+                                &env_vars,
+                                "RDAP_BOOTSTRAP_HOST"
+                            ),
+                        reprocess_run_id: args.reprocess_run,
+                        service_type: ServiceType::ProcessMessage,
+                        trusted_recipient: Some(
+                            Self::extract_required_env_var(
+                                &env_vars,
+                                "PP_TRUSTED_RECIPIENT"
+                            )?,
+                        )
+                    }
+                )
+            },
+            _ => {
+                Ok(
+                    Self {
+                        abuse_notifications_author_name: None,
+                        abuse_notifications_from_address: None,
+                        db_path: None,
+                        message_source: None,
+                        rdap_bootstrap_host: None,
+                        reprocess_run_id: None,
+                        service_type: ServiceType::Config,
+                        trusted_recipient: None
+                    }
+                )
+            }
         }
-
-        let env_vars: HashMap<String, String> = env_vars_iterator.collect();
-
-        Ok(Self {
-            abuse_notifications_author_name:
-                Self::extract_optional_env_var( &env_vars, "PP_ABUSE_NOTIFICATIONS_AUTHOR_NAME"),
-            abuse_notifications_from_address:
-                Self::extract_optional_env_var(
-                    &env_vars,
-                    "PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS"
-                ),
-            db_path:
-                Path::new(
-                    &Self::extract_required_env_var(&env_vars, "PP_DB_PATH")?
-                ).to_path_buf(),
-            message_source,
-            rdap_bootstrap_host: Self::extract_optional_env_var(&env_vars, "RDAP_BOOTSTRAP_HOST"),
-            reprocess_run_id: args.reprocess_run,
-            trusted_recipient: Self::extract_required_env_var(&env_vars, "PP_TRUSTED_RECIPIENT")?,
-        })
     }
 
     fn extract_required_env_var(
@@ -113,8 +156,8 @@ impl<'a> Configuration for ServiceConfiguration<'a> {
         self.abuse_notifications_from_address.as_deref()
     }
 
-    fn db_path(&self) -> &PathBuf {
-        &self.db_path
+    fn db_path(&self) -> Option<&PathBuf> {
+        self.db_path.as_ref()
     }
 
     fn message_sources(&self) -> Option<&'a str> {
@@ -129,14 +172,18 @@ impl<'a> Configuration for ServiceConfiguration<'a> {
         self.reprocess_run_id
     }
 
-    fn trusted_recipient(&self) -> &str {
-        &self.trusted_recipient
+    fn service_type(&self) -> &ServiceType {
+        &self.service_type
+    }
+
+    fn trusted_recipient(&self) -> Option<&str> {
+        self.trusted_recipient.as_deref()
     }
 }
 
 #[cfg(test)]
-mod service_configuration_tests {
-    use support::{cli, env_var_iterator, EnvVarConfig};
+mod service_configuration_process_tests {
+    use crate::cli::{ProcessArgs, SingleCliCommands};
     use super::*;
 
     #[test]
@@ -158,14 +205,34 @@ mod service_configuration_tests {
         let expected = ServiceConfiguration {
             abuse_notifications_author_name: None,
             abuse_notifications_from_address: None,
-            db_path: "/path/to/db".into(),
+            db_path: Some("/path/to/db".into()),
             message_source: Some("message source"),
             rdap_bootstrap_host: None,
             reprocess_run_id: Some(99),
-            trusted_recipient: "foo.com".into()
+            service_type: ServiceType::ProcessMessage,
+            trusted_recipient: Some("foo.com".into())
         };
 
         assert_eq!(expected, config);
+    }
+
+    #[test]
+    fn returns_service_type() {
+        let config = ServiceConfiguration::new(
+            Some("message source"),
+            &cli(Some(99)),
+            env_var_iterator(
+                EnvVarConfig {
+                    abuse_notifications_author_name_option: None,
+                    abuse_notifications_from_address_option: None,
+                    db_path_option: Some("/path/to/db"),
+                    rdap_bootstrap_host_option: None,
+                    trusted_recipient_option: Some("foo.com"),
+                }
+            )
+        ).unwrap();
+
+        assert_eq!(&ServiceType::ProcessMessage, config.service_type());
     }
 
     #[test]
@@ -344,7 +411,7 @@ mod service_configuration_tests {
             )
         ).unwrap();
 
-        assert_eq!(&Path::new("/path/to/db").to_path_buf(), config.db_path());
+        assert_eq!(Some(&Path::new("/path/to/db").to_path_buf()), config.db_path());
     }
 
     #[test]
@@ -401,7 +468,7 @@ mod service_configuration_tests {
             )
         ).unwrap();
 
-        assert_eq!("foo.com", config.trusted_recipient());
+        assert_eq!(Some("foo.com"), config.trusted_recipient());
     }
 
     #[test]
@@ -574,14 +641,8 @@ mod service_configuration_tests {
 
         assert_eq!(None, config.abuse_notifications_author_name())
     }
-}
 
-#[cfg(test)]
-mod support {
-    use crate::cli::{ProcessArgs, SingleCliCommands};
-    use super::*;
-
-    pub struct EnvVarConfig<'a> {
+    struct EnvVarConfig<'a> {
         pub abuse_notifications_author_name_option: Option<&'a str>,
         pub abuse_notifications_from_address_option: Option<&'a str>,
         pub db_path_option: Option<&'a str>,
@@ -589,7 +650,7 @@ mod support {
         pub trusted_recipient_option: Option<&'a str>,
     }
 
-    pub fn env_var_iterator(config: EnvVarConfig) -> Box<dyn Iterator<Item = (String, String)>> {
+    fn env_var_iterator(config: EnvVarConfig) -> Box<dyn Iterator<Item = (String, String)>> {
         let mut v: Vec<(String, String)> = vec![];
 
         if let Some(abuse_notifications_author_name) =
@@ -622,10 +683,116 @@ mod support {
         Box::new(v.into_iter())
     }
 
-    pub fn cli(reprocess_run: Option<i64>) -> SingleCli {
+    fn cli(reprocess_run: Option<i64>) -> SingleCli {
         SingleCli {
             command: SingleCliCommands::Process(ProcessArgs {
                 reprocess_run,
+            })
+        }
+    }
+}
+
+#[cfg(test)]
+mod service_configuration_command_tests {
+    use crate::cli::{ConfigArgs, SingleCliCommands};
+    use super::*;
+
+    #[test]
+    fn initialises_an_instance() {
+        let config = ServiceConfiguration::new(
+            None, &cli(), vec![].into_iter()
+        ).unwrap();
+
+        let expected = ServiceConfiguration {
+            abuse_notifications_author_name: None,
+            abuse_notifications_from_address: None,
+            db_path: None,
+            message_source: None,
+            rdap_bootstrap_host: None,
+            reprocess_run_id: None,
+            service_type: ServiceType::Config,
+            trusted_recipient: None
+        };
+
+        assert_eq!(expected, config);
+    }
+
+    #[test]
+    fn returns_service_type() {
+        let config = ServiceConfiguration::new(
+            None, &cli(), vec![].into_iter()
+        ).unwrap();
+
+        assert_eq!(&ServiceType::Config, config.service_type());
+    }
+
+    #[test]
+    fn returns_db_path() {
+        let config = ServiceConfiguration::new(
+            None, &cli(), vec![].into_iter()
+        ).unwrap();
+
+        assert_eq!(None, config.db_path());
+    }
+
+    #[test]
+    fn returns_message_sources() {
+        let config = ServiceConfiguration::new(
+            None, &cli(), vec![].into_iter()
+        ).unwrap();
+
+        assert_eq!(None, config.message_sources());
+    }
+
+    #[test]
+    fn returns_reprocess_run_id() {
+        let config = ServiceConfiguration::new(
+            None, &cli(), vec![].into_iter()
+        ).unwrap();
+
+        assert_eq!(None, config.reprocess_run_id());
+    }
+
+    #[test]
+    fn returns_trusted_recipient() {
+        let config = ServiceConfiguration::new(
+            None, &cli(), vec![].into_iter()
+        ).unwrap();
+
+        assert_eq!(None, config.trusted_recipient());
+    }
+
+    #[test]
+    fn returns_rdap_bootstrap_host() {
+        let config = ServiceConfiguration::new(
+            None, &cli(), vec![].into_iter()
+        ).unwrap();
+
+        assert_eq!(None, config.rdap_bootstrap_host());
+    }
+
+    #[test]
+    fn returns_abuse_notifications_from_address() {
+        let config = ServiceConfiguration::new(
+            None, &cli(), vec![].into_iter()
+        ).unwrap();
+
+        assert_eq!(None, config.abuse_notifications_from_address());
+    }
+
+    #[test]
+    fn returns_abuse_notifications_author_name() {
+        let config = ServiceConfiguration::new(
+            None, &cli(), vec![].into_iter()
+        ).unwrap();
+
+        assert_eq!(None, config.abuse_notifications_author_name())
+    }
+
+    fn cli() -> SingleCli {
+        SingleCli {
+            command: SingleCliCommands::Config(ConfigArgs {
+                location: true,
             })
         }
     }

@@ -459,8 +459,8 @@ mod build_email_to_provider_tests {
 
 #[cfg(test)]
 mod test_support {
-    use crate::message_source::MessageSource;
     use crate::cli::{ProcessArgs, SingleCli, SingleCliCommands};
+    use crate::message_source::MessageSource;
     use mail_parser::{Addr, HeaderValue, Message, MessagePart, PartType};
     use std::borrow::Borrow;
 
