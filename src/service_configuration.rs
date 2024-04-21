@@ -1,4 +1,4 @@
-use crate::cli::SingleCli;
+use crate::cli::{SingleCli, SingleCliCommands};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
@@ -46,7 +46,9 @@ impl<'a> ServiceConfiguration<'a> {
     ) -> Result<Self, ServiceConfigurationError>
     where I: Iterator<Item = (String, String)>
     {
-        if message_source.is_none() && cli_parameters.reprocess_run.is_none() {
+        let SingleCli {command: SingleCliCommands::Process(args), ..} = cli_parameters;
+
+        if message_source.is_none() && args.reprocess_run.is_none() {
             return Err(ServiceConfigurationError::NoMessageSource);
         }
 
@@ -54,15 +56,19 @@ impl<'a> ServiceConfiguration<'a> {
 
         Ok(Self {
             abuse_notifications_author_name:
-                Self::extract_optional_env_var(&env_vars, "PP_ABUSE_NOTIFICATIONS_AUTHOR_NAME"),
+                Self::extract_optional_env_var( &env_vars, "PP_ABUSE_NOTIFICATIONS_AUTHOR_NAME"),
             abuse_notifications_from_address:
-                Self::extract_optional_env_var(&env_vars, "PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS"),
-            db_path: Path::new(
-                &Self::extract_required_env_var(&env_vars, "PP_DB_PATH")?
-            ).to_path_buf(),
+                Self::extract_optional_env_var(
+                    &env_vars,
+                    "PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS"
+                ),
+            db_path:
+                Path::new(
+                    &Self::extract_required_env_var(&env_vars, "PP_DB_PATH")?
+                ).to_path_buf(),
             message_source,
             rdap_bootstrap_host: Self::extract_optional_env_var(&env_vars, "RDAP_BOOTSTRAP_HOST"),
-            reprocess_run_id: cli_parameters.reprocess_run,
+            reprocess_run_id: args.reprocess_run,
             trusted_recipient: Self::extract_required_env_var(&env_vars, "PP_TRUSTED_RECIPIENT")?,
         })
     }
@@ -546,7 +552,7 @@ mod service_configuration_tests {
                 }
             )
         ).unwrap();
-        
+
         assert_eq!(None, config.abuse_notifications_author_name())
     }
 
@@ -565,13 +571,14 @@ mod service_configuration_tests {
                 }
             )
         ).unwrap();
-        
+
         assert_eq!(None, config.abuse_notifications_author_name())
     }
 }
 
 #[cfg(test)]
 mod support {
+    use crate::cli::{ProcessArgs, SingleCliCommands};
     use super::*;
 
     pub struct EnvVarConfig<'a> {
@@ -616,6 +623,10 @@ mod support {
     }
 
     pub fn cli(reprocess_run: Option<i64>) -> SingleCli {
-        SingleCli { reprocess_run }
+        SingleCli {
+            command: SingleCliCommands::Process(ProcessArgs {
+                reprocess_run,
+            })
+        }
     }
 }

@@ -34,6 +34,7 @@ fn processes_input_from_stdin() {
 
     cmd
         .env("PP_DB_PATH", &db_path)
+        .args(["process"])
         .write_stdin(multiple_source_input())
         .assert()
         .success();
@@ -59,6 +60,7 @@ fn returns_output_from_the_import() {
 
     cmd
         .env("PP_DB_PATH", &db_path)
+        .args(["process"])
         .write_stdin(multiple_source_input())
         .assert()
         .stdout(predicate::str::contains("2 messages processed"))
@@ -80,7 +82,7 @@ fn reruns_an_existing_run() {
 
     cmd
         .env("PP_DB_PATH", &db_path)
-        .args(["--reprocess-run", &format!("{}", run_2.id)])
+        .args(["process", "--reprocess-run", &format!("{}", run_2.id)])
         .assert()
         .success();
 
@@ -95,6 +97,7 @@ fn fails_if_no_stdin_or_rerun_instruction() {
     let mut cmd = command(BINARY_NAME);
 
     cmd
+        .args(["process"])
         .assert()
         .failure()
         .stderr(predicates::str::contains("message source to STDIN"));
@@ -105,6 +108,7 @@ fn fails_if_no_db_path_provided() {
     let mut cmd = command(BINARY_NAME);
 
     cmd
+        .args(["process"])
         .write_stdin(multiple_source_input())
         .assert()
         .failure()
@@ -120,6 +124,7 @@ fn fails_if_db_cannot_be_opened() {
 
     cmd
         .env("PP_DB_PATH", &db_path)
+        .args(["process"])
         .write_stdin(multiple_source_input())
         .assert()
         .failure()

@@ -94,7 +94,6 @@ fn build_attachment(raw_email: &str) -> SinglePart {
 #[cfg(test)]
 mod build_abuse_notifications_tests {
     use chrono::*;
-    use crate::cli::SingleCli;
     use crate::errors::AppError;
     use crate::data::{EmailAddresses, OutputData, ParsedMail};
     use crate::service_configuration::ServiceConfiguration;
@@ -212,7 +211,7 @@ mod build_abuse_notifications_tests {
     fn build_config<'a>() -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(""),
-            &SingleCli { reprocess_run: None },
+            &cli(),
             env_var_iterator()
         ).unwrap()
     }
@@ -233,7 +232,7 @@ mod build_abuse_notifications_tests {
     fn build_config_without_from_address<'a>() -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(""),
-            &SingleCli { reprocess_run: None },
+            &cli(),
             env_var_iterator_without_from_address()
         ).unwrap()
     }
@@ -253,7 +252,7 @@ mod build_abuse_notifications_tests {
     fn build_config_without_author_name<'a>() -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(""),
-            &SingleCli { reprocess_run: None },
+            &cli(),
             env_var_iterator_without_author_name()
         ).unwrap()
     }
@@ -461,6 +460,7 @@ mod build_email_to_provider_tests {
 #[cfg(test)]
 mod test_support {
     use crate::message_source::MessageSource;
+    use crate::cli::{ProcessArgs, SingleCli, SingleCliCommands};
     use mail_parser::{Addr, HeaderValue, Message, MessagePart, PartType};
     use std::borrow::Borrow;
 
@@ -494,5 +494,13 @@ mod test_support {
 
     pub fn message_source() -> MessageSource {
         MessageSource::new(&message_source_contents("\n"))
+    }
+
+    pub fn cli() -> SingleCli {
+        SingleCli {
+            command: SingleCliCommands::Process(ProcessArgs {
+                reprocess_run: None,
+            })
+        }
     }
 }

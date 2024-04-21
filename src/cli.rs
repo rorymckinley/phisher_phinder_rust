@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser)]
 pub struct Cli {
@@ -28,6 +28,17 @@ pub struct FindOtherRunsCli {
 
 #[derive(Parser)]
 pub struct SingleCli {
+    #[command(subcommand)]
+    pub command: SingleCliCommands,
+}
+
+#[derive(Subcommand)]
+pub enum SingleCliCommands {
+    Process(ProcessArgs)
+}
+
+#[derive(Args)]
+pub struct ProcessArgs {
     #[arg(long, value_name = "RUN_ID")]
     pub reprocess_run: Option<i64>,
 }

@@ -41,7 +41,7 @@ file containing multiple message sources, the only format currently supported is
 produced by the Google takeout service.
 
 ```
-cat /path/to/source/file | env $(cat .env | xargs) cargo run --bin ppr
+cat /path/to/source/file | env $(cat .env | xargs) cargo run --bin ppr process
 ```
 
 Imported message sources are stored in the sqlite database specified in the ENV variables
@@ -57,7 +57,7 @@ Counterintuitively, you need to provide the id of a run linked to the message so
 the id of the message source.
 
 ```
-env $(cat .env | xargs) cargo run --bin ppr -- --reprocess-run <RUN_ID>
+env $(cat .env | xargs) cargo run --bin ppr process --reprocess-run <RUN_ID>
 ```
 
 ## env files
