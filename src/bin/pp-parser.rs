@@ -34,7 +34,7 @@ fn main() {
     let output = OutputData::new(
         ParsedMail::new(
             analyser.authentication_results(),
-            analyser.delivery_nodes(&trusted_recipient),
+            analyser.delivery_nodes(Some(&trusted_recipient)),
             analyser.sender_email_addresses(),
             analyser.fulfillment_nodes(),
             analyser.subject(),

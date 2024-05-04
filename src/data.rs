@@ -139,7 +139,7 @@ mod delivery_node_tests {
 
     fn unobserved_trusted_node(recipient: &str) -> TrustedRecipientDeliveryNode {
         TrustedRecipientDeliveryNode {
-            recipient: String::from(recipient),
+            recipient: Some(String::from(recipient)),
             observed: false,
         }
     }
@@ -1605,7 +1605,7 @@ pub struct InfrastructureProvider {
 
 #[derive(Debug, PartialEq)]
 pub struct TrustedRecipientDeliveryNode {
-    pub recipient: String,
+    pub recipient: Option<String>,
     pub observed: bool,
 }
 
@@ -1616,11 +1616,11 @@ mod trusted_recipient_delivery_node_new_tests {
     #[test]
     fn can_instantiate_itself_from_a_name() {
         let expected = TrustedRecipientDeliveryNode {
-            recipient: String::from("foo"),
+            recipient: Some(String::from("foo")),
             observed: false,
         };
 
-        assert_eq!(expected, TrustedRecipientDeliveryNode::new("foo"));
+        assert_eq!(expected, TrustedRecipientDeliveryNode::new(Some("foo")));
     }
 }
 
@@ -1665,18 +1665,57 @@ mod trusted_recipient_delivery_node_check_if_trusted_tests {
         assert!(!node.check_if_trusted(Some("trusted_recipient")));
     }
 
+    #[test]
+    fn no_recipient_node_returns_false_if_candidate() {
+        let mut node = trusted_node_sans_recipient(false);
+
+        assert!(!node.check_if_trusted(Some("trusted_recipient")))
+    }
+
+    #[test]
+    fn no_recipient_node_does_not_set_observed_if_candidate() {
+        let mut node = trusted_node_sans_recipient(false);
+
+        node.check_if_trusted(Some("trusted_recipient"));
+
+        assert!(!node.observed)
+    }
+
+    #[test]
+    fn no_recipient_node_returns_false_if_no_candidate() {
+        let mut node = trusted_node_sans_recipient(false);
+
+        assert!(!node.check_if_trusted(None))
+    }
+
+    #[test]
+    fn no_recipient_node_does_not_set_observed_if_no_candidate() {
+        let mut node = trusted_node_sans_recipient(false);
+
+        node.check_if_trusted(None);
+
+        assert!(!node.observed)
+    }
+
     fn trusted_node(observed: bool) -> TrustedRecipientDeliveryNode {
         TrustedRecipientDeliveryNode {
-            recipient: "trusted_recipient".into(),
+            recipient: Some("trusted_recipient".into()),
+            observed,
+        }
+    }
+
+    fn trusted_node_sans_recipient(observed: bool) -> TrustedRecipientDeliveryNode {
+        TrustedRecipientDeliveryNode {
+            recipient: None,
             observed,
         }
     }
 }
 
 impl TrustedRecipientDeliveryNode {
-    pub fn new(name: &str) -> Self {
+    pub fn new(name: Option<&str>) -> Self {
         Self {
-            recipient: String::from(name),
+            recipient: name.map(String::from),
             observed: false,
         }
     }
@@ -1686,16 +1725,15 @@ impl TrustedRecipientDeliveryNode {
             return false;
         }
 
-        match candidate_option {
-            Some(candidate) => {
-                if self.recipient == candidate {
-                    self.observed = true;
-                    true
-                } else {
-                    false
-                }
-            }
-            None => false,
+        if self.recipient.is_none() {
+            return false;
+        }
+
+        if self.recipient.as_deref() == candidate_option {
+            self.observed = true;
+            true
+        } else {
+            false
         }
     }
 }

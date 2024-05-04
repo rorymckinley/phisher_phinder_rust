@@ -242,7 +242,7 @@ mod delivery_nodes_tests {
             },
         ];
 
-        assert_eq!(expected_result, analyser.delivery_nodes("a.baz.com"))
+        assert_eq!(expected_result, analyser.delivery_nodes(Some("a.baz.com")))
     }
 
     #[test]
@@ -275,7 +275,41 @@ mod delivery_nodes_tests {
 
         assert_eq!(
             expected_trusted_per_position,
-            extract_trusted_by_position(analyser.delivery_nodes("b.baz.com"))
+            extract_trusted_by_position(analyser.delivery_nodes(Some("b.baz.com")))
+        );
+    }
+
+    #[test]
+    fn does_not_mark_any_nodes_as_trusted_if_no_trusted_recipient() {
+        let h_1 = header(
+            ("a.bar.com", "b.bar.com.", "10.10.10.12"),
+            "a.baz.com",
+            "Tue, 06 Sep 2022 16:17:22 -0700 (PDT)",
+        );
+        let h_2 = header(
+            ("c.bar.com", "d.bar.com.", "10.10.10.11"),
+            "b.baz.com",
+            "Tue, 06 Sep 2022 16:17:21 -0700 (PDT)",
+        );
+        let h_3 = header(
+            ("e.bar.com", "f.bar.com.", "10.10.10.10"),
+            "b.baz.com",
+            "Tue, 06 Sep 2022 16:17:21 -0700 (PDT)",
+        );
+        let h_4 = header(
+            ("g.bar.com", "h.bar.com.", "10.10.10.9"),
+            "c.baz.com",
+            "Tue, 06 Sep 2022 16:17:21 -0700 (PDT)",
+        );
+
+        let parsed = parsed_mail(vec![&h_1, &h_2, &h_3, &h_4]);
+        let analyser = Analyser::new(&parsed);
+
+        let expected_trusted_per_position = vec![(0, false), (1, false), (2, false), (3, false)];
+
+        assert_eq!(
+            expected_trusted_per_position,
+            extract_trusted_by_position(analyser.delivery_nodes(None))
         );
     }
 
@@ -511,8 +545,8 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
         }
     }
 
-    pub fn delivery_nodes(&self, trusted_recipient_name: &str) -> Vec<DeliveryNode> {
-        let mut trusted_node = TrustedRecipientDeliveryNode::new(trusted_recipient_name);
+    pub fn delivery_nodes(&self, trusted_recipient_name_option: Option<&str>) -> Vec<DeliveryNode> {
+        let mut trusted_node = TrustedRecipientDeliveryNode::new(trusted_recipient_name_option);
 
         self.parsed_mail
             .get_received_headers()
@@ -568,6 +602,7 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
 mod analyse_tests {
     use chrono::prelude::*;
     use crate::data::HostNode;
+    use crate::service_configuration::ServiceType;
     use std::path::{Path, PathBuf};
     use super::*;
 
@@ -762,8 +797,8 @@ mod analyse_tests {
             None
         }
 
-        fn db_path(&self) -> &PathBuf {
-            &self.db_path
+        fn db_path(&self) -> Option<&PathBuf> {
+            Some(&self.db_path)
         }
 
         fn message_sources(&self) -> Option<&str> {
@@ -778,8 +813,12 @@ mod analyse_tests {
             None
         }
 
-        fn trusted_recipient(&self) -> &str {
-            "a.baz.com"
+        fn service_type(&self) -> &ServiceType {
+            &ServiceType::ProcessMessage
+        }
+
+        fn trusted_recipient(&self) -> Option<&str> {
+            Some("a.baz.com")
         }
     }
 }
