@@ -4,6 +4,8 @@ use thiserror::Error;
 pub enum AppError {
     #[error(transparent)]
     Config(#[from] confy::ConfyError),
+    #[error("Cannot locate the config file")]
+    ConfigFileLocation,
     #[error("Database path {0} appears to be incorrect")]
     DatabasePathIncorrect(String),
     #[error("Database path is not configured")]

@@ -797,6 +797,14 @@ mod analyse_tests {
             None
         }
 
+        fn config_file_entries(&self) -> Vec<(String, Option<String>)> {
+            vec![]
+        }
+
+        fn config_file_location(&self) -> &Path {
+            &Path::new("/does/not/matter")
+        }
+
         fn db_path(&self) -> Option<&PathBuf> {
             Some(&self.db_path)
         }

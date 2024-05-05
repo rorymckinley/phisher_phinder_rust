@@ -8,9 +8,8 @@ pub async fn execute_command<T>(config: &T) -> Result<String, AppError>
     where T: Configuration {
     match config.service_type() {
         ServiceType::ProcessMessage => process_message::execute_command(config).await,
-        ServiceType::Config => config::execute_command(config)
+        ServiceType::Config(_) => config::execute_command(config)
     }
-    
 }
 
 #[cfg(test)]
@@ -133,7 +132,7 @@ mod service_execute_command_process_message_tests {
 
 #[cfg(test)]
 mod service_execute_command_config_tests {
-    use crate::cli::{ConfigArgs, SingleCli, SingleCliCommands};
+    use crate::cli::{ConfigArgs, ConfigCommands, SingleCli, SingleCliCommands};
     use crate::service_configuration::ServiceConfiguration;
 
     use super::*;
@@ -171,7 +170,7 @@ mod service_execute_command_config_tests {
     fn cli() -> SingleCli {
         SingleCli {
             command: SingleCliCommands::Config(ConfigArgs{
-                location: true,
+                command: ConfigCommands::Location,
             })
         }
     }

@@ -496,7 +496,7 @@ mod process_message_execute_command_common_errors_tests {
     use assert_fs::fixture::TempDir;
     use crate::cli::{ProcessArgs, SingleCli, SingleCliCommands};
     use crate::service_configuration::{ServiceConfiguration, ServiceType};
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     use super::*;
 
@@ -586,6 +586,14 @@ mod process_message_execute_command_common_errors_tests {
             None
         }
 
+        fn config_file_entries(&self) -> Vec<(String, Option<String>)> {
+            vec![]
+        }
+
+        fn config_file_location(&self) -> &Path {
+            Path::new("/does/not/matter")
+        }
+
         fn db_path(&self) -> Option<&PathBuf> {
             Some(&self.db_path)
         }
@@ -620,6 +628,14 @@ mod process_message_execute_command_common_errors_tests {
 
         fn abuse_notifications_from_address(&self) -> Option<&str> {
             None
+        }
+
+        fn config_file_entries(&self) -> Vec<(String, Option<String>)> {
+            vec![]
+        }
+
+        fn config_file_location(&self) -> &Path {
+            Path::new("/does/not/matter")
         }
 
         fn db_path(&self) -> Option<&PathBuf> {
