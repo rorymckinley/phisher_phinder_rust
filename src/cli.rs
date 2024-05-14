@@ -34,7 +34,9 @@ pub struct SingleCli {
 
 #[derive(Subcommand)]
 pub enum SingleCliCommands {
+    /// Configuration commands
     Config(ConfigArgs),
+    /// Process an email
     Process(ProcessArgs)
 }
 
@@ -46,6 +48,16 @@ pub struct ProcessArgs {
 
 #[derive(Args)]
 pub struct ConfigArgs {
-    #[arg(long)]
-    pub location: bool,
+    #[command(subcommand)]
+    pub command: ConfigCommands,
+}
+
+#[derive(Subcommand)]
+pub enum ConfigCommands {
+    /// Show configuration file location
+    Location,
+    /// Set configuration
+    Set,
+    /// Show existing configuration
+    Show,
 }
