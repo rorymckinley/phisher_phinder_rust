@@ -3274,8 +3274,9 @@ mod display_abuse_notifications_tests {
 
     #[test]
     fn displays_email_details_for_each_notification() {
+        let cli = build_cli();
         let run = build_run();
-        let config = build_config();
+        let config = build_config(&cli);
 
         assert_eq!(
             String::from("\
@@ -3323,8 +3324,9 @@ mod display_abuse_notifications_tests {
 
     #[test]
     fn displays_an_error_message_if_notifications_cannot_be_generated() {
+        let cli = build_cli();
         let run = build_run();
-        let config = build_config_without_from_address();
+        let config = build_config_without_from_address(&cli);
 
         assert_eq!(
             String::from("\
@@ -3376,10 +3378,10 @@ mod display_abuse_notifications_tests {
         }
     }
 
-    fn build_config<'a>() -> ServiceConfiguration<'a> {
+    fn build_config<'a>(cli: &'a SingleCli) -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(""),
-            &cli(),
+            cli,
             env_var_iterator()
         ).unwrap()
     }
@@ -3397,10 +3399,10 @@ mod display_abuse_notifications_tests {
         Box::new(v.into_iter())
     }
 
-    fn build_config_without_from_address<'a>() -> ServiceConfiguration<'a> {
+    fn build_config_without_from_address<'a>(cli: &'a SingleCli) -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(""),
-            &cli(),
+            cli,
             env_var_iterator_without_from_address()
         ).unwrap()
     }
@@ -3416,7 +3418,7 @@ mod display_abuse_notifications_tests {
         Box::new(v.into_iter())
     }
 
-    fn cli() -> SingleCli {
+    fn build_cli() -> SingleCli {
         SingleCli {
             command: SingleCliCommands::Process(ProcessArgs {
                 reprocess_run: None,

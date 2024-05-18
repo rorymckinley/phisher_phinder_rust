@@ -43,6 +43,24 @@ fn lists_current_config_contents() {
         );
 }
 
+#[test]
+fn sets_config() {
+    let temp = TempDir::new().unwrap();
+
+    store_config(temp.path());
+
+    let mut cmd = command(BINARY_NAME);
+
+    cmd
+        .env("HOME", temp.path().to_str().unwrap())
+        .args(["config", "set", "--abuse-notifications-author-name", "Barney Rubble"])
+        .assert()
+        .success()
+        .stdout(
+            predicate::str::contains("abuse_notifications_author_name: Barney Rubble")
+        );
+}
+
 fn command(binary_name: &str) -> Command {
     Command::cargo_bin(binary_name).unwrap()
 }

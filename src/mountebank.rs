@@ -519,12 +519,6 @@ struct MountebankIs {
     body: Option<String>,
 }
 
-#[derive(Serialize)]
-struct MountebankHeaders {
-    #[serde(rename = "Content-Type")]
-    content_type: String,
-}
-
 mod rdap {
     use super::EntityConfig;
     use chrono::{DateTime, Utc};

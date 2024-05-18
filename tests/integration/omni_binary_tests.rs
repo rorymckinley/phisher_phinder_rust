@@ -10,6 +10,7 @@ use phisher_phinder_rust::data::{
     ReportableEntities
 };
 use phisher_phinder_rust::message_source::MessageSource;
+use phisher_phinder_rust::mountebank::{clear_all_impostors, setup_bootstrap_server};
 use phisher_phinder_rust::persistence::{
     connect,
     find_runs_for_message_source,
@@ -27,6 +28,9 @@ const BINARY_NAME: &str = "ppr";
 
 #[test]
 fn processes_input_from_stdin() {
+    clear_all_impostors();
+    setup_bootstrap_server();
+
     let temp = TempDir::new().unwrap();
     let db_path = temp.path().join("pp.sqlite3");
 
@@ -34,6 +38,7 @@ fn processes_input_from_stdin() {
 
     cmd
         .env("PP_DB_PATH", &db_path)
+        .env("RDAP_BOOTSTRAP_HOST", "http://localhost:4545")
         .args(["process"])
         .write_stdin(multiple_source_input())
         .assert()
@@ -53,6 +58,9 @@ fn processes_input_from_stdin() {
 
 #[test]
 fn returns_output_from_the_import() {
+    clear_all_impostors();
+    setup_bootstrap_server();
+
     let temp = TempDir::new().unwrap();
     let db_path = temp.path().join("pp.sqlite3");
 
@@ -60,6 +68,7 @@ fn returns_output_from_the_import() {
 
     cmd
         .env("PP_DB_PATH", &db_path)
+        .env("RDAP_BOOTSTRAP_HOST", "http://localhost:4545")
         .args(["process"])
         .write_stdin(multiple_source_input())
         .assert()
@@ -69,6 +78,9 @@ fn returns_output_from_the_import() {
 
 #[test]
 fn reruns_an_existing_run() {
+    clear_all_impostors();
+    setup_bootstrap_server();
+
     let temp = TempDir::new().unwrap();
     let db_path = temp.path().join("pp.sqlite3");
 
@@ -82,6 +94,7 @@ fn reruns_an_existing_run() {
 
     cmd
         .env("PP_DB_PATH", &db_path)
+        .env("RDAP_BOOTSTRAP_HOST", "http://localhost:4545")
         .args(["process", "--reprocess-run", &format!("{}", run_2.id)])
         .assert()
         .success();
