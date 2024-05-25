@@ -26,6 +26,7 @@ where T: Configuration {
 
 #[cfg(test)]
 mod present_tests {
+    use assert_fs::TempDir;
     use crate::cli::{ProcessArgs, SingleCli, SingleCliCommands};
     use crate::data::{
         DeliveryNode,
@@ -42,6 +43,7 @@ mod present_tests {
     };
     use crate::message_source::MessageSource;
     use crate::service_configuration::ServiceConfiguration;
+    use std::path::{Path, PathBuf};
     use super::*;
 
     use chrono::prelude::*;
@@ -49,7 +51,9 @@ mod present_tests {
     #[test]
     fn returns_string_including_sender_addresses() {
         let cli = build_cli();
-        let output = present(build_run(), &build_config(&cli)).unwrap();
+        let temp = TempDir::new().unwrap();
+        let config_file_location = build_config_location(&temp);
+        let output = present(build_run(), &build_config(&cli, &config_file_location)).unwrap();
 
         assert!(output.contains("Address Source"))
     }
@@ -57,7 +61,9 @@ mod present_tests {
     #[test]
     fn returns_string_containing_authentication_results() {
         let cli = build_cli();
-        let output = present(build_run(), &build_config(&cli)).unwrap();
+        let temp = TempDir::new().unwrap();
+        let config_file_location = build_config_location(&temp);
+        let output = present(build_run(), &build_config(&cli, &config_file_location)).unwrap();
 
         assert!(output.contains("DKIM"))
     }
@@ -65,7 +71,9 @@ mod present_tests {
     #[test]
     fn returns_string_containing_reportable_entities() {
         let cli = build_cli();
-        let output = present(build_run(), &build_config(&cli)).unwrap();
+        let temp = TempDir::new().unwrap();
+        let config_file_location = build_config_location(&temp);
+        let output = present(build_run(), &build_config(&cli, &config_file_location)).unwrap();
 
         assert!(output.contains("Delivery Nodes"))
     }
@@ -73,7 +81,9 @@ mod present_tests {
     #[test]
     fn returns_string_containing_run_metadata() {
         let cli = build_cli();
-        let output = present(build_run(), &build_config(&cli)).unwrap();
+        let temp = TempDir::new().unwrap();
+        let config_file_location = build_config_location(&temp);
+        let output = present(build_run(), &build_config(&cli, &config_file_location)).unwrap();
 
         assert!(output.contains("Run ID"))
     }
@@ -81,7 +91,9 @@ mod present_tests {
     #[test]
     fn returns_string_containing_notification_emails() {
         let cli = build_cli();
-        let output = present(build_run(), &build_config(&cli)).unwrap();
+        let temp = TempDir::new().unwrap();
+        let config_file_location = build_config_location(&temp);
+        let output = present(build_run(), &build_config(&cli, &config_file_location)).unwrap();
 
         assert!(output.contains("Abuse Notifications"))
     }
@@ -194,24 +206,19 @@ mod present_tests {
         }
     }
 
-    fn build_config<'a>(cli: &'a SingleCli) -> ServiceConfiguration<'a> {
+    fn build_config_location(temp: &TempDir) -> PathBuf {
+        temp.path().join("phisher_eagle.conf")
+    }
+
+    fn build_config<'a>(
+        cli: &'a SingleCli,
+        config_file_location: &'a Path
+    ) -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(""),
             cli,
-            env_var_iterator()
+            config_file_location,
         ).unwrap()
-    }
-
-    fn env_var_iterator() -> Box<dyn Iterator<Item = (String, String)>>
-    {
-        let v: Vec<(String, String)> = vec![
-            ("PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS".into(), "sender@phishereagle.com".into()),
-            ("PP_DB_PATH".into(), "does.not.matter.sqlite".into()),
-            ("PP_TRUSTED_RECIPIENT".into(), "does.not.matter".into()),
-            ("RDAP_BOOTSTRAP_HOST".into(), "does.not.matter".into())
-        ];
-
-        Box::new(v.into_iter())
     }
 
     pub fn build_cli() -> SingleCli {

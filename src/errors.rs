@@ -12,6 +12,8 @@ pub enum AppError {
     DatabasePathNotConfigured,
     #[error("The provided database path is unparseable")]
     DatabasePathUnparseable,
+    #[error("Please pass in message source(s) via STDIN or use --reprocess-run")]
+    NoMessageSource,
     #[error("Service has nothing to process")]
     NothingToProcess,
     #[error("Can not find a run with the given ID")]
@@ -29,5 +31,7 @@ pub enum AppError {
     #[error("Can not generate abuse notifications without PP_ABUSE_NOTIFICATIONS_AUTHOR_NAME")]
     NoAuthorNameForNotifications,
     #[error("Encountered an irrecoverable error ,please contact the developer")]
-    Irrecoverable
+    Irrecoverable,
+    #[error("Invalid configuration: {0}")]
+    InvalidConfiguration(String)
 }

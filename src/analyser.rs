@@ -8,7 +8,6 @@ use crate::data::{
     ParsedMail,
     TrustedRecipientDeliveryNode,
 };
-use crate::service_configuration::Configuration;
 use regex::Regex;
 
 pub struct Analyser<'a, T> {
@@ -499,13 +498,11 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
         Self { parsed_mail }
     }
 
-    pub fn analyse<U>(&self, config: &U) -> Option<ParsedMail>
-    where U: Configuration
-    {
+    pub fn analyse(&self, trusted_recipient_option: Option<&str>) -> Option<ParsedMail> {
         Some(
             ParsedMail::new(
                 self.authentication_results(),
-                self.delivery_nodes(config.trusted_recipient()),
+                self.delivery_nodes(trusted_recipient_option),
                 self.sender_email_addresses(),
                 self.fulfillment_nodes(),
                 self.subject(),
@@ -602,17 +599,14 @@ impl<'a, T: AnalysableMessage> Analyser<'a, T> {
 mod analyse_tests {
     use chrono::prelude::*;
     use crate::data::HostNode;
-    use crate::service_configuration::ServiceType;
-    use std::path::{Path, PathBuf};
     use super::*;
 
     #[test]
     fn sets_the_authentication_results_in_parsed_mail() {
         let input_mail = build_input_mail(vec![], vec![]);
         let analyser = Analyser::new(&input_mail);
-        let config = build_config();
 
-        let parsed_mail = analyser.analyse(&config).unwrap();
+        let parsed_mail = analyser.analyse(Some("a.baz.com")).unwrap();
 
         assert_eq!(
             authentication_results(),
@@ -635,9 +629,8 @@ mod analyse_tests {
 
         let input_mail = build_input_mail(vec![], vec![&h_1, &h_2]);
         let analyser = Analyser::new(&input_mail);
-        let config = build_config();
 
-        let parsed_mail = analyser.analyse(&config).unwrap();
+        let parsed_mail = analyser.analyse(Some("a.baz.com")).unwrap();
 
         assert_eq!(
             vec![delivery_node_1(), delivery_node_2()],
@@ -652,9 +645,8 @@ mod analyse_tests {
             vec![]
         );
         let analyser = Analyser::new(&input_mail);
-        let config = build_config();
 
-        let parsed_mail = analyser.analyse(&config).unwrap();
+        let parsed_mail = analyser.analyse(Some("a.baz.com")).unwrap();
 
         let expected_email_address_data = EmailAddresses {
             from: vec![EmailAddressData::from_email_address("from@test.com")],
@@ -676,13 +668,12 @@ mod analyse_tests {
             vec![]
         );
         let analyser = Analyser::new(&input_mail);
-        let config = build_config();
         let expected_fulfillment_nodes= vec![
             FulfillmentNode::new("https://test-link1.com"),
             FulfillmentNode::new("https://test-link2.com")
         ];
 
-        let parsed_mail = analyser.analyse(&config).unwrap();
+        let parsed_mail = analyser.analyse(Some("a.baz.com")).unwrap();
 
         assert_eq!(expected_fulfillment_nodes, parsed_mail.fulfillment_nodes);
     }
@@ -694,13 +685,12 @@ mod analyse_tests {
             vec![]
         );
         let analyser = Analyser::new(&input_mail);
-        let config = build_config();
         let expected_fulfillment_nodes= vec![
             FulfillmentNode::new("https://test-link1.com"),
             FulfillmentNode::new("https://test-link2.com")
         ];
 
-        let parsed_mail = analyser.analyse(&config).unwrap();
+        let parsed_mail = analyser.analyse(Some("a.baz.com")).unwrap();
 
         assert_eq!(expected_fulfillment_nodes, parsed_mail.fulfillment_nodes);
     }
@@ -709,9 +699,8 @@ mod analyse_tests {
     fn sets_subject() {
         let input_mail = build_input_mail(vec![], vec![]);
         let analyser = Analyser::new(&input_mail);
-        let config = build_config();
 
-        let parsed_mail = analyser.analyse(&config).unwrap();
+        let parsed_mail = analyser.analyse(Some("a.baz.com")).unwrap();
 
         assert_eq!(String::from("My First Phishing Email"), parsed_mail.subject.unwrap());
     }
@@ -776,60 +765,7 @@ mod analyse_tests {
         }
     }
 
-    fn build_config() -> TestConfig {
-        TestConfig { db_path: Path::new("").to_path_buf() }
-    }
-
     fn observed_sender(host: &str, ip_address: &str) -> Option<HostNode> {
         Some(HostNode::new(Some(host), Some(ip_address)).unwrap())
-    }
-
-    struct TestConfig {
-        db_path: PathBuf
-    }
-
-    impl Configuration for TestConfig {
-        fn abuse_notifications_author_name(&self) -> Option<&str> {
-            None
-        }
-
-        fn abuse_notifications_from_address(&self) -> Option<&str> {
-            None
-        }
-
-        fn config_file_entries(&self) -> Vec<(String, Option<String>)> {
-            vec![]
-        }
-
-        fn config_file_location(&self) -> &Path {
-            Path::new("/does/not/matter")
-        }
-
-        fn db_path(&self) -> Option<&PathBuf> {
-            Some(&self.db_path)
-        }
-
-        fn message_sources(&self) -> Option<&str> {
-            None
-        }
-
-        fn rdap_bootstrap_host(&self) -> Option<&str> {
-            None
-        }
-
-        fn reprocess_run_id(&self) -> Option<i64> {
-            None
-        }
-
-        fn service_type(&self) -> &ServiceType {
-            &ServiceType::ProcessMessage
-        }
-
-        fn store_config(&self) {
-        }
-
-        fn trusted_recipient(&self) -> Option<&str> {
-            Some("a.baz.com")
-        }
     }
 }

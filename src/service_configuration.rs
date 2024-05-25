@@ -1,18 +1,18 @@
 use crate::cli::{ConfigArgs, ConfigCommands, SetConfigArgs, SingleCli, SingleCliCommands};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use thiserror::Error;
 
 #[derive(Debug, Default, Deserialize, PartialEq, Serialize)]
-struct FileConfig {
-    abuse_notifications_author_name: Option<String>,
-    abuse_notifications_from_address: Option<String>,
-    db_path: Option<String>,
-    smtp_host_uri: Option<String>,
-    smtp_password: Option<String>,
-    smtp_username: Option<String>,
-    trusted_recipient: Option<String>,
+pub struct FileConfig {
+    pub abuse_notifications_author_name: Option<String>,
+    pub abuse_notifications_from_address: Option<String>,
+    pub db_path: Option<String>,
+    pub rdap_bootstrap_host: Option<String>,
+    pub smtp_host_uri: Option<String>,
+    pub smtp_password: Option<String>,
+    pub smtp_username: Option<String>,
+    pub trusted_recipient: Option<String>,
 }
 
 pub trait Configuration {
@@ -24,7 +24,7 @@ pub trait Configuration {
 
     fn config_file_location(&self) -> &Path;
 
-    fn db_path(&self) -> Option<&PathBuf>;
+    fn db_path(&self) -> Option<&Path>;
 
     fn message_sources(&self) -> Option<&str>;
 
@@ -34,7 +34,7 @@ pub trait Configuration {
 
     fn service_type(&self) -> &ServiceType;
 
-    fn store_config(&self);
+    fn store_config(&mut self);
 
     fn trusted_recipient(&self)-> Option<&str>;
 }
@@ -43,6 +43,8 @@ pub trait Configuration {
 pub enum ServiceConfigurationError {
     #[error("{0} is a required ENV variable")]
     MissingEnvVar(String),
+    #[error("Error reading configuration file")]
+    ConfigFileReadError,
     #[error("Please pass message source to STDIN or reprocess a run.")]
     NoMessageSource,
     #[error("Fallthrough")]
@@ -64,133 +66,60 @@ pub enum ConfigServiceCommands {
 
 #[derive(Debug, PartialEq)]
 pub struct ServiceConfiguration<'a> {
-    abuse_notifications_author_name: Option<String>,
-    abuse_notifications_from_address: Option<String>,
-    config_file_location: PathBuf,
-    db_path: Option<PathBuf>,
+    config_file: FileConfig,
+    config_file_location: &'a Path,
     message_source: Option<&'a str>,
-    rdap_bootstrap_host: Option<String>,
     reprocess_run_id: Option<i64>,
     service_type: ServiceType,
     set_config_args: Option<&'a SetConfigArgs>,
-    trusted_recipient: Option<String>,
 }
 
 impl<'a> ServiceConfiguration<'a> {
-    pub fn new<I>(
+    pub fn new(
         message_source: Option<&'a str>,
         cli_parameters: &'a SingleCli,
-        env_vars_iterator: I
-    ) -> Result<Self, ServiceConfigurationError>
-    where I: Iterator<Item = (String, String)>
-    {
-        // TODO Need a way to test error handling
-        // TODO a panic is probably ok here given that we are dead in the water if
-        // we can't lookup the config, but would expect() be  better choice in terms
-        // of visibility?
-        let config_file_location =
-            confy::get_configuration_file_path("phisher_eagle", None).unwrap();
+        config_file_location: &'a Path,
+    ) -> Result<Self, ServiceConfigurationError> {
+        // TODO Error handling for the unwrap
+        if let Ok(config_file) = confy::load_path::<FileConfig>(config_file_location) {
+            match  cli_parameters {
+                SingleCli {command: SingleCliCommands::Process(args), ..} => {
+                    Ok(
+                        Self {
+                            set_config_args: None,
+                            config_file,
+                            config_file_location,
+                            message_source,
+                            reprocess_run_id: args.reprocess_run,
+                            service_type: ServiceType::ProcessMessage,
+                        }
+                    )
+                },
+                SingleCli {command: SingleCliCommands::Config(ConfigArgs {command}), ..} => {
+                    let service_type = Self::determine_config_service_type(command);
 
-        match  cli_parameters {
-            SingleCli {command: SingleCliCommands::Process(args), ..} => {
-                if message_source.is_none() && args.reprocess_run.is_none() {
-                    return Err(ServiceConfigurationError::NoMessageSource);
+                    let mut set_config_args: Option<&SetConfigArgs> = None;
+
+                    if ServiceType::Config(ConfigServiceCommands::Set) == service_type {
+                        if let ConfigCommands::Set(args) = command {
+                            set_config_args = Some(args);
+                        }
+                    }
+
+                    Ok(
+                        Self {
+                            set_config_args,
+                            config_file,
+                            config_file_location,
+                            message_source: None,
+                            reprocess_run_id: None,
+                            service_type,
+                        }
+                    )
                 }
-
-                let env_vars: HashMap<String, String> = env_vars_iterator.collect();
-
-                Ok(
-                    Self {
-                        abuse_notifications_author_name:
-                            Self::extract_optional_env_var(
-                                &env_vars,
-                                "PP_ABUSE_NOTIFICATIONS_AUTHOR_NAME"
-                            ),
-                        abuse_notifications_from_address:
-                            Self::extract_optional_env_var(
-                                &env_vars,
-                                "PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS"
-                            ),
-                        set_config_args: None,
-                        config_file_location,
-                        db_path: Some(
-                            Path::new(
-                                &Self::extract_required_env_var(&env_vars, "PP_DB_PATH")?
-                            ).to_path_buf(),
-                        ),
-                        message_source,
-                        rdap_bootstrap_host:
-                            Self::extract_optional_env_var(
-                                &env_vars,
-                                "RDAP_BOOTSTRAP_HOST"
-                            ),
-                        reprocess_run_id: args.reprocess_run,
-                        service_type: ServiceType::ProcessMessage,
-                        trusted_recipient: Some(
-                            Self::extract_required_env_var(
-                                &env_vars,
-                                "PP_TRUSTED_RECIPIENT"
-                            )?,
-                        )
-                    }
-                )
-            },
-            SingleCli {command: SingleCliCommands::Config(ConfigArgs {command}), ..} => {
-                let service_type = Self::determine_config_service_type(command);
-
-                let mut set_config_args: Option<&SetConfigArgs> = None;
-
-                if ServiceType::Config(ConfigServiceCommands::Set) == service_type {
-                    if let ConfigCommands::Set(args) = command {
-                        set_config_args = Some(args);
-                    }
-                }
-
-                Ok(
-                    Self {
-                        abuse_notifications_author_name: None,
-                        abuse_notifications_from_address: None,
-                        set_config_args,
-                        config_file_location,
-                        db_path: None,
-                        message_source: None,
-                        rdap_bootstrap_host: None,
-                        reprocess_run_id: None,
-                        service_type,
-                        trusted_recipient: None
-                    }
-                )
-            }
-        }
-    }
-
-    fn extract_required_env_var(
-        vars: &HashMap<String, String>,
-        var_name: &str,
-    ) -> Result<String, ServiceConfigurationError> {
-        if let Some(val_ref) = vars.get(var_name) {
-            if !val_ref.is_empty() {
-                Ok(val_ref.to_string())
-            } else {
-                Err(ServiceConfigurationError::MissingEnvVar(var_name.into()))
             }
         } else {
-            Err(ServiceConfigurationError::MissingEnvVar(var_name.into()))
-        }
-    }
-
-    fn extract_optional_env_var(
-        vars: &HashMap<String, String>,
-        var_name: &str,
-    ) -> Option<String> {
-        if let Some(val) = vars.get(var_name) {
-            if !val.is_empty() {
-                Some(val.to_string())
-            } else {
-                None
-            }
-        } else {
-            None
+            Err(ServiceConfigurationError::ConfigFileReadError)
         }
     }
 
@@ -205,15 +134,15 @@ impl<'a> ServiceConfiguration<'a> {
 
 impl<'a> Configuration for ServiceConfiguration<'a> {
     fn abuse_notifications_author_name(&self) -> Option<&str> {
-        self.abuse_notifications_author_name.as_deref()
+        self.config_file.abuse_notifications_author_name.as_deref().filter(|v| !v.is_empty())
     }
 
     fn abuse_notifications_from_address(&self) -> Option<&str> {
-        self.abuse_notifications_from_address.as_deref()
+        self.config_file.abuse_notifications_from_address.as_deref().filter(|v| !v.is_empty())
     }
 
     fn config_file_entries(&self) -> Vec<(String, Option<String>)> {
-        let file_config: FileConfig = confy::load_path(&self.config_file_location).unwrap();
+        let file_config: FileConfig = confy::load_path(self.config_file_location).unwrap();
 
         vec![
             (
@@ -227,6 +156,10 @@ impl<'a> Configuration for ServiceConfiguration<'a> {
             (
                 "db_path".into(),
                 file_config.db_path
+            ),
+            (
+                "rdap_bootstrap_host".into(),
+                file_config.rdap_bootstrap_host
             ),
             (
                 "smtp_host_uri".into(),
@@ -248,11 +181,13 @@ impl<'a> Configuration for ServiceConfiguration<'a> {
     }
 
     fn config_file_location(&self) -> &Path {
-        &self.config_file_location
+        self.config_file_location
     }
 
-    fn db_path(&self) -> Option<&PathBuf> {
-        self.db_path.as_ref()
+    fn db_path(&self) -> Option<&Path> {
+        self.config_file.db_path.as_ref().map(|path_string| {
+            Path::new(path_string)
+        })
     }
 
     fn message_sources(&self) -> Option<&'a str> {
@@ -260,7 +195,7 @@ impl<'a> Configuration for ServiceConfiguration<'a> {
     }
 
     fn rdap_bootstrap_host(&self) -> Option<&str> {
-        self.rdap_bootstrap_host.as_deref()
+        self.config_file.rdap_bootstrap_host.as_deref().filter(|v| !v.is_empty())
     }
 
     fn reprocess_run_id(&self) -> Option<i64> {
@@ -272,299 +207,120 @@ impl<'a> Configuration for ServiceConfiguration<'a> {
     }
 
     // TODO Return a Result<()>
-    fn store_config(&self) {
-        // TODO Need a way to test error handling
-        let current_config = confy::load_path::<FileConfig>(&self.config_file_location).unwrap();
-
-        match configuration_file_contents::new_contents(current_config, self.set_config_args) {
-            Some(new_config) => {
-                // TODO Need a way to test error handling
-                confy::store_path(&self.config_file_location, new_config).unwrap();
-            },
-            None => ()
+    fn store_config(&mut self) {
+        if let Some(new_config) = configuration_file_contents::new_contents(
+            &self.config_file,
+            self.set_config_args
+        ) {
+            // TODO Need a way to test error handling
+            confy::store_path(self.config_file_location, &new_config).unwrap();
+            self.config_file = new_config;
         }
     }
 
     fn trusted_recipient(&self) -> Option<&str> {
-        self.trusted_recipient.as_deref()
+        self.config_file.trusted_recipient.as_deref()
     }
 }
 
 #[cfg(test)]
 mod service_configuration_process_tests {
+    use assert_fs::TempDir;
     use crate::cli::{ProcessArgs, SingleCliCommands};
+    use test_support::*;
     use super::*;
 
     #[test]
     fn initialises_an_instance() {
-        let config_file_location =
-            confy::get_configuration_file_path("phisher_eagle", None)
-            .unwrap();
+        let temp = TempDir::new().unwrap();
+
+        let config_file_location = create_config_file(temp.path(), file_config());
 
         let cli = build_cli(Some(99));
 
         let config = ServiceConfiguration::new(
             Some("message source"),
             &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: None,
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: None,
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
+            &config_file_location,
         ).unwrap();
 
         let expected = ServiceConfiguration {
-            abuse_notifications_author_name: None,
-            abuse_notifications_from_address: None,
-            config_file_location,
-            db_path: Some("/path/to/db".into()),
+            config_file: file_config(),
+            config_file_location: &config_file_location,
             message_source: Some("message source"),
-            rdap_bootstrap_host: None,
             reprocess_run_id: Some(99),
             service_type: ServiceType::ProcessMessage,
             set_config_args: None,
-            trusted_recipient: Some("foo.com".into())
         };
 
         assert_eq!(expected, config);
     }
 
     #[test]
-    fn returns_service_type() {
+    fn returns_error_if_the_config_file_cannot_be_read() {
+        let config_file_location = Path::new("/should/not/exist");
+
         let cli = build_cli(Some(99));
 
         let config = ServiceConfiguration::new(
             Some("message source"),
             &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: None,
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: None,
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
+            config_file_location,
+        );
+
+        match config {
+            Err(ServiceConfigurationError::ConfigFileReadError) => (),
+            Err(e) => panic!("Unexpected error response {e}"),
+            Ok(_) => panic!("Did not return error"),
+        }
+    }
+
+    #[test]
+    fn returns_service_type() {
+        let temp = TempDir::new().unwrap();
+
+        let config_file_location = create_config_file(temp.path(), file_config());
+
+        let cli = build_cli(Some(99));
+
+        let config = ServiceConfiguration::new(
+            Some("message source"),
+            &cli,
+            &config_file_location,
         ).unwrap();
 
         assert_eq!(&ServiceType::ProcessMessage, config.service_type());
     }
 
     #[test]
-    fn returns_err_if_no_db_path_env_var() {
-        let cli = build_cli(Some(99));
-
-        let result = ServiceConfiguration::new(
-            Some("message source"),
-            &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: None,
-                    db_path_option: None,
-                    rdap_bootstrap_host_option: None,
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
-        );
-
-        match result {
-            Err(ServiceConfigurationError::MissingEnvVar(e)) => {
-                assert_eq!("PP_DB_PATH", e)
-            },
-            Err(_) => panic!("Unexpected error response"),
-            Ok(_) => panic!("Did not return error")
-        }
-    }
-
-    #[test]
-    fn returns_err_if_db_path_env_var_empty_string() {
-        let cli = build_cli(Some(99));
-
-        let result = ServiceConfiguration::new(
-            Some("message source"),
-            &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: None,
-                    db_path_option: Some(""),
-                    rdap_bootstrap_host_option: None,
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
-        );
-
-        match result {
-            Err(ServiceConfigurationError::MissingEnvVar(e)) => {
-                assert_eq!("PP_DB_PATH", e)
-            },
-            Err(_) => panic!("Unexpected error response"),
-            Ok(_) => panic!("Did not return error")
-        }
-    }
-
-    #[test]
-    fn returns_err_if_no_trusted_recipient_env_var() {
-        let cli = build_cli(Some(99));
-
-        let result = ServiceConfiguration::new(
-            Some("message source"),
-            &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: None,
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: None,
-                    trusted_recipient_option: None,
-                }
-            )
-        );
-
-        match result {
-            Err(ServiceConfigurationError::MissingEnvVar(e)) => {
-                assert_eq!("PP_TRUSTED_RECIPIENT", e)
-            },
-            Err(_) => panic!("Unexpected error response"),
-            Ok(_) => panic!("Did not return error")
-        }
-    }
-
-    #[test]
-    fn returns_err_if_trusted_recipient_env_var_empty_string() {
-        let cli = build_cli(Some(99));
-
-        let result = ServiceConfiguration::new(
-            Some("message source"),
-            &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: None,
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: None,
-                    trusted_recipient_option: Some(""),
-                }
-            )
-        );
-
-        match result {
-            Err(ServiceConfigurationError::MissingEnvVar(e)) => {
-                assert_eq!("PP_TRUSTED_RECIPIENT", e)
-            },
-            Err(_) => panic!("Unexpected error response"),
-            Ok(_) => panic!("Did not return error")
-        }
-    }
-
-    #[test]
-    fn returns_err_if_no_message_source_or_reprocess_run() {
-        let cli = build_cli(None);
-
-        let result = ServiceConfiguration::new(
-            None,
-            &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: None,
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: None,
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
-        );
-
-        match result {
-            Err(e) => assert_eq!(ServiceConfigurationError::NoMessageSource, e),
-            Ok(_) => panic!("Did not return error")
-        }
-    }
-
-    #[test]
-    fn returns_config_if_no_message_source_but_reprocess_run_id() {
-        let cli = build_cli(Some(99));
-
-        let result = ServiceConfiguration::new(
-            None,
-            &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: None,
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: None,
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
-        );
-
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn returns_config_if_message_source_but_no_reprocess_run_id() {
-        let cli = build_cli(None);
-
-        let result = ServiceConfiguration::new(
-            Some("message source"),
-            &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: None,
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: None,
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
-        );
-
-        assert!(result.is_ok());
-    }
-
-    #[test]
     fn returns_db_path() {
+        let temp = TempDir::new().unwrap();
+
+        let config_file_location = create_config_file(temp.path(), file_config());
+
         let cli = build_cli(None);
 
         let config = ServiceConfiguration::new(
             Some("message source"),
             &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: None,
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: None,
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
+            &config_file_location,
         ).unwrap();
 
-        assert_eq!(Some(&Path::new("/path/to/db").to_path_buf()), config.db_path());
+        assert_eq!(Some(Path::new("/other/path/to/db")), config.db_path());
     }
 
     #[test]
     fn returns_message_sources() {
+        let temp = TempDir::new().unwrap();
+
+        let config_file_location = create_config_file(temp.path(), file_config());
+
         let cli = build_cli(None);
 
         let config = ServiceConfiguration::new(
             Some("message source"),
             &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: None,
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: None,
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
+            &config_file_location,
         ).unwrap();
 
         assert_eq!(Some("message source"), config.message_sources());
@@ -572,20 +328,16 @@ mod service_configuration_process_tests {
 
     #[test]
     fn returns_reprocess_run_id() {
+        let temp = TempDir::new().unwrap();
+
+        let config_file_location = create_config_file(temp.path(), file_config());
+
         let cli = build_cli(Some(999));
 
         let config = ServiceConfiguration::new(
             None,
             &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: None,
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: None,
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
+            &config_file_location,
         ).unwrap();
 
         assert_eq!(Some(999), config.reprocess_run_id());
@@ -593,62 +345,50 @@ mod service_configuration_process_tests {
 
     #[test]
     fn returns_trusted_recipient() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(temp.path(), file_config());
+
         let cli = build_cli(Some(999));
 
         let config = ServiceConfiguration::new(
             None,
             &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: None,
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: None,
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
+            &config_file_location,
         ).unwrap();
 
-        assert_eq!(Some("foo.com"), config.trusted_recipient());
+        assert_eq!(Some("google.com"), config.trusted_recipient());
     }
 
     #[test]
     fn returns_rdap_bootstrap_host() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(temp.path(), file_config());
+
         let cli = build_cli(Some(999));
 
         let config = ServiceConfiguration::new(
             None,
             &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: None,
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: Some("localhost:4545"),
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
+            &config_file_location,
         ).unwrap();
 
-        assert_eq!(Some("localhost:4545"), config.rdap_bootstrap_host());
+        assert_eq!(Some("localhost:4646"), config.rdap_bootstrap_host());
     }
 
     #[test]
     fn returns_none_if_rdap_host_empty_string() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config_rdap_bootstrap_empty()
+        );
+
         let cli = build_cli(Some(999));
 
         let config = ServiceConfiguration::new(
             None,
             &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: None,
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: Some(""),
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
+            &config_file_location,
         ).unwrap();
 
         assert_eq!(None, config.rdap_bootstrap_host());
@@ -656,20 +396,18 @@ mod service_configuration_process_tests {
 
     #[test]
     fn returns_none_if_no_rdap_host() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config_rdap_bootstrap_none()
+        );
+
         let cli = build_cli(Some(999));
 
         let config = ServiceConfiguration::new(
             None,
             &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: None,
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: None,
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
+            &config_file_location,
         ).unwrap();
 
         assert_eq!(None, config.rdap_bootstrap_host());
@@ -677,41 +415,34 @@ mod service_configuration_process_tests {
 
     #[test]
     fn returns_abuse_notifications_from_address() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(temp.path(), file_config());
+
         let cli = build_cli(Some(999));
 
         let config = ServiceConfiguration::new(
             None,
             &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: Some("report@phishereagle.com"),
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: Some(""),
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
+            &config_file_location,
         ).unwrap();
 
-        assert_eq!(Some("report@phishereagle.com"), config.abuse_notifications_from_address());
+        assert_eq!(Some("fred@flintstone.zzz"), config.abuse_notifications_from_address());
     }
 
     #[test]
     fn returns_none_if_no_abuse_notifications_from_address() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config_abuse_from_address_none()
+        );
+
         let cli = build_cli(Some(999));
 
         let config = ServiceConfiguration::new(
             None,
             &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: None,
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: Some(""),
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
+            &config_file_location,
         ).unwrap();
 
         assert_eq!(None, config.abuse_notifications_from_address());
@@ -719,20 +450,18 @@ mod service_configuration_process_tests {
 
     #[test]
     fn returns_none_if_empty_string_abuse_notifications_from_address() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config_abuse_from_address_empty()
+        );
+
         let cli = build_cli(Some(999));
 
         let config = ServiceConfiguration::new(
             None,
             &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: Some(""),
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: Some(""),
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
+            &config_file_location,
         ).unwrap();
 
         assert_eq!(None, config.abuse_notifications_from_address());
@@ -740,41 +469,34 @@ mod service_configuration_process_tests {
 
     #[test]
     fn returns_abuse_notifications_author_name() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(temp.path(), file_config());
+
         let cli = build_cli(Some(999));
 
         let config = ServiceConfiguration::new(
             None,
             &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: Some("Jo Bloggs"),
-                    abuse_notifications_from_address_option: Some("report@phishereagle.com"),
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: Some(""),
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
+            &config_file_location,
         ).unwrap();
 
-        assert_eq!(Some("Jo Bloggs"), config.abuse_notifications_author_name())
+        assert_eq!(Some("Fred Flintstone"), config.abuse_notifications_author_name())
     }
 
     #[test]
     fn returns_none_if_no_abuse_notifications_author_name() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config_abuse_author_name_none()
+        );
+
         let cli = build_cli(Some(999));
 
         let config = ServiceConfiguration::new(
             None,
             &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: Some("report@phishereagle.com"),
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: Some(""),
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
+            &config_file_location,
         ).unwrap();
 
         assert_eq!(None, config.abuse_notifications_author_name())
@@ -782,20 +504,18 @@ mod service_configuration_process_tests {
 
     #[test]
     fn returns_none_if_empty_string_abuse_notifications_author_name() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config_abuse_author_name_empty()
+        );
+
         let cli = build_cli(Some(999));
 
         let config = ServiceConfiguration::new(
             None,
             &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: Some(""),
-                    abuse_notifications_from_address_option: Some("report@phishereagle.com"),
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: Some(""),
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
+            &config_file_location,
         ).unwrap();
 
         assert_eq!(None, config.abuse_notifications_author_name())
@@ -803,72 +523,17 @@ mod service_configuration_process_tests {
 
     #[test]
     fn returns_config_file_path() {
-        let config_file_location =
-            confy::get_configuration_file_path("phisher_eagle", None)
-            .unwrap();
+        let config_file_location = Path::new("/tmp/phisher_eagle.conf");
 
         let cli = build_cli(Some(99));
 
         let config = ServiceConfiguration::new(
             Some("message source"),
             &cli,
-            env_var_iterator(
-                EnvVarConfig {
-                    abuse_notifications_author_name_option: None,
-                    abuse_notifications_from_address_option: None,
-                    db_path_option: Some("/path/to/db"),
-                    rdap_bootstrap_host_option: None,
-                    trusted_recipient_option: Some("foo.com"),
-                }
-            )
+            config_file_location,
         ).unwrap();
 
-        assert_eq!(&config_file_location, config.config_file_location());
-    }
-
-    #[test]
-    fn returns_collection_of_config_file_entries() {
-    }
-
-    struct EnvVarConfig<'a> {
-        pub abuse_notifications_author_name_option: Option<&'a str>,
-        pub abuse_notifications_from_address_option: Option<&'a str>,
-        pub db_path_option: Option<&'a str>,
-        pub rdap_bootstrap_host_option: Option<&'a str>,
-        pub trusted_recipient_option: Option<&'a str>,
-    }
-
-    fn env_var_iterator(config: EnvVarConfig) -> Box<dyn Iterator<Item = (String, String)>> {
-        let mut v: Vec<(String, String)> = vec![];
-
-        if let Some(abuse_notifications_author_name) =
-            config.abuse_notifications_author_name_option {
-            v.push((
-                "PP_ABUSE_NOTIFICATIONS_AUTHOR_NAME".into(), abuse_notifications_author_name.into()
-            ));
-        }
-
-        if let Some(abuse_notifications_from_address) =
-            config.abuse_notifications_from_address_option {
-            v.push((
-                "PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS".into(),
-                abuse_notifications_from_address.into()
-            ));
-        }
-
-        if let Some(db_path) = config.db_path_option {
-            v.push(("PP_DB_PATH".into(), db_path.into()));
-        }
-
-        if let Some(rdap_bootstrap_host) = config.rdap_bootstrap_host_option {
-            v.push(("RDAP_BOOTSTRAP_HOST".into(), rdap_bootstrap_host.into()))
-        }
-
-        if let Some(trusted_recipient) = config.trusted_recipient_option {
-            v.push(("PP_TRUSTED_RECIPIENT".into(), trusted_recipient.into()))
-        }
-
-        Box::new(v.into_iter())
+        assert_eq!(config_file_location, config.config_file_location());
     }
 
     fn build_cli(reprocess_run: Option<i64>) -> SingleCli {
@@ -881,41 +546,67 @@ mod service_configuration_process_tests {
 }
 
 #[cfg(test)]
-mod service_configuration_command_tests {
+mod service_configuration_config_location_command_tests {
+    use assert_fs::TempDir;
     use crate::cli::{ConfigArgs, ConfigCommands, SetConfigArgs, SingleCliCommands};
+    use test_support::*;
     use super::*;
 
     #[test]
     fn initialises_an_instance() {
-        let config_file_location =
-            confy::get_configuration_file_path("phisher_eagle", None)
-            .unwrap();
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(temp.path(), file_config());
 
         let cli = build_cli(ConfigCommands::Location);
 
-        let config = ServiceConfiguration::new(None, &cli, vec![].into_iter()).unwrap();
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
 
         let expected = ServiceConfiguration {
-            abuse_notifications_author_name: None,
-            abuse_notifications_from_address: None,
-            config_file_location,
-            db_path: None,
+            config_file: file_config(),
+            config_file_location: &config_file_location,
             message_source: None,
-            rdap_bootstrap_host: None,
             reprocess_run_id: None,
             service_type: ServiceType::Config(ConfigServiceCommands::Location),
             set_config_args: None,
-            trusted_recipient: None
         };
 
         assert_eq!(expected, config);
     }
 
     #[test]
-    fn returns_service_type() {
+    fn returns_error_if_the_config_file_cannot_be_read() {
+        let config_file_location = Path::new("/should/not/exist");
+
         let cli = build_cli(ConfigCommands::Location);
 
-        let config = ServiceConfiguration::new( None, &cli, vec![].into_iter()).unwrap();
+        let config = ServiceConfiguration::new(
+            Some("message source"),
+            &cli,
+            config_file_location,
+        );
+
+        match config {
+            Err(ServiceConfigurationError::ConfigFileReadError) => (),
+            Err(e) => panic!("Unexpected error response {e}"),
+            Ok(_) => panic!("Did not return error"),
+        }
+    }
+
+    #[test]
+    fn returns_service_type() {
+        let config_file_location = Path::new("/tmp/phisher_eagle.conf");
+
+        let cli = build_cli(ConfigCommands::Location);
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            config_file_location,
+        ).unwrap();
 
         assert_eq!(
             &ServiceType::Config(ConfigServiceCommands::Location),
@@ -925,100 +616,167 @@ mod service_configuration_command_tests {
 
     #[test]
     fn returns_db_path() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(temp.path(), file_config());
+
         let cli = build_cli(ConfigCommands::Location);
 
-        let config = ServiceConfiguration::new(None, &cli, vec![].into_iter()).unwrap();
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
 
-        assert_eq!(None, config.db_path());
+        assert_eq!(Some(Path::new("/other/path/to/db")), config.db_path());
     }
 
     #[test]
     fn returns_message_sources() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(temp.path(), file_config());
+
         let cli = build_cli(ConfigCommands::Location);
 
-        let config = ServiceConfiguration::new(None, &cli, vec![].into_iter()).unwrap();
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
 
         assert_eq!(None, config.message_sources());
     }
 
     #[test]
     fn returns_reprocess_run_id() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(temp.path(), file_config());
+
         let cli = build_cli(ConfigCommands::Location);
 
-        let config = ServiceConfiguration::new(None, &cli, vec![].into_iter()).unwrap();
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
 
         assert_eq!(None, config.reprocess_run_id());
     }
 
     #[test]
     fn returns_trusted_recipient() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(temp.path(), file_config());
+
         let cli = build_cli(ConfigCommands::Location);
 
-        let config = ServiceConfiguration::new(None, &cli, vec![].into_iter()).unwrap();
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
 
-        assert_eq!(None, config.trusted_recipient());
+        assert_eq!(Some("google.com"), config.trusted_recipient());
     }
 
     #[test]
     fn returns_rdap_bootstrap_host() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(temp.path(), file_config());
+
         let cli = build_cli(ConfigCommands::Location);
 
-        let config = ServiceConfiguration::new(None, &cli, vec![].into_iter()).unwrap();
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
 
-        assert_eq!(None, config.rdap_bootstrap_host());
+        assert_eq!(Some("localhost:4646"), config.rdap_bootstrap_host());
     }
 
     #[test]
     fn returns_abuse_notifications_from_address() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(temp.path(), file_config());
+
         let cli = build_cli(ConfigCommands::Location);
 
-        let config = ServiceConfiguration::new(None, &cli, vec![].into_iter()).unwrap();
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
 
-        assert_eq!(None, config.abuse_notifications_from_address());
+        assert_eq!(Some("fred@flintstone.zzz"), config.abuse_notifications_from_address());
     }
 
     #[test]
     fn returns_abuse_notifications_author_name() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(temp.path(), file_config());
+
         let cli = build_cli(ConfigCommands::Location);
 
-        let config = ServiceConfiguration::new(None, &cli, vec![].into_iter()).unwrap();
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
 
-        assert_eq!(None, config.abuse_notifications_author_name())
+        assert_eq!(Some("Fred Flintstone"), config.abuse_notifications_author_name())
     }
 
     #[test]
     fn returns_config_file_path() {
-        let config_file_location =
-            confy::get_configuration_file_path("phisher_eagle", None)
-            .unwrap();
+        let config_file_location = Path::new("/tmp/phisher_eagle.conf");
 
         let cli = build_cli(ConfigCommands::Location);
 
-        let config = ServiceConfiguration::new(None, &cli, vec![].into_iter()).unwrap();
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            config_file_location,
+        ).unwrap();
 
-        assert_eq!(&config_file_location, config.config_file_location());
+        assert_eq!(config_file_location, config.config_file_location());
     }
 
     #[test]
     fn sets_the_config_service_type_based_on_config_subcommand() {
+        let config_file_location = Path::new("/tmp/phisher_eagle.conf");
+
         let cli = build_cli(ConfigCommands::Location);
-        let config = ServiceConfiguration::new(None, &cli, vec![].into_iter()).unwrap();
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            config_file_location,
+        ).unwrap();
         assert_eq!(&ServiceType::Config(ConfigServiceCommands::Location), config.service_type());
 
         let cli = build_cli(ConfigCommands::Set(SetConfigArgs{
             abuse_notifications_author_name: None,
             abuse_notifications_from_address: None,
             db_path: None,
+            rdap_bootstrap_host: None,
             smtp_host_uri: None,
             smtp_password: None,
             smtp_username: None,
             trusted_recipient: None,
         }));
-        let config = ServiceConfiguration::new(None, &cli, vec![].into_iter()).unwrap();
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            config_file_location,
+        ).unwrap();
         assert_eq!(&ServiceType::Config(ConfigServiceCommands::Set), config.service_type());
 
         let cli = build_cli(ConfigCommands::Show);
-        let config = ServiceConfiguration::new(None, &cli, vec![].into_iter()).unwrap();
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            config_file_location,
+        ).unwrap();
         assert_eq!(&ServiceType::Config(ConfigServiceCommands::Show), config.service_type());
     }
 
@@ -1038,33 +796,55 @@ mod service_configuration_set_config_command_tests {
 
     #[test]
     fn stores_a_reference_to_the_set_config_parameters() {
+        let config_file_location = Path::new("/tmp/phisher_eagle.conf");
+
         let cli = build_cli(ConfigCommands::Set(set_config_args()));
 
-        let config = ServiceConfiguration::new(None, &cli, vec![].into_iter()).unwrap();
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            config_file_location,
+        ).unwrap();
 
         assert_eq!(config.set_config_args, Some(&set_config_args()));
     }
 
     #[test]
     fn sets_the_config_service_type_based_on_config_subcommand() {
+        let config_file_location = Path::new("/tmp/phisher_eagle.conf");
+
         let cli = build_cli(ConfigCommands::Location);
-        let config = ServiceConfiguration::new(None, &cli, vec![].into_iter()).unwrap();
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            config_file_location,
+        ).unwrap();
         assert_eq!(&ServiceType::Config(ConfigServiceCommands::Location), config.service_type());
 
         let cli = build_cli(ConfigCommands::Set(SetConfigArgs{
             abuse_notifications_author_name: None,
             abuse_notifications_from_address: None,
             db_path: None,
+            rdap_bootstrap_host: None,
             smtp_host_uri: None,
             smtp_password: None,
             smtp_username: None,
             trusted_recipient: None,
         }));
-        let config = ServiceConfiguration::new(None, &cli, vec![].into_iter()).unwrap();
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            config_file_location,
+        ).unwrap();
         assert_eq!(&ServiceType::Config(ConfigServiceCommands::Set), config.service_type());
 
         let cli = build_cli(ConfigCommands::Show);
-        let config = ServiceConfiguration::new(None, &cli, vec![].into_iter()).unwrap();
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            config_file_location,
+        ).unwrap();
         assert_eq!(&ServiceType::Config(ConfigServiceCommands::Show), config.service_type());
     }
 
@@ -1081,6 +861,7 @@ mod service_configuration_set_config_command_tests {
             abuse_notifications_author_name: None,
             abuse_notifications_from_address: None,
             db_path: None,
+            rdap_bootstrap_host: None,
             smtp_host_uri: None,
             smtp_password: None,
             smtp_username: None,
@@ -1092,6 +873,7 @@ mod service_configuration_set_config_command_tests {
 #[cfg(test)]
 mod config_file_entries_tests {
     use assert_fs::TempDir;
+    use std::path::PathBuf;
     use super::*;
 
     #[test]
@@ -1108,6 +890,7 @@ mod config_file_entries_tests {
             entry("abuse_notifications_author_name", "Fred Flintstone"),
             entry("abuse_notifications_from_address", "fred@yabba.dabba.doo"),
             entry("db_path", "/path/to/db"),
+            entry("rdap_bootstrap_host", "localhost:4545"),
             entry("smtp_host_uri", "smtp.unobtainium.zzz"),
             entry("smtp_password", "smtp_pass"),
             entry("smtp_username", "smtp_user"),
@@ -1131,6 +914,7 @@ mod config_file_entries_tests {
             none_entry("abuse_notifications_author_name"),
             none_entry("abuse_notifications_from_address"),
             none_entry("db_path"),
+            none_entry("rdap_bootstrap_host"),
             none_entry("smtp_host_uri"),
             none_entry("smtp_password"),
             none_entry("smtp_username"),
@@ -1152,6 +936,7 @@ mod config_file_entries_tests {
             none_entry("abuse_notifications_author_name"),
             none_entry("abuse_notifications_from_address"),
             none_entry("db_path"),
+            none_entry("rdap_bootstrap_host"),
             none_entry("smtp_host_uri"),
             none_entry("smtp_password"),
             none_entry("smtp_username"),
@@ -1181,6 +966,7 @@ mod config_file_entries_tests {
         abuse_notifications_author_name: Option<&'a str>,
         abuse_notifications_from_address: Option<&'a str>,
         db_path: Option<&'a str>,
+        rdap_bootstrap_host: Option<&'a str>,
         smtp_host_uri: Option<&'a str>,
         smtp_password: Option<&'a str>,
         smtp_username: Option<&'a str>,
@@ -1192,6 +978,7 @@ mod config_file_entries_tests {
             abuse_notifications_author_name: Some("Fred Flintstone"),
             abuse_notifications_from_address: Some("fred@yabba.dabba.doo"),
             db_path: Some("/path/to/db"),
+            rdap_bootstrap_host: Some("localhost:4545"),
             smtp_host_uri: Some("smtp.unobtainium.zzz"),
             smtp_password: Some("smtp_pass"),
             smtp_username: Some("smtp_user"),
@@ -1206,6 +993,7 @@ mod config_file_entries_tests {
             abuse_notifications_author_name: None,
             abuse_notifications_from_address: None,
             db_path: None,
+            rdap_bootstrap_host: None,
             smtp_host_uri: None,
             smtp_password: None,
             smtp_username: None,
@@ -1217,16 +1005,12 @@ mod config_file_entries_tests {
 
     fn service_config(config_file_location: &Path) -> ServiceConfiguration {
         ServiceConfiguration {
-            abuse_notifications_author_name: None,
-            abuse_notifications_from_address: None,
-            config_file_location: config_file_location.into(),
-            db_path: None,
+            config_file: FileConfig::default(),
+            config_file_location,
             message_source: None,
-            rdap_bootstrap_host: None,
             reprocess_run_id: None,
             service_type: ServiceType::ProcessMessage,
             set_config_args: None,
-            trusted_recipient: None,
         }
     }
 }
@@ -1242,9 +1026,8 @@ mod store_config_tests {
     fn with_nonexistent_config_stores_full_config_passed_in_via_cli() {
         let temp = TempDir::new().unwrap();
         let config_file_location = temp.path().join("phisher_eagle.conf");
-        let set_config_args = build_full_set_config_args();
-
-        let config = config(&set_config_args, config_file_location.clone());
+        let cli = build_cli(build_full_set_config_args());
+        let mut config = config(&config_file_location, &cli);
 
         config.store_config();
 
@@ -1256,6 +1039,31 @@ mod store_config_tests {
                 abuse_notifications_author_name: Some("Barney Rubble".into()),
                 abuse_notifications_from_address: Some("barney@rubble.zzz".into()),
                 db_path: Some("/path/to/db".into()),
+                rdap_bootstrap_host: Some("localhost:4545".into()),
+                smtp_host_uri: Some("smtp.rubble.zzz".into()),
+                smtp_password: Some("other_password".into()),
+                smtp_username: Some("other_user".into()),
+                trusted_recipient: Some("outlook.com".into()),
+            }
+        )
+    }
+
+    #[test]
+    fn with_nonexistent_config_updates_config_copy_of_file_config_with_full_parameters() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = temp.path().join("phisher_eagle.conf");
+        let cli = build_cli(build_full_set_config_args());
+        let mut config = config(&config_file_location, &cli);
+
+        config.store_config();
+
+        assert_eq!(
+            config.config_file,
+            FileConfig {
+                abuse_notifications_author_name: Some("Barney Rubble".into()),
+                abuse_notifications_from_address: Some("barney@rubble.zzz".into()),
+                db_path: Some("/path/to/db".into()),
+                rdap_bootstrap_host: Some("localhost:4545".into()),
                 smtp_host_uri: Some("smtp.rubble.zzz".into()),
                 smtp_password: Some("other_password".into()),
                 smtp_username: Some("other_user".into()),
@@ -1268,9 +1076,8 @@ mod store_config_tests {
     fn with_nonexistent_config_stores_partial_config_passed_in_via_cli(){
         let temp = TempDir::new().unwrap();
         let config_file_location = temp.path().join("phisher_eagle.conf");
-        let set_config_args = build_partial_set_config_args();
-
-        let config = config(&set_config_args, config_file_location.clone());
+        let cli = build_cli(build_partial_set_config_args());
+        let mut config = config(&config_file_location, &cli);
 
         config.store_config();
 
@@ -1282,6 +1089,31 @@ mod store_config_tests {
                 abuse_notifications_author_name: Some("Barney Rubble".into()),
                 abuse_notifications_from_address: None,
                 db_path: Some("/path/to/db".into()),
+                rdap_bootstrap_host: None,
+                smtp_host_uri: None,
+                smtp_password: Some("other_password".into()),
+                smtp_username: None,
+                trusted_recipient: Some("outlook.com".into()),
+            }
+        )
+    }
+
+    #[test]
+    fn with_nonexistent_config_stores_partial_values_in_config_copy(){
+        let temp = TempDir::new().unwrap();
+        let config_file_location = temp.path().join("phisher_eagle.conf");
+        let cli = build_cli(build_partial_set_config_args());
+        let mut config = config(&config_file_location, &cli);
+
+        config.store_config();
+
+        assert_eq!(
+            config.config_file,
+            FileConfig {
+                abuse_notifications_author_name: Some("Barney Rubble".into()),
+                abuse_notifications_from_address: None,
+                db_path: Some("/path/to/db".into()),
+                rdap_bootstrap_host: None,
                 smtp_host_uri: None,
                 smtp_password: Some("other_password".into()),
                 smtp_username: None,
@@ -1294,11 +1126,11 @@ mod store_config_tests {
     fn with_existing_config_stores_full_config_passed_in_via_cli() {
         let temp = TempDir::new().unwrap();
         let config_file_location = temp.path().join("phisher_eagle.conf");
-        let set_config_args = build_full_set_config_args();
+        let cli = build_cli(build_full_set_config_args());
 
         create_config_file(&config_file_location);
 
-        let config = config(&set_config_args, config_file_location.clone());
+        let mut config = config(&config_file_location, &cli);
 
         config.store_config();
 
@@ -1310,6 +1142,34 @@ mod store_config_tests {
                 abuse_notifications_author_name: Some("Barney Rubble".into()),
                 abuse_notifications_from_address: Some("barney@rubble.zzz".into()),
                 db_path: Some("/path/to/db".into()),
+                rdap_bootstrap_host: Some("localhost:4545".into()),
+                smtp_host_uri: Some("smtp.rubble.zzz".into()),
+                smtp_password: Some("other_password".into()),
+                smtp_username: Some("other_user".into()),
+                trusted_recipient: Some("outlook.com".into()),
+            }
+        )
+    }
+
+    #[test]
+    fn with_existing_config_stores_full_parameters_in_config_copy() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = temp.path().join("phisher_eagle.conf");
+        let cli = build_cli(build_full_set_config_args());
+
+        create_config_file(&config_file_location);
+
+        let mut config = config(&config_file_location, &cli);
+
+        config.store_config();
+
+        assert_eq!(
+            config.config_file,
+            FileConfig {
+                abuse_notifications_author_name: Some("Barney Rubble".into()),
+                abuse_notifications_from_address: Some("barney@rubble.zzz".into()),
+                db_path: Some("/path/to/db".into()),
+                rdap_bootstrap_host: Some("localhost:4545".into()),
                 smtp_host_uri: Some("smtp.rubble.zzz".into()),
                 smtp_password: Some("other_password".into()),
                 smtp_username: Some("other_user".into()),
@@ -1322,11 +1182,11 @@ mod store_config_tests {
     fn with_existing_config_stores_partial_config_passed_in_via_cli() {
         let temp = TempDir::new().unwrap();
         let config_file_location = temp.path().join("phisher_eagle.conf");
-        let set_config_args = build_partial_set_config_args();
+        let cli = build_cli(build_partial_set_config_args());
 
         create_config_file(&config_file_location);
 
-        let config = config(&set_config_args, config_file_location.clone());
+        let mut config = config(&config_file_location, &cli);
 
         config.store_config();
 
@@ -1338,6 +1198,34 @@ mod store_config_tests {
                 abuse_notifications_author_name: Some("Barney Rubble".into()),
                 abuse_notifications_from_address: Some("fred@flintstone.zzz".into()),
                 db_path: Some("/path/to/db".into()),
+                rdap_bootstrap_host: Some("localhost:4444".into()),
+                smtp_host_uri: Some("smtp.unobtainium.zzz".into()),
+                smtp_password: Some("other_password".into()),
+                smtp_username: Some("smtp_user".into()),
+                trusted_recipient: Some("outlook.com".into()),
+            }
+        )
+    }
+
+    #[test]
+    fn with_existing_config_stores_partial_parameters_in_config_copy() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = temp.path().join("phisher_eagle.conf");
+        let cli = build_cli(build_partial_set_config_args());
+
+        create_config_file(&config_file_location);
+
+        let mut config = config(&config_file_location, &cli);
+
+        config.store_config();
+
+        assert_eq!(
+            config.config_file,
+            FileConfig {
+                abuse_notifications_author_name: Some("Barney Rubble".into()),
+                abuse_notifications_from_address: Some("fred@flintstone.zzz".into()),
+                db_path: Some("/path/to/db".into()),
+                rdap_bootstrap_host: Some("localhost:4444".into()),
                 smtp_host_uri: Some("smtp.unobtainium.zzz".into()),
                 smtp_password: Some("other_password".into()),
                 smtp_username: Some("smtp_user".into()),
@@ -1350,9 +1238,9 @@ mod store_config_tests {
     fn with_nonexistent_config_creates_empty_file_if_no_config_provided_via_cli() {
         let temp = TempDir::new().unwrap();
         let config_file_location = temp.path().join("phisher_eagle.conf");
-        let set_config_args = build_empty_set_config_args();
+        let cli = build_cli(build_empty_set_config_args());
 
-        let config = config(&set_config_args, config_file_location.clone());
+        let mut config = config(&config_file_location, &cli);
 
         config.store_config();
 
@@ -1360,14 +1248,39 @@ mod store_config_tests {
     }
 
     #[test]
+    fn with_nonexistent_config_retains_empty_config_if_no_config_provided_via_cli() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = temp.path().join("phisher_eagle.conf");
+        let cli = build_cli(build_empty_set_config_args());
+
+        let mut config = config(&config_file_location, &cli);
+
+        config.store_config();
+
+        assert_eq!(
+            config.config_file,
+            FileConfig {
+                abuse_notifications_author_name: None,
+                abuse_notifications_from_address: None,
+                db_path: None,
+                rdap_bootstrap_host: None,
+                smtp_host_uri: None,
+                smtp_password: None,
+                smtp_username: None,
+                trusted_recipient: None,
+            }
+        );
+    }
+
+    #[test]
     fn with_existing_config_leaves_file_untouched_if_no_config_provided_via_cli() {
         let temp = TempDir::new().unwrap();
         let config_file_location = temp.path().join("phisher_eagle.conf");
-        let set_config_args = build_empty_set_config_args();
+        let cli = build_cli(build_empty_set_config_args());
 
         create_config_file(&config_file_location);
 
-        let config = config(&set_config_args, config_file_location.clone());
+        let mut config = config(&config_file_location, &cli);
 
         config.store_config();
 
@@ -1379,11 +1292,30 @@ mod store_config_tests {
         )
     }
 
+    #[test]
+    fn with_existing_config_retains_original_config_copy_if_no_config_provided_via_cli() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = temp.path().join("phisher_eagle.conf");
+        let cli = build_cli(build_empty_set_config_args());
+
+        create_config_file(&config_file_location);
+
+        let mut config = config(&config_file_location, &cli);
+
+        config.store_config();
+
+        assert_eq!(
+            config.config_file,
+            existing_file_config()
+        )
+    }
+
     fn build_full_set_config_args() -> SetConfigArgs {
         SetConfigArgs {
             abuse_notifications_author_name: Some("Barney Rubble".into()),
             abuse_notifications_from_address: Some("barney@rubble.zzz".into()),
             db_path: Some("/path/to/db".into()),
+            rdap_bootstrap_host: Some("localhost:4545".into()),
             smtp_host_uri: Some("smtp.rubble.zzz".into()),
             smtp_password: Some("other_password".into()),
             smtp_username: Some("other_user".into()),
@@ -1396,6 +1328,7 @@ mod store_config_tests {
             abuse_notifications_author_name: Some("Barney Rubble".into()),
             abuse_notifications_from_address: None,
             db_path: Some("/path/to/db".into()),
+            rdap_bootstrap_host: None,
             smtp_host_uri: None,
             smtp_password: Some("other_password".into()),
             smtp_username: None,
@@ -1408,6 +1341,7 @@ mod store_config_tests {
             abuse_notifications_author_name: None,
             abuse_notifications_from_address: None,
             db_path: None,
+            rdap_bootstrap_host: None,
             smtp_host_uri: None,
             smtp_password: None,
             smtp_username: None,
@@ -1415,19 +1349,23 @@ mod store_config_tests {
         }
     }
 
-    fn config(set_config_args: &SetConfigArgs, config_file_location: PathBuf) -> ServiceConfiguration {
-        ServiceConfiguration {
-            abuse_notifications_author_name: None,
-            abuse_notifications_from_address: None,
-            config_file_location,
-            db_path: None,
-            message_source: None,
-            rdap_bootstrap_host: None,
-            reprocess_run_id: None,
-            service_type: ServiceType::ProcessMessage,
-            set_config_args: Some(set_config_args),
-            trusted_recipient: None,
+    fn build_cli(args: SetConfigArgs) -> SingleCli {
+        SingleCli {
+            command: SingleCliCommands::Config(ConfigArgs {
+                command: ConfigCommands::Set(args),
+            })
         }
+    }
+
+    fn config<'a>(
+        config_file_location: &'a Path,
+        cli: &'a SingleCli
+    ) -> ServiceConfiguration<'a> {
+        ServiceConfiguration::new(
+            None,
+            cli,
+            config_file_location,
+        ).unwrap()
     }
 
     fn create_config_file(config_file_location: &Path) {
@@ -1439,6 +1377,7 @@ mod store_config_tests {
             abuse_notifications_author_name: Some("Fred Flintstone".into()),
             abuse_notifications_from_address: Some("fred@flintstone.zzz".into()),
             db_path: Some("/path/to/db".into()),
+            rdap_bootstrap_host: Some("localhost:4444".into()),
             smtp_host_uri: Some("smtp.unobtainium.zzz".into()),
             smtp_password: Some("smtp_pass".into()),
             smtp_username: Some("smtp_user".into()),
@@ -1451,37 +1390,41 @@ mod configuration_file_contents {
     use super::*;
 
     pub fn new_contents(
-        existing_config: FileConfig, set_config_args: Option<&SetConfigArgs>
+        existing_config: &FileConfig, set_config_args: Option<&SetConfigArgs>
     ) -> Option<FileConfig> {
         match set_config_args {
             Some(set_config_args) => {
                if set_config_args.has_values()  {
                    let abuse_notifications_author_name = select_value(
-                       existing_config.abuse_notifications_author_name,
+                       existing_config.abuse_notifications_author_name.clone(),
                        set_config_args.abuse_notifications_author_name.clone()
                    );
                    let abuse_notifications_from_address = select_value(
-                       existing_config.abuse_notifications_from_address,
+                       existing_config.abuse_notifications_from_address.clone(),
                        set_config_args.abuse_notifications_from_address.clone()
                    );
                    let db_path = select_value(
-                       existing_config.db_path,
+                       existing_config.db_path.clone(),
                        set_config_args.db_path.clone()
                    );
+                   let rdap_bootstrap_host = select_value(
+                       existing_config.rdap_bootstrap_host.clone(),
+                       set_config_args.rdap_bootstrap_host.clone()
+                   );
                    let smtp_host_uri = select_value(
-                       existing_config.smtp_host_uri,
+                       existing_config.smtp_host_uri.clone(),
                        set_config_args.smtp_host_uri.clone()
                    );
                    let smtp_password = select_value(
-                       existing_config.smtp_password,
+                       existing_config.smtp_password.clone(),
                        set_config_args.smtp_password.clone()
                    );
                    let smtp_username = select_value(
-                       existing_config.smtp_username,
+                       existing_config.smtp_username.clone(),
                        set_config_args.smtp_username.clone()
                    );
                    let trusted_recipient = select_value(
-                       existing_config.trusted_recipient,
+                       existing_config.trusted_recipient.clone(),
                        set_config_args.trusted_recipient.clone()
                    );
 
@@ -1489,6 +1432,7 @@ mod configuration_file_contents {
                        abuse_notifications_author_name,
                        abuse_notifications_from_address,
                        db_path,
+                       rdap_bootstrap_host,
                        smtp_host_uri,
                        smtp_password,
                        smtp_username,
@@ -1518,7 +1462,7 @@ mod configuration_file_contents_new_contents_tests {
         let set_config_args = complete_set_args();
 
         let new_config = configuration_file_contents::new_contents(
-            current_config(),
+            &current_config(),
             Some(&set_config_args)
         ).unwrap();
 
@@ -1530,7 +1474,7 @@ mod configuration_file_contents_new_contents_tests {
         let set_config_args = partial_set_args();
 
         let new_config = configuration_file_contents::new_contents(
-            current_config(),
+            &current_config(),
             Some(&set_config_args)
         ).unwrap();
 
@@ -1542,7 +1486,7 @@ mod configuration_file_contents_new_contents_tests {
         let set_config_args = empty_set_args();
 
         let new_config = configuration_file_contents::new_contents(
-            current_config(),
+            &current_config(),
             Some(&set_config_args)
         );
 
@@ -1551,7 +1495,7 @@ mod configuration_file_contents_new_contents_tests {
 
     #[test]
     fn returns_none_if_no_set_args() {
-        let new_config = configuration_file_contents::new_contents( current_config(), None);
+        let new_config = configuration_file_contents::new_contents(&current_config(), None);
 
         assert!(new_config.is_none());
     }
@@ -1561,6 +1505,7 @@ mod configuration_file_contents_new_contents_tests {
             abuse_notifications_author_name: Some("Fred Flintstone".into()),
             abuse_notifications_from_address: Some("fred@flintstone.zzz".into()),
             db_path: Some("/path/to/db".into()),
+            rdap_bootstrap_host: Some("localhost:4444".into()),
             smtp_host_uri: Some("smtp.unobtainium.zzz".into()),
             smtp_password: Some("smtp_pass".into()),
             smtp_username: Some("smtp_user".into()),
@@ -1573,6 +1518,7 @@ mod configuration_file_contents_new_contents_tests {
             abuse_notifications_author_name: Some("Barney Rubble".into()),
             abuse_notifications_from_address: Some("barney@rubble.zzz".into()),
             db_path: Some("/other/path/to/db".into()),
+            rdap_bootstrap_host: Some("localhost:4545".into()),
             smtp_host_uri: Some("smtp.rubble.zzz".into()),
             smtp_password: Some("other_pass".into()),
             smtp_username: Some("other_user".into()),
@@ -1585,6 +1531,7 @@ mod configuration_file_contents_new_contents_tests {
             abuse_notifications_author_name: Some("Barney Rubble".into()),
             abuse_notifications_from_address: None,
             db_path: Some("/other/path/to/db".into()),
+            rdap_bootstrap_host: None,
             smtp_host_uri: None,
             smtp_password: Some("other_pass".into()),
             smtp_username: None,
@@ -1597,6 +1544,7 @@ mod configuration_file_contents_new_contents_tests {
             abuse_notifications_author_name: None,
             abuse_notifications_from_address: None,
             db_path: None,
+            rdap_bootstrap_host: None,
             smtp_host_uri: None,
             smtp_password: None,
             smtp_username: None,
@@ -1609,11 +1557,11 @@ mod configuration_file_contents_new_contents_tests {
             abuse_notifications_author_name: Some("Barney Rubble".into()),
             abuse_notifications_from_address: Some("barney@rubble.zzz".into()),
             db_path: Some("/other/path/to/db".into()),
+            rdap_bootstrap_host: Some("localhost:4545".into()),
             smtp_host_uri: Some("smtp.rubble.zzz".into()),
             smtp_password: Some("other_pass".into()),
             smtp_username: Some("other_user".into()),
             trusted_recipient: Some("outlook.com".into()),
-            ..current_config()
         }
     }
 
@@ -1660,5 +1608,110 @@ mod configuration_file_contents_select_value_tests {
         let selected = configuration_file_contents::select_value(current, new);
 
         assert_eq!(selected, None);
+    }
+}
+
+#[cfg(test)]
+mod test_support {
+    use std::path::PathBuf;
+    use super::*;
+
+    pub fn create_config_file(path: &Path, config: FileConfig) -> PathBuf {
+        let config_file_location = path.join("phisher_eagle.conf");
+
+        confy::store_path(&config_file_location, config).unwrap();
+
+        config_file_location
+    }
+
+    pub fn file_config() -> FileConfig {
+        FileConfig {
+            abuse_notifications_author_name: Some("Fred Flintstone".into()),
+            abuse_notifications_from_address: Some("fred@flintstone.zzz".into()),
+            db_path: Some("/other/path/to/db".into()),
+            rdap_bootstrap_host: Some("localhost:4646".into()),
+            smtp_host_uri: Some("smtp.unobtainium.zzz".into()),
+            smtp_password: Some("smtp_pass".into()),
+            smtp_username: Some("smtp_user".into()),
+            trusted_recipient: Some("google.com".into()),
+        }
+    }
+
+    pub fn file_config_rdap_bootstrap_none() -> FileConfig {
+        FileConfig {
+            abuse_notifications_author_name: Some("Fred Flintstone".into()),
+            abuse_notifications_from_address: Some("fred@flintstone.zzz".into()),
+            db_path: Some("/other/path/to/db".into()),
+            rdap_bootstrap_host: None,
+            smtp_host_uri: Some("smtp.unobtainium.zzz".into()),
+            smtp_password: Some("smtp_pass".into()),
+            smtp_username: Some("smtp_user".into()),
+            trusted_recipient: Some("google.com".into()),
+        }
+    }
+
+    pub fn file_config_rdap_bootstrap_empty() -> FileConfig {
+        FileConfig {
+            abuse_notifications_author_name: Some("Fred Flintstone".into()),
+            abuse_notifications_from_address: Some("fred@flintstone.zzz".into()),
+            db_path: Some("/other/path/to/db".into()),
+            rdap_bootstrap_host: Some("".into()),
+            smtp_host_uri: Some("smtp.unobtainium.zzz".into()),
+            smtp_password: Some("smtp_pass".into()),
+            smtp_username: Some("smtp_user".into()),
+            trusted_recipient: Some("google.com".into()),
+        }
+    }
+
+    pub fn file_config_abuse_from_address_none() -> FileConfig {
+        FileConfig {
+            abuse_notifications_author_name: Some("Fred Flintstone".into()),
+            abuse_notifications_from_address: None,
+            db_path: Some("/other/path/to/db".into()),
+            rdap_bootstrap_host: Some("localhost:4646".into()),
+            smtp_host_uri: Some("smtp.unobtainium.zzz".into()),
+            smtp_password: Some("smtp_pass".into()),
+            smtp_username: Some("smtp_user".into()),
+            trusted_recipient: Some("google.com".into()),
+        }
+    }
+
+    pub fn file_config_abuse_from_address_empty() -> FileConfig {
+        FileConfig {
+            abuse_notifications_author_name: Some("Fred Flintstone".into()),
+            abuse_notifications_from_address: Some("".into()),
+            db_path: Some("/other/path/to/db".into()),
+            rdap_bootstrap_host: Some("localhost:4646".into()),
+            smtp_host_uri: Some("smtp.unobtainium.zzz".into()),
+            smtp_password: Some("smtp_pass".into()),
+            smtp_username: Some("smtp_user".into()),
+            trusted_recipient: Some("google.com".into()),
+        }
+    }
+
+    pub fn file_config_abuse_author_name_none() -> FileConfig {
+        FileConfig {
+            abuse_notifications_author_name: None,
+            abuse_notifications_from_address: Some("fred@flintstone.zzz".into()),
+            db_path: Some("/other/path/to/db".into()),
+            rdap_bootstrap_host: Some("localhost:4646".into()),
+            smtp_host_uri: Some("smtp.unobtainium.zzz".into()),
+            smtp_password: Some("smtp_pass".into()),
+            smtp_username: Some("smtp_user".into()),
+            trusted_recipient: Some("google.com".into()),
+        }
+    }
+
+    pub fn file_config_abuse_author_name_empty() -> FileConfig {
+        FileConfig {
+            abuse_notifications_author_name: Some("".into()),
+            abuse_notifications_from_address: Some("".into()),
+            db_path: Some("/other/path/to/db".into()),
+            rdap_bootstrap_host: Some("localhost:4646".into()),
+            smtp_host_uri: Some("smtp.unobtainium.zzz".into()),
+            smtp_password: Some("smtp_pass".into()),
+            smtp_username: Some("smtp_user".into()),
+            trusted_recipient: Some("google.com".into()),
+        }
     }
 }

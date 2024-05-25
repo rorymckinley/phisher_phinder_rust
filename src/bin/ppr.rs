@@ -9,9 +9,16 @@ use std::process::exit;
 async fn main() {
     let cli = SingleCli::parse();
 
-    match ServiceConfiguration::new(read_from_stdin().as_deref(), &cli, std::env::vars()) {
-        Ok(config) => {
-            match service::execute_command(&config).await {
+    //TODO Add error handling for this unwrap
+    let config_file_location = confy::get_configuration_file_path("phisher_eagle", None).unwrap();
+
+    match ServiceConfiguration::new(
+        read_from_stdin().as_deref(),
+        &cli,
+        &config_file_location
+    ) {
+        Ok(mut config) => {
+            match service::execute_command(&mut config).await {
                 Ok(output) => {
                     println!("{output}");
                     exit(0)

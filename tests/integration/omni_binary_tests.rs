@@ -19,6 +19,7 @@ use phisher_phinder_rust::persistence::{
     persist_run,
 };
 use phisher_phinder_rust::run::Run;
+use phisher_phinder_rust::service_configuration::FileConfig;
 use predicates::prelude::*;
 use rusqlite::Connection;
 use sha2::{Digest, Sha256};
@@ -33,12 +34,14 @@ fn processes_input_from_stdin() {
 
     let temp = TempDir::new().unwrap();
     let db_path = temp.path().join("pp.sqlite3");
+    let config_file_path = temp.path().join(".config/phisher_eagle/default-config.toml");
+
+    build_config_file(&config_file_path, Some(&db_path));
 
     let mut cmd = command(BINARY_NAME);
 
     cmd
-        .env("PP_DB_PATH", &db_path)
-        .env("RDAP_BOOTSTRAP_HOST", "http://localhost:4545")
+        .env("HOME", temp.path().to_str().unwrap())
         .args(["process"])
         .write_stdin(multiple_source_input())
         .assert()
@@ -63,12 +66,14 @@ fn returns_output_from_the_import() {
 
     let temp = TempDir::new().unwrap();
     let db_path = temp.path().join("pp.sqlite3");
+    let config_file_path = temp.path().join(".config/phisher_eagle/default-config.toml");
+
+    build_config_file(&config_file_path, Some(&db_path));
 
     let mut cmd = command(BINARY_NAME);
 
     cmd
-        .env("PP_DB_PATH", &db_path)
-        .env("RDAP_BOOTSTRAP_HOST", "http://localhost:4545")
+        .env("HOME", temp.path().to_str().unwrap())
         .args(["process"])
         .write_stdin(multiple_source_input())
         .assert()
@@ -83,6 +88,9 @@ fn reruns_an_existing_run() {
 
     let temp = TempDir::new().unwrap();
     let db_path = temp.path().join("pp.sqlite3");
+    let config_file_path = temp.path().join(".config/phisher_eagle/default-config.toml");
+
+    build_config_file(&config_file_path, Some(&db_path));
 
     let conn = connect(&db_path).unwrap();
 
@@ -93,8 +101,7 @@ fn reruns_an_existing_run() {
     let mut cmd = command(BINARY_NAME);
 
     cmd
-        .env("PP_DB_PATH", &db_path)
-        .env("RDAP_BOOTSTRAP_HOST", "http://localhost:4545")
+        .env("HOME", temp.path().to_str().unwrap())
         .args(["process", "--reprocess-run", &format!("{}", run_2.id)])
         .assert()
         .success();
@@ -107,36 +114,46 @@ fn reruns_an_existing_run() {
 
 #[test]
 fn fails_if_no_stdin_or_rerun_instruction() {
+    let temp = TempDir::new().unwrap();
     let mut cmd = command(BINARY_NAME);
 
     cmd
         .args(["process"])
+        .env("HOME", temp.path().to_str().unwrap())
         .assert()
         .failure()
-        .stderr(predicates::str::contains("message source to STDIN"));
+        .stderr(predicates::str::contains("Please pass in message source"));
 }
 
 #[test]
 fn fails_if_no_db_path_provided() {
+    let temp = TempDir::new().unwrap();
     let mut cmd = command(BINARY_NAME);
+    let config_file_path = temp.path().join(".config/phisher_eagle/default-config.toml");
+
+    build_config_file(&config_file_path, None);
 
     cmd
+        .env("HOME", temp.path().to_str().unwrap())
         .args(["process"])
         .write_stdin(multiple_source_input())
         .assert()
         .failure()
-        .stderr(predicates::str::contains("PP_DB_PATH is a required"));
+        .stderr(predicates::str::contains("Invalid configuration: Please configure db_path"));
 }
 
 #[test]
 fn fails_if_db_cannot_be_opened() {
     let temp = TempDir::new().unwrap();
     let db_path = temp.path().join("un/ob/tai/nium");
+    let config_file_path = temp.path().join(".config/phisher_eagle/default-config.toml");
+
+    build_config_file(&config_file_path, Some(&db_path));
 
     let mut cmd = command(BINARY_NAME);
 
     cmd
-        .env("PP_DB_PATH", &db_path)
+        .env("HOME", temp.path().to_str().unwrap())
         .args(["process"])
         .write_stdin(multiple_source_input())
         .assert()
@@ -252,6 +269,16 @@ fn reportable_entities() -> ReportableEntities {
             nodes: vec![],
         }
     }
+}
+
+fn build_config_file(config_file_location: &Path, db_path: Option<&Path>) {
+    let config = FileConfig {
+        db_path: db_path.map(|path| path.to_str().unwrap().into()),
+        rdap_bootstrap_host: Some("http://localhost:4545".into()),
+        ..FileConfig::default()
+    };
+
+    confy::store_path(config_file_location, config).unwrap();
 }
 
 fn command(binary_name: &str) -> Command {

@@ -3264,19 +3264,24 @@ where T: Configuration {
 
 #[cfg(test)]
 mod display_abuse_notifications_tests {
+    use assert_fs::TempDir;
     use crate::cli::{ProcessArgs, SingleCli, SingleCliCommands};
     use crate::data::{EmailAddresses, OutputData, ParsedMail};
     use crate::mailer::Entity;
     use crate::message_source::MessageSource;
     use crate::notification::Notification;
-    use crate::service_configuration::ServiceConfiguration;
+    use crate::service_configuration::{FileConfig, ServiceConfiguration};
+    use std::path::{Path, PathBuf};
     use super::*;
 
     #[test]
     fn displays_email_details_for_each_notification() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = temp.path().join("phisher_eagle.conf");
         let cli = build_cli();
         let run = build_run();
-        let config = build_config(&cli);
+        build_config_file(&config_file_location);
+        let config = build_config(&cli, &config_file_location);
 
         assert_eq!(
             String::from("\
@@ -3324,9 +3329,11 @@ mod display_abuse_notifications_tests {
 
     #[test]
     fn displays_an_error_message_if_notifications_cannot_be_generated() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = build_config_location(&temp);
         let cli = build_cli();
         let run = build_run();
-        let config = build_config_without_from_address(&cli);
+        let config = build_config_without_from_address(&cli, &config_file_location);
 
         assert_eq!(
             String::from("\
@@ -3378,44 +3385,42 @@ mod display_abuse_notifications_tests {
         }
     }
 
-    fn build_config<'a>(cli: &'a SingleCli) -> ServiceConfiguration<'a> {
+    fn build_config_file(config_file_location: &Path) {
+        let contents = FileConfig {
+            abuse_notifications_author_name: Some("Jo Bloggs".into()),
+            abuse_notifications_from_address: Some("sender@phishereagle.com".into()),
+            db_path: Some("/does/not/matter.sqlite".into()),
+            rdap_bootstrap_host: Some("http://localhost:4545".into()),
+            ..FileConfig::default()
+        };
+
+        confy::store_path(config_file_location, contents).unwrap();
+    }
+
+    fn build_config<'a>(
+        cli: &'a SingleCli,
+        config_file_location: &'a Path
+    ) -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(""),
             cli,
-            env_var_iterator()
+            config_file_location,
         ).unwrap()
     }
 
-    fn env_var_iterator() -> Box<dyn Iterator<Item = (String, String)>>
-    {
-        let v: Vec<(String, String)> = vec![
-            ("PP_ABUSE_NOTIFICATIONS_AUTHOR_NAME".into(), "Jo Bloggs".into()),
-            ("PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS".into(), "sender@phishereagle.com".into()),
-            ("PP_DB_PATH".into(), "does.not.matter.sqlite".into()),
-            ("PP_TRUSTED_RECIPIENT".into(), "does.not.matter".into()),
-            ("RDAP_BOOTSTRAP_HOST".into(), "does.not.matter".into())
-        ];
-
-        Box::new(v.into_iter())
+    pub fn build_config_location(temp: &TempDir) -> PathBuf {
+        temp.path().join("phisher_eagle.conf")
     }
 
-    fn build_config_without_from_address<'a>(cli: &'a SingleCli) -> ServiceConfiguration<'a> {
+    fn build_config_without_from_address<'a>(
+        cli: &'a SingleCli,
+        config_file_location: &'a Path
+    ) -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(""),
             cli,
-            env_var_iterator_without_from_address()
+            config_file_location,
         ).unwrap()
-    }
-
-    fn env_var_iterator_without_from_address() -> Box<dyn Iterator<Item = (String, String)>>
-    {
-        let v: Vec<(String, String)> = vec![
-            ("PP_DB_PATH".into(), "does.not.matter.sqlite".into()),
-            ("PP_TRUSTED_RECIPIENT".into(), "does.not.matter".into()),
-            ("RDAP_BOOTSTRAP_HOST".into(), "does.not.matter".into())
-        ];
-
-        Box::new(v.into_iter())
     }
 
     fn build_cli() -> SingleCli {
