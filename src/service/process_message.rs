@@ -192,7 +192,7 @@ mod process_message_execute_command_from_stdin_tests {
     use crate::persistence::{connect, find_runs_for_message_source, get_record};
     use crate::run::Run;
     use std::path::Path;
-    use support::{build_config, sha256};
+    use support::{build_cli, build_config, sha256};
 
     use super::*;
 
@@ -201,11 +201,13 @@ mod process_message_execute_command_from_stdin_tests {
         clear_all_impostors();
         setup_bootstrap_server();
 
+        let cli = build_cli(None);
+
         let temp = TempDir::new().unwrap();
         let db_path = temp.path().join("pp.sqlite3");
         let input = multiple_source_input();
 
-        let config = build_config(Some(&input), None, &db_path);
+        let config = build_config(Some(&input), &cli, &db_path);
 
         let result = tokio_test::block_on(execute_command(&config));
 
@@ -222,11 +224,13 @@ mod process_message_execute_command_from_stdin_tests {
         clear_all_impostors();
         setup_bootstrap_server();
 
+        let cli = build_cli(None);
+
         let temp = TempDir::new().unwrap();
         let db_path = temp.path().join("pp.sqlite3");
         let input = multiple_source_input();
 
-        let config = build_config(Some(&input), None, &db_path);
+        let config = build_config(Some(&input), &cli, &db_path);
 
         let _ = tokio_test::block_on(execute_command(&config));
 
@@ -246,11 +250,13 @@ mod process_message_execute_command_from_stdin_tests {
         clear_all_impostors();
         setup_bootstrap_server();
 
+        let cli = build_cli(None);
+
         let temp = TempDir::new().unwrap();
         let db_path = temp.path().join("pp.sqlite3");
         let input = multiple_source_input();
 
-        let config = build_config(Some(&input), None, &db_path);
+        let config = build_config(Some(&input), &cli, &db_path);
 
         let output = tokio_test::block_on(execute_command(&config)).unwrap();
 
@@ -262,11 +268,13 @@ mod process_message_execute_command_from_stdin_tests {
         clear_all_impostors();
         setup_bootstrap_server();
 
+        let cli = build_cli(None);
+
         let temp = TempDir::new().unwrap();
         let db_path = temp.path().join("pp.sqlite3");
         let input = single_source_input();
 
-        let config = build_config(Some(&input), None, &db_path);
+        let config = build_config(Some(&input), &cli, &db_path);
 
         let output = tokio_test::block_on(execute_command(&config)).unwrap();
 
@@ -352,7 +360,7 @@ mod proces_message_execute_command_rerun_tests {
     use crate::mountebank::{clear_all_impostors, setup_bootstrap_server};
     use crate::persistence::{connect, find_runs_for_message_source};
     use rusqlite::Connection;
-    use support::build_config;
+    use support::{build_cli, build_config};
 
     use super::*;
 
@@ -370,7 +378,9 @@ mod proces_message_execute_command_rerun_tests {
         let run_2_id = build_run(&conn, 1);
         let _run_3_id = build_run(&conn, 2);
 
-        let config = build_config(None, Some(run_2_id), &db_path);
+        let cli = build_cli(Some(run_2_id));
+
+        let config = build_config(None, &cli, &db_path);
 
         let result = tokio_test::block_on(execute_command(&config));
 
@@ -398,7 +408,9 @@ mod proces_message_execute_command_rerun_tests {
         let run_2_id = build_run(&conn, 1);
         let run_3_id = build_run(&conn, 2);
 
-        let config = build_config(None, Some(run_2_id), &db_path);
+        let cli = build_cli(Some(run_2_id));
+
+        let config = build_config(None, &cli, &db_path);
 
         let _ = tokio_test::block_on(execute_command(&config));
 
@@ -421,7 +433,9 @@ mod proces_message_execute_command_rerun_tests {
 
         let run_id = build_run(&conn, 0);
 
-        let config = build_config(None, Some(run_id + 100), &db_path);
+        let cli = build_cli(Some(run_id + 100));
+
+        let config = build_config(None, &cli, &db_path);
 
         match tokio_test::block_on(execute_command(&config)) {
             Err(AppError::SpecifiedRunMissing) => (),
@@ -518,9 +532,11 @@ mod process_message_execute_command_common_errors_tests {
         let temp = TempDir::new().unwrap();
         let db_path = temp.path().join("un/ob/tai/nium");
 
+        let cli = build_cli(None);
+
         let config = ServiceConfiguration::new(
             Some("message_source"),
-            &cli(None),
+            &cli,
             env_var_iterator(Some(db_path.to_str().unwrap()), Some("foo.com"))
         ).unwrap();
 
@@ -567,7 +583,7 @@ mod process_message_execute_command_common_errors_tests {
         Box::new(v.into_iter())
     }
 
-    fn cli(reprocess_run: Option<i64>) -> SingleCli {
+    fn build_cli(reprocess_run: Option<i64>) -> SingleCli {
         SingleCli {
             command: SingleCliCommands::Process(ProcessArgs{
                 reprocess_run
@@ -614,6 +630,9 @@ mod process_message_execute_command_common_errors_tests {
             &ServiceType::ProcessMessage
         }
 
+        fn store_config(&self) {
+        }
+
         fn trusted_recipient(&self) -> Option<&str> {
             Some("")
         }
@@ -658,6 +677,9 @@ mod process_message_execute_command_common_errors_tests {
             &ServiceType::ProcessMessage
         }
 
+        fn store_config(&self) {
+        }
+
         fn trusted_recipient(&self) -> Option<&str> {
             Some("")
         }
@@ -667,18 +689,21 @@ mod process_message_execute_command_common_errors_tests {
 #[cfg(test)]
 mod process_message_execute_command_enumerate_urls_test {
     use assert_fs::fixture::TempDir;
+    use crate::cli::SingleCli;
     use crate::data::{FulfillmentNode, Node};
     use crate::mountebank::*;
     use crate::persistence::connect;
     use crate::service_configuration::ServiceConfiguration;
     use std::path::Path;
-    use support::{cli, env_var_iterator};
+    use support::{build_cli, env_var_iterator};
     use super::*;
 
     #[test]
     fn enumerates_links() {
         clear_all_impostors();
         setup_bootstrap_server();
+
+        let cli = build_cli(None);
 
         let temp = TempDir::new().unwrap();
         let db_path = temp.path().join("pp.sqlite3");
@@ -688,7 +713,7 @@ mod process_message_execute_command_enumerate_urls_test {
 
         let input = multiple_source_input();
 
-        let config = build_config(&input, &db_path);
+        let config = build_config(&input, &cli, &db_path);
 
         tokio_test::block_on(execute_command(&config)).unwrap();
 
@@ -717,10 +742,14 @@ mod process_message_execute_command_enumerate_urls_test {
         );
     }
 
-    fn build_config<'a>(message: &'a str, db_path: &Path) -> ServiceConfiguration<'a> {
+    fn build_config<'a>(
+        message: &'a str,
+        cli: &'a SingleCli,
+        db_path: &Path
+    ) -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(message),
-            &cli(None),
+            cli,
             env_var_iterator(
                 Some(db_path.to_str().unwrap()),
                 Some("foo.com"),
@@ -772,6 +801,7 @@ mod process_message_execute_command_enumerate_urls_test {
 mod process_message_execute_command_populate_from_rdap_tests {
     use assert_fs::fixture::TempDir;
     use chrono::prelude::*;
+    use crate::cli::SingleCli;
     use crate::data::{
         Domain,
         DomainCategory,
@@ -786,19 +816,21 @@ mod process_message_execute_command_populate_from_rdap_tests {
     };
     use crate::service_configuration::ServiceConfiguration;
     use std::path::Path;
-    use support::{cli, env_var_iterator};
+    use support::{build_cli, env_var_iterator};
     use super::*;
 
     #[test]
     fn populates_rdap_data() {
         setup_mountebank();
 
+        let cli = build_cli(None);
+
         let temp = TempDir::new().unwrap();
         let db_path = temp.path().join("pp.sqlite3");
 
         let input = multiple_source_input();
 
-        let config = build_config(&input, &db_path);
+        let config = build_config(&input, &cli, &db_path);
 
         tokio_test::block_on(execute_command(&config)).unwrap();
 
@@ -885,10 +917,14 @@ mod process_message_execute_command_populate_from_rdap_tests {
         );
     }
 
-    fn build_config<'a>(message: &'a str, db_path: &Path) -> ServiceConfiguration<'a> {
+    fn build_config<'a>(
+        message: &'a str,
+        cli: &'a SingleCli,
+        db_path: &Path
+    ) -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(message),
-            &cli(None),
+            cli,
             env_var_iterator(
                 Some(db_path.to_str().unwrap()),
                 Some("foo.com"),
@@ -972,6 +1008,7 @@ mod process_message_execute_command_populate_from_rdap_tests {
 #[cfg(test)]
 mod process_message_execute_command_add_reportable_entities_tests {
     use assert_fs::fixture::TempDir;
+    use crate::cli::SingleCli;
     use crate::data::{
         EmailAddresses,
         FulfillmentNode,
@@ -983,13 +1020,15 @@ mod process_message_execute_command_add_reportable_entities_tests {
     use crate::persistence::connect;
     use crate::service_configuration::ServiceConfiguration;
     use std::path::Path;
-    use support::{cli, env_var_iterator};
+    use support::{build_cli, env_var_iterator};
     use super::*;
 
     #[test]
     fn adds_reportable_entities() {
         clear_all_impostors();
         setup_bootstrap_server();
+
+        let cli = build_cli(None);
 
         let temp = TempDir::new().unwrap();
         let db_path = temp.path().join("pp.sqlite3");
@@ -999,7 +1038,7 @@ mod process_message_execute_command_add_reportable_entities_tests {
 
         let input = multiple_source_input();
 
-        let config = build_config(&input, &db_path);
+        let config = build_config(&input, &cli, &db_path);
 
         tokio_test::block_on(execute_command(&config)).unwrap();
 
@@ -1018,10 +1057,14 @@ mod process_message_execute_command_add_reportable_entities_tests {
         );
     }
 
-    fn build_config<'a>(message: &'a str, db_path: &Path) -> ServiceConfiguration<'a> {
+    fn build_config<'a>(
+        message: &'a str,
+        cli: &'a SingleCli,
+        db_path: &Path
+    ) -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(message),
-            &cli(None),
+            &cli,
             env_var_iterator(
                 Some(db_path.to_str().unwrap()),
                 Some("foo.com"),
@@ -1098,13 +1141,14 @@ mod process_message_execute_command_add_reportable_entities_tests {
 mod process_message_execute_command_add_notifications_tests {
     use assert_fs::fixture::TempDir;
     use chrono::*;
+    use crate::cli::SingleCli;
     use crate::mailer::Entity;
     use crate::mountebank::*;
     use crate::notification::Notification;
     use crate::persistence::connect;
     use crate::service_configuration::ServiceConfiguration;
     use std::path::Path;
-    use support::{cli, env_var_iterator};
+    use support::{build_cli, env_var_iterator};
     use super::*;
 
     #[test]
@@ -1113,9 +1157,11 @@ mod process_message_execute_command_add_notifications_tests {
         let temp = TempDir::new().unwrap();
         let db_path = temp.path().join("pp.sqlite3");
 
+        let cli = build_cli(None);
+
         let input = multiple_source_input();
 
-        let config = build_config(&input, &db_path);
+        let config = build_config(&input, &cli, &db_path);
 
         tokio_test::block_on(execute_command(&config)).unwrap();
 
@@ -1134,10 +1180,10 @@ mod process_message_execute_command_add_notifications_tests {
         );
     }
 
-    fn build_config<'a>(message: &'a str, db_path: &Path) -> ServiceConfiguration<'a> {
+    fn build_config<'a>(message: &'a str, cli: &'a SingleCli, db_path: &Path) -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(message),
-            &cli(None),
+            &cli,
             env_var_iterator(
                 Some(db_path.to_str().unwrap()),
                 Some("foo.com"),
@@ -1236,12 +1282,12 @@ mod support {
 
     pub fn build_config<'a>(
         message: Option<&'a str>,
-        reprocess_run: Option<i64>,
+        cli: &'a SingleCli,
         db_path: &Path
     ) -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             message,
-            &cli(reprocess_run),
+            cli,
             env_var_iterator(
                 Some(db_path.to_str().unwrap()),
                 Some("foo.com"),
@@ -1272,7 +1318,7 @@ mod support {
         Box::new(v.into_iter())
     }
 
-    pub fn cli(reprocess_run: Option<i64>) -> SingleCli {
+    pub fn build_cli(reprocess_run: Option<i64>) -> SingleCli {
         SingleCli {
             command: SingleCliCommands::Process(ProcessArgs {
                 reprocess_run,

@@ -94,6 +94,7 @@ fn build_attachment(raw_email: &str) -> SinglePart {
 #[cfg(test)]
 mod build_abuse_notifications_tests {
     use chrono::*;
+    use crate::cli::SingleCli;
     use crate::errors::AppError;
     use crate::data::{EmailAddresses, OutputData, ParsedMail};
     use crate::service_configuration::ServiceConfiguration;
@@ -104,7 +105,8 @@ mod build_abuse_notifications_tests {
     #[test]
     fn builds_email_messages_for_each_notification() {
         let run = build_run();
-        let config = build_config();
+        let cli = build_cli();
+        let config = build_config(&cli);
 
         let notifications = build_abuse_notifications(&run, &config).unwrap();
 
@@ -140,7 +142,8 @@ mod build_abuse_notifications_tests {
     #[test]
     fn returns_an_error_if_no_author_name_set() {
         let run = build_run();
-        let config = build_config_without_author_name();
+        let cli = build_cli();
+        let config = build_config_without_author_name(&cli);
 
         match build_abuse_notifications(&run, &config) {
             Ok(_) => panic!("Did not return an error"),
@@ -156,7 +159,8 @@ mod build_abuse_notifications_tests {
     #[test]
     fn returns_an_error_if_no_from_address_set() {
         let run = build_run();
-        let config = build_config_without_from_address();
+        let cli = build_cli();
+        let config = build_config_without_from_address(&cli);
 
         match build_abuse_notifications(&run, &config) {
             Ok(_) => panic!("Did not return an error"),
@@ -208,10 +212,10 @@ mod build_abuse_notifications_tests {
         "Jo Bloggs".into()
     }
 
-    fn build_config<'a>() -> ServiceConfiguration<'a> {
+    fn build_config<'a>(cli: &'a SingleCli) -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(""),
-            &cli(),
+            &cli,
             env_var_iterator()
         ).unwrap()
     }
@@ -229,10 +233,10 @@ mod build_abuse_notifications_tests {
         Box::new(v.into_iter())
     }
 
-    fn build_config_without_from_address<'a>() -> ServiceConfiguration<'a> {
+    fn build_config_without_from_address<'a>(cli: &'a SingleCli) -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(""),
-            &cli(),
+            cli,
             env_var_iterator_without_from_address()
         ).unwrap()
     }
@@ -249,10 +253,10 @@ mod build_abuse_notifications_tests {
         Box::new(v.into_iter())
     }
 
-    fn build_config_without_author_name<'a>() -> ServiceConfiguration<'a> {
+    fn build_config_without_author_name<'a>(cli: &'a SingleCli) -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(""),
-            &cli(),
+            cli,
             env_var_iterator_without_author_name()
         ).unwrap()
     }
@@ -496,7 +500,7 @@ mod test_support {
         MessageSource::new(&message_source_contents("\n"))
     }
 
-    pub fn cli() -> SingleCli {
+    pub fn build_cli() -> SingleCli {
         SingleCli {
             command: SingleCliCommands::Process(ProcessArgs {
                 reprocess_run: None,

@@ -802,7 +802,7 @@ mod analyse_tests {
         }
 
         fn config_file_location(&self) -> &Path {
-            &Path::new("/does/not/matter")
+            Path::new("/does/not/matter")
         }
 
         fn db_path(&self) -> Option<&PathBuf> {
@@ -823,6 +823,9 @@ mod analyse_tests {
 
         fn service_type(&self) -> &ServiceType {
             &ServiceType::ProcessMessage
+        }
+
+        fn store_config(&self) {
         }
 
         fn trusted_recipient(&self) -> Option<&str> {

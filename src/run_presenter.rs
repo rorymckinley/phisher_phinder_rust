@@ -48,35 +48,40 @@ mod present_tests {
 
     #[test]
     fn returns_string_including_sender_addresses() {
-        let output = present(build_run(), &build_config()).unwrap();
+        let cli = build_cli();
+        let output = present(build_run(), &build_config(&cli)).unwrap();
 
         assert!(output.contains("Address Source"))
     }
 
     #[test]
     fn returns_string_containing_authentication_results() {
-        let output = present(build_run(), &build_config()).unwrap();
+        let cli = build_cli();
+        let output = present(build_run(), &build_config(&cli)).unwrap();
 
         assert!(output.contains("DKIM"))
     }
 
     #[test]
     fn returns_string_containing_reportable_entities() {
-        let output = present(build_run(), &build_config()).unwrap();
+        let cli = build_cli();
+        let output = present(build_run(), &build_config(&cli)).unwrap();
 
         assert!(output.contains("Delivery Nodes"))
     }
 
     #[test]
     fn returns_string_containing_run_metadata() {
-        let output = present(build_run(), &build_config()).unwrap();
+        let cli = build_cli();
+        let output = present(build_run(), &build_config(&cli)).unwrap();
 
         assert!(output.contains("Run ID"))
     }
 
     #[test]
     fn returns_string_containing_notification_emails() {
-        let output = present(build_run(), &build_config()).unwrap();
+        let cli = build_cli();
+        let output = present(build_run(), &build_config(&cli)).unwrap();
 
         assert!(output.contains("Abuse Notifications"))
     }
@@ -189,10 +194,10 @@ mod present_tests {
         }
     }
 
-    fn build_config<'a>() -> ServiceConfiguration<'a> {
+    fn build_config<'a>(cli: &'a SingleCli) -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(""),
-            &cli(),
+            cli,
             env_var_iterator()
         ).unwrap()
     }
@@ -209,7 +214,7 @@ mod present_tests {
         Box::new(v.into_iter())
     }
 
-    pub fn cli() -> SingleCli {
+    pub fn build_cli() -> SingleCli {
         SingleCli {
             command: SingleCliCommands::Process(ProcessArgs {
                 reprocess_run: None,

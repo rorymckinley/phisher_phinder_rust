@@ -28,6 +28,6 @@ pub enum AppError {
     NoFromAddressForNotifications,
     #[error("Can not generate abuse notifications without PP_ABUSE_NOTIFICATIONS_AUTHOR_NAME")]
     NoAuthorNameForNotifications,
-    #[error("Fallthrough")]
-    FallthroughError,
+    #[error("Encountered an irrecoverable error ,please contact the developer")]
+    Irrecoverable
 }

@@ -27,11 +27,13 @@ mod service_execute_command_process_message_tests {
         clear_all_impostors();
         setup_bootstrap_server();
 
+        let cli = build_cli(None);
+
         let temp = TempDir::new().unwrap();
         let db_path = temp.path().join("pp.sqlite3");
         let input = single_source_input();
 
-        let config = build_config(Some(&input), None, &db_path);
+        let config = build_config(Some(&input), &cli, &db_path);
 
         let output = tokio_test::block_on(execute_command(&config)).unwrap();
 
@@ -40,12 +42,14 @@ mod service_execute_command_process_message_tests {
 
     #[test]
     fn calls_service_process_message_and_returns_err_response() {
+        let cli = build_cli(None);
+
         let temp = TempDir::new().unwrap();
         let db_path = temp.path().join("un/ob/tai/nium");
 
         let config = ServiceConfiguration::new(
             Some("message_source"),
-            &cli(None),
+            &cli,
             env_var_iterator(
                 Some(db_path.to_str().unwrap()),
                 Some("foo.com"),
@@ -85,12 +89,12 @@ mod service_execute_command_process_message_tests {
 
     fn build_config<'a>(
         message: Option<&'a str>,
-        reprocess_run: Option<i64>,
+        cli: &'a SingleCli,
         db_path: &Path
     ) -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             message,
-            &cli(reprocess_run),
+            &cli,
             env_var_iterator(
                 Some(db_path.to_str().unwrap()),
                 Some("foo.com"),
@@ -121,7 +125,7 @@ mod service_execute_command_process_message_tests {
         Box::new(v.into_iter())
     }
 
-    fn cli(reprocess_run: Option<i64>) -> SingleCli {
+    fn build_cli(reprocess_run: Option<i64>) -> SingleCli {
         SingleCli {
             command: SingleCliCommands::Process(ProcessArgs{
                 reprocess_run
@@ -139,7 +143,9 @@ mod service_execute_command_config_tests {
 
     #[test]
     fn calls_service_config_and_returns_ok_response() {
-        let config = build_config();
+        let cli = build_cli();
+
+        let config = build_config(&cli);
 
         let expected = String::from(
             confy::get_configuration_file_path("phisher_eagle", None)
@@ -152,10 +158,10 @@ mod service_execute_command_config_tests {
         assert_eq!(output, expected);
     }
 
-    fn build_config<'a>() -> ServiceConfiguration<'a> {
+    fn build_config<'a>(cli: &'a SingleCli) -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             None,
-            &cli(),
+            cli,
             env_var_iterator()
         ).unwrap()
     }
@@ -167,7 +173,7 @@ mod service_execute_command_config_tests {
         Box::new(v.into_iter())
     }
 
-    fn cli() -> SingleCli {
+    fn build_cli() -> SingleCli {
         SingleCli {
             command: SingleCliCommands::Config(ConfigArgs{
                 command: ConfigCommands::Location,
