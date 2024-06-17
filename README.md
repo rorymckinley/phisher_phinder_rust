@@ -8,7 +8,7 @@ well as can be reasonably hoped. PPR relies on these tools to identify the email
 can extract details from the raw email source.
 
 These extracted details are used to identify the providers/owners of infrastructure and then notify
-them that their infrastructure is being used to send or support scam emails. 
+them that their infrastructure is being used to send or support scam emails.
 
 The initial principle is to use free tool/ data sources as much as possible so that anybody can
 use PPR to process scam emails and notifiy the providers. Once this has reached an acceptable
@@ -34,6 +34,14 @@ is needed to get PPR running on other platforms.
 
 ## Functionality
 
+### Initial configuration
+
+Before running PPR, you will need to set up iniital configuration using
+`cargo run --bin ppr config set` see `cargo run --bin ppr config set --help` for more information.
+
+At the time of writing, the only configuration required is the path to the sqlite database that
+will be used to store run results (`db_path`).
+
 ### Importing mail source(s)
 
 PPR can import a file containing the message source of a single email or multiple emails. For a
@@ -41,11 +49,8 @@ file containing multiple message sources, the only format currently supported is
 produced by the Google takeout service.
 
 ```
-cat /path/to/source/file | env $(cat .env | xargs) cargo run --bin ppr process
+cat /path/to/source/file | cargo run --bin ppr process
 ```
-
-Imported message sources are stored in the sqlite database specified in the ENV variables
-(`PP_DBATH`).
 
 ### Reprocessing an existing message source
 
@@ -57,12 +62,8 @@ Counterintuitively, you need to provide the id of a run linked to the message so
 the id of the message source.
 
 ```
-env $(cat .env | xargs) cargo run --bin ppr process --reprocess-run <RUN_ID>
+cargo run --bin ppr process --reprocess-run <RUN_ID>
 ```
-
-## env files
-
-`env.test.example` and `env.example` can be used as a template for the required ENV files.
 
 ## Processing a single email source file (DEPRECATED)
 
@@ -84,10 +85,25 @@ Start the mountebank container:
 
 To run all the tests (see below) a [Mailtrap](https://mailtrap.io/) account is required.
 
+### Configuration
+
+Certain ENV variables are required to run the tests. You can generate a `.env.test` file based
+on the template found in `.env.example`:
+
+```
+MAILTRAP_API_TOKEN=xxxx
+PP_TRUSTED_RECIPIENT=mx.google.com
+RUST_TEST_THREADS=1
+TEST_NOTIFICATIONS_FROM=from_address@test.com
+TEST_SMTP_PASSWORD=xxxx
+TEST_SMTP_URI=sandbox.smtp.mailtrap.io
+TEST_SMTP_USERNAME=xxxx
+```
+
 ### Running without mail-sending tests
 
 Given the current deprioritisation of mail sending as a feature, the default test run will **not**
-run the mail sending tests. This reduces the amount of traffic to the Mailtrap account, as the 
+run the mail sending tests. This reduces the amount of traffic to the Mailtrap account, as the
 free account only allows 100 mails per month.
 
 `env $(cat .env.test | xargs) cargo test --features test-mocks`

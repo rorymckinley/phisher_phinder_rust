@@ -65,18 +65,28 @@ pub enum ConfigCommands {
 #[derive(Debug, PartialEq, Args)]
 pub struct SetConfigArgs {
     #[arg(long)]
+    /// Author name for abuse notifications
     pub abuse_notifications_author_name: Option<String>,
     #[arg(long)]
+    /// Source email address for abuse notifications
     pub abuse_notifications_from_address: Option<String>,
     #[arg(long)]
+    /// Path to SQLITE3 database
     pub db_path: Option<String>,
     #[arg(long)]
+    /// Alternative RDAP bootstrap host - only used for testing purposes
+    pub rdap_bootstrap_host: Option<String>,
+    #[arg(long)]
+    /// Host URI for SMTP server used to send abuse notifications
     pub smtp_host_uri: Option<String>,
     #[arg(long)]
+    /// Password for SMTP server used to send abuse notifications
     pub smtp_password: Option<String>,
     #[arg(long)]
+    /// Username for SMTP server used to send abuse notifications
     pub smtp_username: Option<String>,
     #[arg(long)]
+    /// Host that is considered trusted when parsing `Received` headers (e.g `mx.google.com`)
     pub trusted_recipient: Option<String>,
 }
 
@@ -86,6 +96,7 @@ impl SetConfigArgs {
             abuse_notifications_author_name: None,
             abuse_notifications_from_address: None,
             db_path: None,
+            rdap_bootstrap_host: None,
             smtp_host_uri: None,
             smtp_password: None,
             smtp_username: None,
@@ -104,6 +115,7 @@ mod set_config_args_tests {
             abuse_notifications_author_name: Some("John Doe".into()),
             abuse_notifications_from_address: None,
             db_path: None,
+            rdap_bootstrap_host: None,
             smtp_host_uri: None,
             smtp_password: None,
             smtp_username: None,
@@ -115,6 +127,7 @@ mod set_config_args_tests {
             abuse_notifications_author_name: Some("John Doe".into()),
             abuse_notifications_from_address: None,
             db_path: None,
+            rdap_bootstrap_host: None,
             smtp_host_uri: Some("smtp.unobtanium.com".into()),
             smtp_password: None,
             smtp_username: None,
@@ -126,6 +139,7 @@ mod set_config_args_tests {
             abuse_notifications_author_name: None,
             abuse_notifications_from_address: None,
             db_path: None,
+            rdap_bootstrap_host: None,
             smtp_host_uri: None,
             smtp_password: None,
             smtp_username: None,

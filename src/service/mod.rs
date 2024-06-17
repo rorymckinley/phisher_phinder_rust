@@ -4,7 +4,7 @@ use crate::service_configuration::{Configuration, ServiceType};
 mod config;
 mod process_message;
 
-pub async fn execute_command<T>(config: &T) -> Result<String, AppError>
+pub async fn execute_command<T>(config: &mut T) -> Result<String, AppError>
     where T: Configuration {
     match config.service_type() {
         ServiceType::ProcessMessage => process_message::execute_command(config).await,
@@ -17,8 +17,8 @@ mod service_execute_command_process_message_tests {
     use assert_fs::fixture::TempDir;
     use crate::cli::{ProcessArgs, SingleCli, SingleCliCommands};
     use crate::mountebank::{clear_all_impostors, setup_bootstrap_server};
-    use crate::service_configuration::ServiceConfiguration;
-    use std::path::Path;
+    use crate::service_configuration::{FileConfig, ServiceConfiguration};
+    use std::path::{Path, PathBuf};
 
     use super::*;
 
@@ -30,12 +30,15 @@ mod service_execute_command_process_message_tests {
         let cli = build_cli(None);
 
         let temp = TempDir::new().unwrap();
+        let config_file_location = build_config_location(&temp);
         let db_path = temp.path().join("pp.sqlite3");
         let input = single_source_input();
 
-        let config = build_config(Some(&input), &cli, &db_path);
+        build_config_file(&config_file_location, &db_path);
 
-        let output = tokio_test::block_on(execute_command(&config)).unwrap();
+        let mut config = build_config(Some(&input), &cli, &config_file_location);
+
+        let output = tokio_test::block_on(execute_command(&mut config)).unwrap();
 
         assert!(output.contains("Abuse Email Address"));
     }
@@ -45,19 +48,18 @@ mod service_execute_command_process_message_tests {
         let cli = build_cli(None);
 
         let temp = TempDir::new().unwrap();
+        let config_file_location = build_config_location(&temp);
         let db_path = temp.path().join("un/ob/tai/nium");
 
-        let config = ServiceConfiguration::new(
+        build_config_file(&config_file_location, &db_path);
+
+        let mut config = ServiceConfiguration::new(
             Some("message_source"),
             &cli,
-            env_var_iterator(
-                Some(db_path.to_str().unwrap()),
-                Some("foo.com"),
-                Some("http://localhost:4545")
-            )
+            &config_file_location,
         ).unwrap();
 
-        let result = tokio_test::block_on(execute_command(&config));
+        let result = tokio_test::block_on(execute_command(&mut config));
 
         match result {
             Err(AppError::DatabasePathIncorrect(path)) => {
@@ -87,42 +89,30 @@ mod service_execute_command_process_message_tests {
         )
     }
 
+    pub fn build_config_location(temp: &TempDir) -> PathBuf {
+        temp.path().join("phisher_eagle.conf")
+    }
+
+    pub fn build_config_file(config_file_location: &Path, db_path: &Path) {
+        let contents = FileConfig {
+            db_path: Some(db_path.to_str().unwrap().into()),
+            rdap_bootstrap_host: Some("http://localhost:4545".into()),
+            ..FileConfig::default()
+        };
+
+        confy::store_path(config_file_location, contents).unwrap();
+    }
+
     fn build_config<'a>(
         message: Option<&'a str>,
         cli: &'a SingleCli,
-        db_path: &Path
+        config_file_location: &'a Path,
     ) -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             message,
-            &cli,
-            env_var_iterator(
-                Some(db_path.to_str().unwrap()),
-                Some("foo.com"),
-                Some("http://localhost:4545")),
+            cli,
+            config_file_location,
         ).unwrap()
-    }
-
-    fn env_var_iterator(
-        db_path_option: Option<&str>,
-        trusted_recipient_option: Option<&str>,
-        rdap_bootstrap_host_option: Option<&str>,
-    ) -> Box<dyn Iterator<Item = (String, String)>>
-    {
-        let mut v: Vec<(String, String)> = vec![];
-
-        if let Some(db_path) = db_path_option {
-            v.push(("PP_DB_PATH".into(), db_path.into()));
-        }
-
-        if let Some(trusted_recipient) = trusted_recipient_option {
-            v.push(("PP_TRUSTED_RECIPIENT".into(), trusted_recipient.into()))
-        }
-
-        if let Some(rdap_bootstrap_host) = rdap_bootstrap_host_option {
-            v.push(("RDAP_BOOTSTRAP_HOST".into(), rdap_bootstrap_host.into()))
-        }
-
-        Box::new(v.into_iter())
     }
 
     fn build_cli(reprocess_run: Option<i64>) -> SingleCli {
@@ -136,41 +126,39 @@ mod service_execute_command_process_message_tests {
 
 #[cfg(test)]
 mod service_execute_command_config_tests {
+    use assert_fs::TempDir;
     use crate::cli::{ConfigArgs, ConfigCommands, SingleCli, SingleCliCommands};
     use crate::service_configuration::ServiceConfiguration;
+    use std::path::{Path, PathBuf};
 
     use super::*;
 
     #[test]
     fn calls_service_config_and_returns_ok_response() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = build_config_location(&temp);
         let cli = build_cli();
 
-        let config = build_config(&cli);
+        let mut config = build_config(&cli, &config_file_location);
 
-        let expected = String::from(
-            confy::get_configuration_file_path("phisher_eagle", None)
-            .unwrap()
-            .to_str()
-            .unwrap()
-        );
-        let output = tokio_test::block_on(execute_command(&config)).unwrap();
+        let output = tokio_test::block_on(execute_command(&mut config)).unwrap();
 
-        assert_eq!(output, expected);
+        assert_eq!(output, String::from(config_file_location.to_str().unwrap()));
     }
 
-    fn build_config<'a>(cli: &'a SingleCli) -> ServiceConfiguration<'a> {
+    pub fn build_config_location(temp: &TempDir) -> PathBuf {
+        temp.path().join("phisher_eagle.conf")
+    }
+
+    fn build_config<'a>(
+        cli: &'a SingleCli,
+        config_file_location: &'a Path
+    ) -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             None,
             cli,
-            env_var_iterator()
+            config_file_location,
         ).unwrap()
-    }
-
-    fn env_var_iterator() -> Box<dyn Iterator<Item = (String, String)>>
-    {
-        let v: Vec<(String, String)> = vec![];
-
-        Box::new(v.into_iter())
     }
 
     fn build_cli() -> SingleCli {

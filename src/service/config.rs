@@ -1,7 +1,7 @@
 use crate::errors::AppError;
 use crate::service_configuration::{ConfigServiceCommands, Configuration, ServiceType};
 
-pub fn execute_command<T>(config: &T) -> Result<String, AppError>
+pub fn execute_command<T>(config: &mut T) -> Result<String, AppError>
     where T: Configuration {
     match config.service_type() {
         ServiceType::Config(ConfigServiceCommands::Location) => {
@@ -48,16 +48,16 @@ mod execute_command_show_config_location_tests {
 
     #[test]
     fn returns_config_path_from_configuration() {
-        let config = TestConfiguration { path: PathBuf::from("/path/to/config") };
+        let mut config = TestConfiguration { path: PathBuf::from("/path/to/config") };
 
-        assert_eq!(String::from("/path/to/config"), execute_command(&config).unwrap());
+        assert_eq!(String::from("/path/to/config"), execute_command(&mut config).unwrap());
     }
 
     #[test]
     fn returns_error_if_config_path_cannot_be_converted_to_string() {
-        let config = TestConfiguration { path: broken_path() };
+        let mut config = TestConfiguration { path: broken_path() };
 
-        match execute_command(&config) {
+        match execute_command(&mut config) {
             Ok(_) => panic!("Unexpected OK"),
             Err(AppError::ConfigFileLocation) => (),
             Err(_) => panic!("Unexpected error")
@@ -83,7 +83,7 @@ mod execute_command_show_config_location_tests {
             &self.path
         }
 
-        fn db_path(&self) -> Option<&PathBuf> {
+        fn db_path(&self) -> Option<&Path> {
             None
         }
 
@@ -103,7 +103,7 @@ mod execute_command_show_config_location_tests {
             &ServiceType::Config(ConfigServiceCommands::Location)
         }
 
-        fn store_config(&self) {
+        fn store_config(&mut self) {
         }
 
         fn trusted_recipient(&self)-> Option<&str> {
@@ -123,12 +123,12 @@ mod execute_command_show_config_location_tests {
 #[cfg(test)]
 mod execute_command_show_config_tests {
     use crate::service_configuration::ServiceType;
-    use std::path::{Path, PathBuf};
+    use std::path::Path;
     use super::*;
 
     #[test]
     fn returns_the_contents_of_the_config() {
-        let config = config_with_entries();
+        let mut config = config_with_entries();
 
         let expected: String  = "\
                                  setting_a: value_99\n\
@@ -136,12 +136,12 @@ mod execute_command_show_config_tests {
                                  setting_c: value_201\n\
                                  ".into();
 
-        assert_eq!(expected, execute_command(&config).unwrap());
+        assert_eq!(expected, execute_command(&mut config).unwrap());
     }
 
     #[test]
     fn returns_config_with_empty_entries() {
-        let config = config_with_empty_entries();
+        let mut config = config_with_empty_entries();
 
         let expected: String  = "\
                                  setting_a: \n\
@@ -149,7 +149,7 @@ mod execute_command_show_config_tests {
                                  setting_c: \n\
                                  ".into();
 
-        assert_eq!(expected, execute_command(&config).unwrap());
+        assert_eq!(expected, execute_command(&mut config).unwrap());
     }
 
     struct TestConfiguration { entries: Vec<(String, Option<String>)> }
@@ -171,7 +171,7 @@ mod execute_command_show_config_tests {
             self.entries.clone()
         }
 
-        fn db_path(&self) -> Option<&PathBuf> {
+        fn db_path(&self) -> Option<&Path> {
             None
         }
 
@@ -191,7 +191,7 @@ mod execute_command_show_config_tests {
             &ServiceType::Config(ConfigServiceCommands::Show)
         }
 
-        fn store_config(&self) {
+        fn store_config(&mut self) {
         }
 
         fn trusted_recipient(&self)-> Option<&str> {
@@ -232,11 +232,11 @@ mod execute_command_set_config_tests {
     fn stores_the_config() {
         let temp = TempDir::new().unwrap();
 
-        let config = TestConfiguration {
+        let mut config = TestConfiguration {
             dummy_config_path: temp.join("dummy.config")
         };
 
-        execute_command(&config).unwrap();
+        execute_command(&mut config).unwrap();
 
         assert_eq!(
             String::from_utf8(fs::read(&config.dummy_config_path).unwrap()).unwrap(),
@@ -248,12 +248,12 @@ mod execute_command_set_config_tests {
     fn returns_the_config_contents() {
         let temp = TempDir::new().unwrap();
 
-        let config = TestConfiguration {
+        let mut config = TestConfiguration {
             dummy_config_path: temp.join("dummy.config")
         };
 
         assert_eq!(
-            execute_command(&config).unwrap(),
+            execute_command(&mut config).unwrap(),
             String::from("my_config_key: my_config_value\n")
         )
     }
@@ -279,7 +279,7 @@ mod execute_command_set_config_tests {
             vec![(String::from("my_config_key"), Some(config_val))]
         }
 
-        fn db_path(&self) -> Option<&PathBuf> {
+        fn db_path(&self) -> Option<&Path> {
             None
         }
 
@@ -299,7 +299,7 @@ mod execute_command_set_config_tests {
             &ServiceType::Config(ConfigServiceCommands::Set)
         }
 
-        fn store_config(&self) {
+        fn store_config(&mut self) {
             fs::write(&self.dummy_config_path, "my_config_value").unwrap();
         }
 
@@ -311,14 +311,14 @@ mod execute_command_set_config_tests {
 
 #[cfg(test)]
 mod execute_command_unrecognised_service_type_tests {
-    use std::path::{Path, PathBuf};
+    use std::path::Path;
     use super::*;
 
     #[test]
     fn returns_error_if_not_config_service_type() {
-        let config = TestConfiguration {};
+        let mut config = TestConfiguration {};
 
-        match execute_command(&config) {
+        match execute_command(&mut config) {
             Ok(_) => panic!("Unexpected OK"),
             Err(AppError::Irrecoverable) => (),
             Err(e) => panic!("Unexpected Error({e})")
@@ -344,7 +344,7 @@ mod execute_command_unrecognised_service_type_tests {
             vec![]
         }
 
-        fn db_path(&self) -> Option<&PathBuf> {
+        fn db_path(&self) -> Option<&Path> {
             None
         }
 
@@ -364,7 +364,7 @@ mod execute_command_unrecognised_service_type_tests {
             &ServiceType::ProcessMessage
         }
 
-        fn store_config(&self) {
+        fn store_config(&mut self) {
         }
 
         fn trusted_recipient(&self)-> Option<&str> {

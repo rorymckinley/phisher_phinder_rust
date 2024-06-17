@@ -93,20 +93,29 @@ fn build_attachment(raw_email: &str) -> SinglePart {
 
 #[cfg(test)]
 mod build_abuse_notifications_tests {
+    use assert_fs::TempDir;
     use chrono::*;
     use crate::cli::SingleCli;
     use crate::errors::AppError;
     use crate::data::{EmailAddresses, OutputData, ParsedMail};
-    use crate::service_configuration::ServiceConfiguration;
+    use crate::service_configuration::{FileConfig, ServiceConfiguration};
+    use std::path::{Path, PathBuf};
     use test_support::*;
 
     use super::*;
 
     #[test]
     fn builds_email_messages_for_each_notification() {
+        let temp = TempDir::new().unwrap();
         let run = build_run();
         let cli = build_cli();
-        let config = build_config(&cli);
+        let config_file_location = build_config_location(&temp);
+        build_config_file(
+            &config_file_location,
+            Some(&author_name()),
+            Some("sender@phishereagle.com")
+        );
+        let config = build_config(&cli, &config_file_location);
 
         let notifications = build_abuse_notifications(&run, &config).unwrap();
 
@@ -141,9 +150,16 @@ mod build_abuse_notifications_tests {
 
     #[test]
     fn returns_an_error_if_no_author_name_set() {
+        let temp = TempDir::new().unwrap();
         let run = build_run();
-        let cli = build_cli();
-        let config = build_config_without_author_name(&cli);
+        let cli = build_cli(); 
+        let config_file_location = build_config_location(&temp);
+        build_config_file(
+            &config_file_location,
+            None,
+            Some("sender@phishereagle.com")
+        );
+        let config = build_config(&cli, &config_file_location);
 
         match build_abuse_notifications(&run, &config) {
             Ok(_) => panic!("Did not return an error"),
@@ -158,9 +174,16 @@ mod build_abuse_notifications_tests {
 
     #[test]
     fn returns_an_error_if_no_from_address_set() {
+        let temp = TempDir::new().unwrap();
         let run = build_run();
         let cli = build_cli();
-        let config = build_config_without_from_address(&cli);
+        let config_file_location = build_config_location(&temp);
+        build_config_file(
+            &config_file_location,
+            Some(&author_name()),
+            None
+        );
+        let config = build_config(&cli, &config_file_location);
 
         match build_abuse_notifications(&run, &config) {
             Ok(_) => panic!("Did not return an error"),
@@ -212,65 +235,35 @@ mod build_abuse_notifications_tests {
         "Jo Bloggs".into()
     }
 
-    fn build_config<'a>(cli: &'a SingleCli) -> ServiceConfiguration<'a> {
-        ServiceConfiguration::new(
-            Some(""),
-            &cli,
-            env_var_iterator()
-        ).unwrap()
+    pub fn build_config_location(temp: &TempDir) -> PathBuf {
+        temp.path().join("phisher_eagle.conf")
+    }
+    
+    pub fn build_config_file(
+        config_file_location: &Path,
+        author_name: Option<&str>,
+        from_address: Option<&str>
+    ) {
+        let contents = FileConfig {
+            abuse_notifications_author_name: author_name.map(|s| s.into()),
+            abuse_notifications_from_address: from_address.map(|s| s.into()),
+            db_path: Some("/does/not/matter.sqlite".into()),
+            rdap_bootstrap_host: Some("http://localhost:4545".into()),
+            ..FileConfig::default()
+        };
+
+        confy::store_path(config_file_location, contents).unwrap();
     }
 
-    fn env_var_iterator() -> Box<dyn Iterator<Item = (String, String)>>
-    {
-        let v: Vec<(String, String)> = vec![
-            ("PP_ABUSE_NOTIFICATIONS_AUTHOR_NAME".into(), author_name()),
-            ("PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS".into(), "sender@phishereagle.com".into()),
-            ("PP_DB_PATH".into(), "does.not.matter.sqlite".into()),
-            ("PP_TRUSTED_RECIPIENT".into(), "does.not.matter".into()),
-            ("RDAP_BOOTSTRAP_HOST".into(), "does.not.matter".into())
-        ];
-
-        Box::new(v.into_iter())
-    }
-
-    fn build_config_without_from_address<'a>(cli: &'a SingleCli) -> ServiceConfiguration<'a> {
-        ServiceConfiguration::new(
-            Some(""),
-            cli,
-            env_var_iterator_without_from_address()
-        ).unwrap()
-    }
-
-    fn env_var_iterator_without_from_address() -> Box<dyn Iterator<Item = (String, String)>>
-    {
-        let v: Vec<(String, String)> = vec![
-            ("PP_ABUSE_NOTIFICATIONS_AUTHOR_NAME".into(), author_name()),
-            ("PP_DB_PATH".into(), "does.not.matter.sqlite".into()),
-            ("PP_TRUSTED_RECIPIENT".into(), "does.not.matter".into()),
-            ("RDAP_BOOTSTRAP_HOST".into(), "does.not.matter".into())
-        ];
-
-        Box::new(v.into_iter())
-    }
-
-    fn build_config_without_author_name<'a>(cli: &'a SingleCli) -> ServiceConfiguration<'a> {
+    fn build_config<'a>(
+        cli: &'a SingleCli,
+        config_file_location: &'a Path
+    ) -> ServiceConfiguration<'a> {
         ServiceConfiguration::new(
             Some(""),
             cli,
-            env_var_iterator_without_author_name()
+            config_file_location
         ).unwrap()
-    }
-
-    fn env_var_iterator_without_author_name() -> Box<dyn Iterator<Item = (String, String)>>
-    {
-        let v: Vec<(String, String)> = vec![
-            ("PP_ABUSE_NOTIFICATIONS_FROM_ADDRESS".into(), "sender@phishereagle.com".into()),
-            ("PP_DB_PATH".into(), "does.not.matter.sqlite".into()),
-            ("PP_TRUSTED_RECIPIENT".into(), "does.not.matter".into()),
-            ("RDAP_BOOTSTRAP_HOST".into(), "does.not.matter".into())
-        ];
-
-        Box::new(v.into_iter())
     }
 }
 
