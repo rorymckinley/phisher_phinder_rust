@@ -32,6 +32,6 @@ pub enum AppError {
     NoAuthorNameForNotifications,
     #[error("Encountered an irrecoverable error ,please contact the developer")]
     Irrecoverable,
-    #[error("Invalid configuration: {0}")]
-    InvalidConfiguration(String)
+    #[error("Invalid configuration: {0:?}")]
+    InvalidConfiguration(Vec<String>)
 }

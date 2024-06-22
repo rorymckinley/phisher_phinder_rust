@@ -99,6 +99,10 @@ mod execute_command_show_config_location_tests {
             None
         }
 
+        fn send_abuse_notifications(&self) -> bool {
+            false
+        }
+
         fn service_type(&self) -> &ServiceType {
             &ServiceType::Config(ConfigServiceCommands::Location)
         }
@@ -185,6 +189,10 @@ mod execute_command_show_config_tests {
 
         fn reprocess_run_id(&self) -> Option<i64> {
             None
+        }
+
+        fn send_abuse_notifications(&self) -> bool {
+            false
         }
 
         fn service_type(&self) -> &ServiceType {
@@ -295,6 +303,10 @@ mod execute_command_set_config_tests {
             None
         }
 
+        fn send_abuse_notifications(&self) -> bool {
+            false
+        }
+
         fn service_type(&self) -> &ServiceType {
             &ServiceType::Config(ConfigServiceCommands::Set)
         }
@@ -358,6 +370,10 @@ mod execute_command_unrecognised_service_type_tests {
 
         fn reprocess_run_id(&self) -> Option<i64> {
             None
+        }
+
+        fn send_abuse_notifications(&self) -> bool {
+            false
         }
 
         fn service_type(&self) -> &ServiceType {

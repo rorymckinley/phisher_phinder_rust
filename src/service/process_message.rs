@@ -75,18 +75,97 @@ where T: service_configuration::Configuration {
 
 fn extract_command_config<T>(config: &T) -> Result<Configuration, AppError>
 where T: service_configuration::Configuration {
+    enum ValidationResult<'a> {
+        Error(String),
+        PathOk(&'a Path),
+        StringOk(Option<&'a str>),
+    }
+
     check_for_source_data(config)?;
 
+    let mut validation_results = vec![];
+
     if let Some(db_path) = config.db_path().as_ref() {
-        Ok(Configuration {
-            db_path,
-            message_source: config.message_sources(),
-            reprocess_run_id: config.reprocess_run_id(),
-            trusted_recipient: config.trusted_recipient()
-        })
+        validation_results.push(ValidationResult::PathOk(db_path));
     } else {
-        Err(AppError::InvalidConfiguration("Please configure db_path.".into()))
+        validation_results.push(ValidationResult::Error("Please configure db_path.".into()));
     }
+    // let mut errors = vec![];
+
+    if config.send_abuse_notifications() && config.abuse_notifications_author_name().is_none() {
+        let message = format!(
+            "Please configure {} if you wish to send abuse notifications.",
+            "abuse_notifications_author_name"
+        );
+
+        validation_results.push(ValidationResult::Error(message));
+    } else {
+        validation_results
+            .push(ValidationResult::StringOk(config.abuse_notifications_author_name()));
+    }
+
+    if config.send_abuse_notifications() && config.abuse_notifications_from_address().is_none() {
+        let message = format!(
+            "Please configure {} if you wish to send abuse notifications.",
+            "abuse_notifications_from_address"
+        );
+
+        validation_results.push(ValidationResult::Error(message));
+    } else {
+        validation_results
+            .push(ValidationResult::StringOk(config.abuse_notifications_from_address()));
+    }
+
+    match validation_results.as_slice() {
+        [
+            ValidationResult::PathOk(db_path),
+            ValidationResult::StringOk(abuse_notifications_author_name),
+            ValidationResult::StringOk(abuse_notifications_from_address)
+        ] => {
+            Ok(Configuration {
+                abuse_notifications_author_name: *abuse_notifications_author_name,
+                abuse_notifications_from_address: *abuse_notifications_from_address,
+                db_path,
+                message_source: config.message_sources(),
+                reprocess_run_id: config.reprocess_run_id(),
+                send_abuse_notifications: config.send_abuse_notifications(),
+                trusted_recipient: config.trusted_recipient()
+            })
+        },
+        _ => {
+            let errors = validation_results
+                .into_iter()
+                .filter_map(|result| {
+                    match result {
+                        ValidationResult::Error(message) => Some(message),
+                        _ => None
+                    }
+                })
+                .collect();
+
+            Err(AppError::InvalidConfiguration(errors))
+        }
+    }
+    //
+    //
+    //
+    // if !errors.is_empty() {
+    //     return Err(AppError::InvalidConfiguration(errors))
+    // }
+    //
+    // if let Some(db_path) = config.db_path().as_ref() {
+    //     Ok(Configuration {
+    //         abuse_notifications_author_name: config.abuse_notifications_author_name(),
+    //         abuse_notifications_from_address: config.abuse_notifications_from_address(),
+    //         db_path,
+    //         message_source: config.message_sources(),
+    //         reprocess_run_id: config.reprocess_run_id(),
+    //         send_abuse_notifications: config.send_abuse_notifications(),
+    //         trusted_recipient: config.trusted_recipient()
+    //     })
+    // } else {
+    //     Err(AppError::InvalidConfiguration(vec!["Please configure db_path.".into()]))
+    // }
 }
 
 fn check_for_source_data<T>(config: &T) -> Result<(), AppError>
@@ -598,7 +677,8 @@ mod process_message_execute_command_common_errors_tests {
     fn build_cli(reprocess_run: Option<i64>) -> SingleCli {
         SingleCli {
             command: SingleCliCommands::Process(ProcessArgs{
-                reprocess_run
+                reprocess_run,
+                send_abuse_notifications: false,
             })
         }
     }
@@ -1210,19 +1290,24 @@ mod extract_command_config_tests {
         let config = merge(
             base_config(),
             OverrideConfig {
+                abuse_notifications_author_name: Some("Fred Flintstone".into()),
+                abuse_notifications_from_address: Some("fred@flintstone.zzz".into()),
                 message_sources: Some("message source".into()),
                 reprocess_run_id: None,
                 ..OverrideConfig::default()
             }
         );
-        let extracted_config = Configuration {
+        let expected_config = Configuration {
+            abuse_notifications_author_name: Some("Fred Flintstone"),
+            abuse_notifications_from_address: Some("fred@flintstone.zzz"),
             db_path: &PathBuf::from("/does/not/matter"),
             message_source: Some("message source"),
             reprocess_run_id: None,
+            send_abuse_notifications: false,
             trusted_recipient: Some("mx.google.com"),
         };
 
-        assert_eq!(extract_command_config(&config).unwrap(), extracted_config);
+        assert_eq!(extract_command_config(&config).unwrap(), expected_config);
     }
 
     #[test]
@@ -1230,20 +1315,50 @@ mod extract_command_config_tests {
         let config = merge(
             base_config(),
             OverrideConfig {
+                abuse_notifications_author_name: Some("Fred Flintstone".into()),
+                abuse_notifications_from_address: Some("fred@flintstone.zzz".into()),
                 message_sources: None,
                 reprocess_run_id: Some(999),
                 ..OverrideConfig::default()
             }
         );
 
-        let extracted_config = Configuration {
+        let expected_config = Configuration {
+            abuse_notifications_author_name: Some("Fred Flintstone"),
+            abuse_notifications_from_address: Some("fred@flintstone.zzz"),
             db_path: &PathBuf::from("/does/not/matter"),
             message_source: None,
             reprocess_run_id: Some(999),
+            send_abuse_notifications: false,
             trusted_recipient: Some("mx.google.com"),
         };
 
-        assert_eq!(extract_command_config(&config).unwrap(), extracted_config);
+        assert_eq!(extract_command_config(&config).unwrap(), expected_config);
+    }
+
+    #[test]
+    fn returns_extracted_config_with_send_abuse_notifications() {
+        let config = merge(
+            base_config(),
+            OverrideConfig {
+                reprocess_run_id: Some(999),
+                send_abuse_notifications: true,
+                ..OverrideConfig::default()
+            }
+        );
+        let command_config = extract_command_config(&config).unwrap();
+        assert!(command_config.send_abuse_notifications);
+
+        let config = merge(
+            base_config(),
+            OverrideConfig {
+                reprocess_run_id: Some(999),
+                send_abuse_notifications: false,
+                ..OverrideConfig::default()
+            }
+        );
+        let command_config = extract_command_config(&config).unwrap();
+        assert!(!command_config.send_abuse_notifications);
     }
 
     #[test]
@@ -1284,8 +1399,129 @@ mod extract_command_config_tests {
         let result = extract_command_config(&config);
 
         match result {
-            Err(AppError::InvalidConfiguration(message)) => {
-                assert_eq!(message, "Please configure db_path.");
+            Err(AppError::InvalidConfiguration(messages)) => {
+                assert_eq!(messages, ["Please configure db_path."]);
+            },
+            Err(e) => panic!("Returned unexpected {e}"),
+            Ok(_) => panic!("Did not return error")
+        }
+    }
+
+    #[test]
+    fn returns_config_if_no_author_details_and_no_send_notifications() {
+        let config = TestConfig {
+            abuse_notifications_author_name: None,
+            abuse_notifications_from_address: None,
+            reprocess_run_id: Some(999),
+            send_abuse_notifications: false,
+            ..base_config()
+        };
+
+        assert!(extract_command_config(&config).is_ok());
+    }
+
+    #[test]
+    fn returns_error_if_no_author_name_and_send_notifications() {
+        let config = TestConfig {
+            abuse_notifications_author_name: None,
+            reprocess_run_id: Some(999),
+            send_abuse_notifications: true,
+            ..base_config()
+        };
+
+        let result = extract_command_config(&config);
+
+        match result {
+            Err(AppError::InvalidConfiguration(messages)) => {
+                let expected_message = format!(
+                    "Please configure {} if you wish to send abuse notifications.",
+                    "abuse_notifications_author_name"
+                );
+                assert_eq!(messages, [expected_message]);
+            },
+            Err(e) => panic!("Returned unexpected {e}"),
+            Ok(_) => panic!("Did not return error")
+        }
+    }
+
+    #[test]
+    fn returns_error_if_no_author_from_address_and_send_notifications() {
+        let config = TestConfig {
+            abuse_notifications_from_address: None,
+            reprocess_run_id: Some(999),
+            send_abuse_notifications: true,
+            ..base_config()
+        };
+
+        let result = extract_command_config(&config);
+
+        match result {
+            Err(AppError::InvalidConfiguration(messages)) => {
+                let expected_message = format!(
+                    "Please configure {} if you wish to send abuse notifications.",
+                    "abuse_notifications_from_address"
+                );
+                assert_eq!(messages, [expected_message]);
+            },
+            Err(e) => panic!("Returned unexpected {e}"),
+            Ok(_) => panic!("Did not return error")
+        }
+    }
+
+    #[test]
+    fn returns_error_if_no_author_details_and_send_notifications() {
+        let config = TestConfig {
+            abuse_notifications_author_name: None,
+            abuse_notifications_from_address: None,
+            reprocess_run_id: Some(999),
+            send_abuse_notifications: true,
+            ..base_config()
+        };
+
+        let result = extract_command_config(&config);
+
+        match result {
+            Err(AppError::InvalidConfiguration(messages)) => {
+                let message_1 = format!(
+                    "Please configure {} if you wish to send abuse notifications.",
+                    "abuse_notifications_author_name"
+                );
+                let message_2 = format!(
+                    "Please configure {} if you wish to send abuse notifications.",
+                    "abuse_notifications_from_address"
+                );
+                assert_eq!(messages, [message_1, message_2]);
+            },
+            Err(e) => panic!("Returned unexpected {e}"),
+            Ok(_) => panic!("Did not return error")
+        }
+    }
+
+    #[test]
+    fn returns_combined_error_messages() {
+        let config = TestConfig {
+            abuse_notifications_author_name: None,
+            abuse_notifications_from_address: None,
+            db_path: None,
+            reprocess_run_id: Some(999),
+            send_abuse_notifications: true,
+            ..base_config()
+        };
+
+        let result = extract_command_config(&config);
+
+        match result {
+            Err(AppError::InvalidConfiguration(messages)) => {
+                let message_1 = "Please configure db_path.".into();
+                let message_2 = format!(
+                    "Please configure {} if you wish to send abuse notifications.",
+                    "abuse_notifications_author_name"
+                );
+                let message_3 = format!(
+                    "Please configure {} if you wish to send abuse notifications.",
+                    "abuse_notifications_from_address"
+                );
+                assert_eq!(messages, [message_1, message_2, message_3]);
             },
             Err(e) => panic!("Returned unexpected {e}"),
             Ok(_) => panic!("Did not return error")
@@ -1303,6 +1539,8 @@ mod extract_command_config_tests {
         let message_sources = mods.message_sources.or(base.message_sources);
         let rdap_bootstrap_host = mods.rdap_bootstrap_host.or(base.rdap_bootstrap_host);
         let reprocess_run_id = mods.reprocess_run_id.or(base.reprocess_run_id);
+        let send_abuse_notifications =
+            mods.send_abuse_notifications || base.send_abuse_notifications;
         let trusted_recipient = mods.trusted_recipient.or(base.trusted_recipient);
 
         TestConfig {
@@ -1312,6 +1550,7 @@ mod extract_command_config_tests {
             message_sources,
             rdap_bootstrap_host,
             reprocess_run_id,
+            send_abuse_notifications,
             trusted_recipient,
             ..base
         }
@@ -1326,6 +1565,7 @@ mod extract_command_config_tests {
             message_sources: None,
             rdap_bootstrap_host: Some("http://localhost:4545".into()),
             reprocess_run_id: None,
+            send_abuse_notifications: false,
             service_type: ServiceType::ProcessMessage,
             trusted_recipient: Some("mx.google.com".into())
         }
@@ -1347,6 +1587,7 @@ mod extract_command_config_tests {
         message_sources: Option<String>,
         rdap_bootstrap_host: Option<String>,
         reprocess_run_id: Option<i64>,
+        send_abuse_notifications: bool,
         trusted_recipient: Option<String>,
     }
 
@@ -1358,6 +1599,7 @@ mod extract_command_config_tests {
         message_sources: Option<String>,
         rdap_bootstrap_host: Option<String>,
         reprocess_run_id: Option<i64>,
+        send_abuse_notifications: bool,
         service_type: ServiceType,
         trusted_recipient: Option<String>,
     }
@@ -1393,6 +1635,10 @@ mod extract_command_config_tests {
 
         fn reprocess_run_id(&self) -> Option<i64> {
             self.reprocess_run_id
+        }
+
+        fn send_abuse_notifications(&self) -> bool {
+            self.send_abuse_notifications
         }
 
         fn service_type(&self) -> &ServiceType {
@@ -1462,6 +1708,7 @@ mod support {
         SingleCli {
             command: SingleCliCommands::Process(ProcessArgs {
                 reprocess_run,
+                send_abuse_notifications: false,
             })
         }
     }
@@ -1501,6 +1748,10 @@ mod support {
             None
         }
 
+        fn send_abuse_notifications(&self) -> bool {
+            false
+        }
+
         fn service_type(&self) -> &ServiceType {
             &ServiceType::ProcessMessage
         }
@@ -1520,8 +1771,11 @@ mod support {
 
 #[derive(Debug, PartialEq)]
 struct Configuration<'a> {
+    abuse_notifications_author_name: Option<&'a str>,
+    abuse_notifications_from_address: Option<&'a str>,
     db_path: &'a Path,
     message_source: Option<&'a str>,
     reprocess_run_id: Option<i64>,
+    send_abuse_notifications: bool,
     trusted_recipient: Option<&'a str>,
 }

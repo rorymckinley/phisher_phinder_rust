@@ -118,7 +118,8 @@ mod service_execute_command_process_message_tests {
     fn build_cli(reprocess_run: Option<i64>) -> SingleCli {
         SingleCli {
             command: SingleCliCommands::Process(ProcessArgs{
-                reprocess_run
+                reprocess_run,
+                send_abuse_notifications: false,
             })
         }
     }

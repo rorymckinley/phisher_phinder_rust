@@ -32,6 +32,8 @@ pub trait Configuration {
 
     fn reprocess_run_id(&self) -> Option<i64>;
 
+    fn send_abuse_notifications(&self) -> bool;
+
     fn service_type(&self) -> &ServiceType;
 
     fn store_config(&mut self);
@@ -70,6 +72,7 @@ pub struct ServiceConfiguration<'a> {
     config_file_location: &'a Path,
     message_source: Option<&'a str>,
     reprocess_run_id: Option<i64>,
+    send_abuse_notifications: bool,
     service_type: ServiceType,
     set_config_args: Option<&'a SetConfigArgs>,
 }
@@ -80,8 +83,9 @@ impl<'a> ServiceConfiguration<'a> {
         cli_parameters: &'a SingleCli,
         config_file_location: &'a Path,
     ) -> Result<Self, ServiceConfigurationError> {
-        // TODO Error handling for the unwrap
         if let Ok(config_file) = confy::load_path::<FileConfig>(config_file_location) {
+            let service_type = determine_config_service_type(cli_parameters);
+
             match  cli_parameters {
                 SingleCli {command: SingleCliCommands::Process(args), ..} => {
                     Ok(
@@ -91,20 +95,16 @@ impl<'a> ServiceConfiguration<'a> {
                             config_file_location,
                             message_source,
                             reprocess_run_id: args.reprocess_run,
-                            service_type: ServiceType::ProcessMessage,
+                            send_abuse_notifications: args.send_abuse_notifications,
+                            service_type,
                         }
                     )
                 },
                 SingleCli {command: SingleCliCommands::Config(ConfigArgs {command}), ..} => {
-                    let service_type = Self::determine_config_service_type(command);
-
-                    let mut set_config_args: Option<&SetConfigArgs> = None;
-
-                    if ServiceType::Config(ConfigServiceCommands::Set) == service_type {
-                        if let ConfigCommands::Set(args) = command {
-                            set_config_args = Some(args);
-                        }
-                    }
+                    let set_config_args = match command {
+                        ConfigCommands::Set(args) => Some(args),
+                        _ => None,
+                    };
 
                     Ok(
                         Self {
@@ -113,6 +113,7 @@ impl<'a> ServiceConfiguration<'a> {
                             config_file_location,
                             message_source: None,
                             reprocess_run_id: None,
+                            send_abuse_notifications: false,
                             service_type,
                         }
                     )
@@ -120,14 +121,6 @@ impl<'a> ServiceConfiguration<'a> {
             }
         } else {
             Err(ServiceConfigurationError::ConfigFileReadError)
-        }
-    }
-
-    fn determine_config_service_type(subcommand: &ConfigCommands) -> ServiceType {
-        match subcommand {
-            ConfigCommands::Location => ServiceType::Config(ConfigServiceCommands::Location),
-            ConfigCommands::Set(_) => ServiceType::Config(ConfigServiceCommands::Set),
-            ConfigCommands::Show => ServiceType::Config(ConfigServiceCommands::Show),
         }
     }
 }
@@ -202,6 +195,10 @@ impl<'a> Configuration for ServiceConfiguration<'a> {
         self.reprocess_run_id
     }
 
+    fn send_abuse_notifications(&self) -> bool {
+        self.send_abuse_notifications
+    }
+
     fn service_type(&self) -> &ServiceType {
         &self.service_type
     }
@@ -223,20 +220,33 @@ impl<'a> Configuration for ServiceConfiguration<'a> {
     }
 }
 
+fn determine_config_service_type(subcommand: &SingleCli) -> ServiceType {
+    match subcommand {
+        SingleCli {command: SingleCliCommands::Process(_)} => ServiceType::ProcessMessage,
+        SingleCli {command: SingleCliCommands::Config(ConfigArgs {command})} => {
+            match command {
+                ConfigCommands::Location => ServiceType::Config(ConfigServiceCommands::Location),
+                ConfigCommands::Set(_) => ServiceType::Config(ConfigServiceCommands::Set),
+                ConfigCommands::Show => ServiceType::Config(ConfigServiceCommands::Show),
+            }
+        }
+    }
+}
+
 #[cfg(test)]
-mod service_configuration_process_tests {
+mod service_configuration_new_tests {
     use assert_fs::TempDir;
     use crate::cli::{ProcessArgs, SingleCliCommands};
     use test_support::*;
     use super::*;
 
     #[test]
-    fn initialises_an_instance() {
+    fn initialises_an_instance_for_process_command() {
         let temp = TempDir::new().unwrap();
 
         let config_file_location = create_config_file(temp.path(), file_config());
 
-        let cli = build_cli(Some(99));
+        let cli = build_process_cli(Some(99), false);
 
         let config = ServiceConfiguration::new(
             Some("message source"),
@@ -249,6 +259,7 @@ mod service_configuration_process_tests {
             config_file_location: &config_file_location,
             message_source: Some("message source"),
             reprocess_run_id: Some(99),
+            send_abuse_notifications: false,
             service_type: ServiceType::ProcessMessage,
             set_config_args: None,
         };
@@ -257,31 +268,12 @@ mod service_configuration_process_tests {
     }
 
     #[test]
-    fn returns_error_if_the_config_file_cannot_be_read() {
-        let config_file_location = Path::new("/should/not/exist");
-
-        let cli = build_cli(Some(99));
-
-        let config = ServiceConfiguration::new(
-            Some("message source"),
-            &cli,
-            config_file_location,
-        );
-
-        match config {
-            Err(ServiceConfigurationError::ConfigFileReadError) => (),
-            Err(e) => panic!("Unexpected error response {e}"),
-            Ok(_) => panic!("Did not return error"),
-        }
-    }
-
-    #[test]
-    fn returns_service_type() {
+    fn initialises_an_instance_with_send_abuse_notifications_for_process_command() {
         let temp = TempDir::new().unwrap();
 
         let config_file_location = create_config_file(temp.path(), file_config());
 
-        let cli = build_cli(Some(99));
+        let cli = build_process_cli(Some(99), true);
 
         let config = ServiceConfiguration::new(
             Some("message source"),
@@ -289,275 +281,14 @@ mod service_configuration_process_tests {
             &config_file_location,
         ).unwrap();
 
-        assert_eq!(&ServiceType::ProcessMessage, config.service_type());
+        assert!(config.send_abuse_notifications);
     }
-
     #[test]
-    fn returns_db_path() {
-        let temp = TempDir::new().unwrap();
-
-        let config_file_location = create_config_file(temp.path(), file_config());
-
-        let cli = build_cli(None);
-
-        let config = ServiceConfiguration::new(
-            Some("message source"),
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(Some(Path::new("/other/path/to/db")), config.db_path());
-    }
-
-    #[test]
-    fn returns_message_sources() {
-        let temp = TempDir::new().unwrap();
-
-        let config_file_location = create_config_file(temp.path(), file_config());
-
-        let cli = build_cli(None);
-
-        let config = ServiceConfiguration::new(
-            Some("message source"),
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(Some("message source"), config.message_sources());
-    }
-
-    #[test]
-    fn returns_reprocess_run_id() {
-        let temp = TempDir::new().unwrap();
-
-        let config_file_location = create_config_file(temp.path(), file_config());
-
-        let cli = build_cli(Some(999));
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(Some(999), config.reprocess_run_id());
-    }
-
-    #[test]
-    fn returns_trusted_recipient() {
+    fn initialises_an_instance_for_config_command() {
         let temp = TempDir::new().unwrap();
         let config_file_location = create_config_file(temp.path(), file_config());
 
-        let cli = build_cli(Some(999));
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(Some("google.com"), config.trusted_recipient());
-    }
-
-    #[test]
-    fn returns_rdap_bootstrap_host() {
-        let temp = TempDir::new().unwrap();
-        let config_file_location = create_config_file(temp.path(), file_config());
-
-        let cli = build_cli(Some(999));
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(Some("localhost:4646"), config.rdap_bootstrap_host());
-    }
-
-    #[test]
-    fn returns_none_if_rdap_host_empty_string() {
-        let temp = TempDir::new().unwrap();
-        let config_file_location = create_config_file(
-            temp.path(),
-            file_config_rdap_bootstrap_empty()
-        );
-
-        let cli = build_cli(Some(999));
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(None, config.rdap_bootstrap_host());
-    }
-
-    #[test]
-    fn returns_none_if_no_rdap_host() {
-        let temp = TempDir::new().unwrap();
-        let config_file_location = create_config_file(
-            temp.path(),
-            file_config_rdap_bootstrap_none()
-        );
-
-        let cli = build_cli(Some(999));
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(None, config.rdap_bootstrap_host());
-    }
-
-    #[test]
-    fn returns_abuse_notifications_from_address() {
-        let temp = TempDir::new().unwrap();
-        let config_file_location = create_config_file(temp.path(), file_config());
-
-        let cli = build_cli(Some(999));
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(Some("fred@flintstone.zzz"), config.abuse_notifications_from_address());
-    }
-
-    #[test]
-    fn returns_none_if_no_abuse_notifications_from_address() {
-        let temp = TempDir::new().unwrap();
-        let config_file_location = create_config_file(
-            temp.path(),
-            file_config_abuse_from_address_none()
-        );
-
-        let cli = build_cli(Some(999));
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(None, config.abuse_notifications_from_address());
-    }
-
-    #[test]
-    fn returns_none_if_empty_string_abuse_notifications_from_address() {
-        let temp = TempDir::new().unwrap();
-        let config_file_location = create_config_file(
-            temp.path(),
-            file_config_abuse_from_address_empty()
-        );
-
-        let cli = build_cli(Some(999));
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(None, config.abuse_notifications_from_address());
-    }
-
-    #[test]
-    fn returns_abuse_notifications_author_name() {
-        let temp = TempDir::new().unwrap();
-        let config_file_location = create_config_file(temp.path(), file_config());
-
-        let cli = build_cli(Some(999));
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(Some("Fred Flintstone"), config.abuse_notifications_author_name())
-    }
-
-    #[test]
-    fn returns_none_if_no_abuse_notifications_author_name() {
-        let temp = TempDir::new().unwrap();
-        let config_file_location = create_config_file(
-            temp.path(),
-            file_config_abuse_author_name_none()
-        );
-
-        let cli = build_cli(Some(999));
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(None, config.abuse_notifications_author_name())
-    }
-
-    #[test]
-    fn returns_none_if_empty_string_abuse_notifications_author_name() {
-        let temp = TempDir::new().unwrap();
-        let config_file_location = create_config_file(
-            temp.path(),
-            file_config_abuse_author_name_empty()
-        );
-
-        let cli = build_cli(Some(999));
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(None, config.abuse_notifications_author_name())
-    }
-
-    #[test]
-    fn returns_config_file_path() {
-        let config_file_location = Path::new("/tmp/phisher_eagle.conf");
-
-        let cli = build_cli(Some(99));
-
-        let config = ServiceConfiguration::new(
-            Some("message source"),
-            &cli,
-            config_file_location,
-        ).unwrap();
-
-        assert_eq!(config_file_location, config.config_file_location());
-    }
-
-    fn build_cli(reprocess_run: Option<i64>) -> SingleCli {
-        SingleCli {
-            command: SingleCliCommands::Process(ProcessArgs {
-                reprocess_run,
-            })
-        }
-    }
-}
-
-#[cfg(test)]
-mod service_configuration_config_location_command_tests {
-    use assert_fs::TempDir;
-    use crate::cli::{ConfigArgs, ConfigCommands, SetConfigArgs, SingleCliCommands};
-    use test_support::*;
-    use super::*;
-
-    #[test]
-    fn initialises_an_instance() {
-        let temp = TempDir::new().unwrap();
-        let config_file_location = create_config_file(temp.path(), file_config());
-
-        let cli = build_cli(ConfigCommands::Location);
+        let cli = build_config_cli(ConfigCommands::Location);
 
         let config = ServiceConfiguration::new(
             None,
@@ -570,6 +301,7 @@ mod service_configuration_config_location_command_tests {
             config_file_location: &config_file_location,
             message_source: None,
             reprocess_run_id: None,
+            send_abuse_notifications: false,
             service_type: ServiceType::Config(ConfigServiceCommands::Location),
             set_config_args: None,
         };
@@ -578,10 +310,39 @@ mod service_configuration_config_location_command_tests {
     }
 
     #[test]
+    fn stores_a_reference_to_the_set_config_parameters_for_set_config_command() {
+        let config_file_location = Path::new("/tmp/phisher_eagle.conf");
+
+        let cli = build_config_cli(ConfigCommands::Set(set_config_args()));
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            config_file_location,
+        ).unwrap();
+        assert_eq!(config.set_config_args, Some(&set_config_args()));
+
+        let cli = build_config_cli(ConfigCommands::Show);
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            config_file_location,
+        ).unwrap();
+        assert!(config.set_config_args.is_none());
+
+        let cli = build_config_cli(ConfigCommands::Location);
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            config_file_location,
+        ).unwrap();
+        assert!(config.set_config_args.is_none());
+    }
+
+    #[test]
     fn returns_error_if_the_config_file_cannot_be_read() {
         let config_file_location = Path::new("/should/not/exist");
 
-        let cli = build_cli(ConfigCommands::Location);
+        let cli = build_process_cli(Some(99), false);
 
         let config = ServiceConfiguration::new(
             Some("message source"),
@@ -596,259 +357,16 @@ mod service_configuration_config_location_command_tests {
         }
     }
 
-    #[test]
-    fn returns_service_type() {
-        let config_file_location = Path::new("/tmp/phisher_eagle.conf");
-
-        let cli = build_cli(ConfigCommands::Location);
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            config_file_location,
-        ).unwrap();
-
-        assert_eq!(
-            &ServiceType::Config(ConfigServiceCommands::Location),
-            config.service_type()
-        );
-    }
-
-    #[test]
-    fn returns_db_path() {
-        let temp = TempDir::new().unwrap();
-        let config_file_location = create_config_file(temp.path(), file_config());
-
-        let cli = build_cli(ConfigCommands::Location);
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(Some(Path::new("/other/path/to/db")), config.db_path());
-    }
-
-    #[test]
-    fn returns_message_sources() {
-        let temp = TempDir::new().unwrap();
-        let config_file_location = create_config_file(temp.path(), file_config());
-
-        let cli = build_cli(ConfigCommands::Location);
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(None, config.message_sources());
-    }
-
-    #[test]
-    fn returns_reprocess_run_id() {
-        let temp = TempDir::new().unwrap();
-        let config_file_location = create_config_file(temp.path(), file_config());
-
-        let cli = build_cli(ConfigCommands::Location);
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(None, config.reprocess_run_id());
-    }
-
-    #[test]
-    fn returns_trusted_recipient() {
-        let temp = TempDir::new().unwrap();
-        let config_file_location = create_config_file(temp.path(), file_config());
-
-        let cli = build_cli(ConfigCommands::Location);
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(Some("google.com"), config.trusted_recipient());
-    }
-
-    #[test]
-    fn returns_rdap_bootstrap_host() {
-        let temp = TempDir::new().unwrap();
-        let config_file_location = create_config_file(temp.path(), file_config());
-
-        let cli = build_cli(ConfigCommands::Location);
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(Some("localhost:4646"), config.rdap_bootstrap_host());
-    }
-
-    #[test]
-    fn returns_abuse_notifications_from_address() {
-        let temp = TempDir::new().unwrap();
-        let config_file_location = create_config_file(temp.path(), file_config());
-
-        let cli = build_cli(ConfigCommands::Location);
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(Some("fred@flintstone.zzz"), config.abuse_notifications_from_address());
-    }
-
-    #[test]
-    fn returns_abuse_notifications_author_name() {
-        let temp = TempDir::new().unwrap();
-        let config_file_location = create_config_file(temp.path(), file_config());
-
-        let cli = build_cli(ConfigCommands::Location);
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            &config_file_location,
-        ).unwrap();
-
-        assert_eq!(Some("Fred Flintstone"), config.abuse_notifications_author_name())
-    }
-
-    #[test]
-    fn returns_config_file_path() {
-        let config_file_location = Path::new("/tmp/phisher_eagle.conf");
-
-        let cli = build_cli(ConfigCommands::Location);
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            config_file_location,
-        ).unwrap();
-
-        assert_eq!(config_file_location, config.config_file_location());
-    }
-
-    #[test]
-    fn sets_the_config_service_type_based_on_config_subcommand() {
-        let config_file_location = Path::new("/tmp/phisher_eagle.conf");
-
-        let cli = build_cli(ConfigCommands::Location);
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            config_file_location,
-        ).unwrap();
-        assert_eq!(&ServiceType::Config(ConfigServiceCommands::Location), config.service_type());
-
-        let cli = build_cli(ConfigCommands::Set(SetConfigArgs{
-            abuse_notifications_author_name: None,
-            abuse_notifications_from_address: None,
-            db_path: None,
-            rdap_bootstrap_host: None,
-            smtp_host_uri: None,
-            smtp_password: None,
-            smtp_username: None,
-            trusted_recipient: None,
-        }));
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            config_file_location,
-        ).unwrap();
-        assert_eq!(&ServiceType::Config(ConfigServiceCommands::Set), config.service_type());
-
-        let cli = build_cli(ConfigCommands::Show);
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            config_file_location,
-        ).unwrap();
-        assert_eq!(&ServiceType::Config(ConfigServiceCommands::Show), config.service_type());
-    }
-
-    fn build_cli(subcommand: ConfigCommands) -> SingleCli {
+    fn build_process_cli(reprocess_run: Option<i64>, send_abuse_notifications: bool) -> SingleCli {
         SingleCli {
-            command: SingleCliCommands::Config(ConfigArgs {
-                command: subcommand,
+            command: SingleCliCommands::Process(ProcessArgs {
+                reprocess_run,
+                send_abuse_notifications,
             })
         }
     }
-}
 
-#[cfg(test)]
-mod service_configuration_set_config_command_tests {
-    use crate::cli::{ConfigArgs, ConfigCommands, SetConfigArgs, SingleCliCommands};
-    use super::*;
-
-    #[test]
-    fn stores_a_reference_to_the_set_config_parameters() {
-        let config_file_location = Path::new("/tmp/phisher_eagle.conf");
-
-        let cli = build_cli(ConfigCommands::Set(set_config_args()));
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            config_file_location,
-        ).unwrap();
-
-        assert_eq!(config.set_config_args, Some(&set_config_args()));
-    }
-
-    #[test]
-    fn sets_the_config_service_type_based_on_config_subcommand() {
-        let config_file_location = Path::new("/tmp/phisher_eagle.conf");
-
-        let cli = build_cli(ConfigCommands::Location);
-
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            config_file_location,
-        ).unwrap();
-        assert_eq!(&ServiceType::Config(ConfigServiceCommands::Location), config.service_type());
-
-        let cli = build_cli(ConfigCommands::Set(SetConfigArgs{
-            abuse_notifications_author_name: None,
-            abuse_notifications_from_address: None,
-            db_path: None,
-            rdap_bootstrap_host: None,
-            smtp_host_uri: None,
-            smtp_password: None,
-            smtp_username: None,
-            trusted_recipient: None,
-        }));
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            config_file_location,
-        ).unwrap();
-        assert_eq!(&ServiceType::Config(ConfigServiceCommands::Set), config.service_type());
-
-        let cli = build_cli(ConfigCommands::Show);
-        let config = ServiceConfiguration::new(
-            None,
-            &cli,
-            config_file_location,
-        ).unwrap();
-        assert_eq!(&ServiceType::Config(ConfigServiceCommands::Show), config.service_type());
-    }
-
-    fn build_cli(subcommand: ConfigCommands) -> SingleCli {
+    fn build_config_cli(subcommand: ConfigCommands) -> SingleCli {
         SingleCli {
             command: SingleCliCommands::Config(ConfigArgs {
                 command: subcommand,
@@ -871,7 +389,306 @@ mod service_configuration_set_config_command_tests {
 }
 
 #[cfg(test)]
-mod config_file_entries_tests {
+mod service_configuration_configuration_trait_tests {
+    use assert_fs::TempDir;
+    use crate::cli::{ProcessArgs, SingleCliCommands};
+    use test_support::*;
+    use super::*;
+
+    #[test]
+    fn returns_service_type() {
+        let temp = TempDir::new().unwrap();
+
+        let config_file_location = create_config_file(temp.path(), file_config());
+
+        let cli = build_cli(Some(99), false);
+
+        let config = ServiceConfiguration::new(
+            Some("message source"),
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(&ServiceType::ProcessMessage, config.service_type());
+    }
+
+    #[test]
+    fn returns_db_path() {
+        let temp = TempDir::new().unwrap();
+
+        let config_file_location = create_config_file(temp.path(), file_config());
+
+        let cli = build_cli(None, false);
+
+        let config = ServiceConfiguration::new(
+            Some("message source"),
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(Some(Path::new("/other/path/to/db")), config.db_path());
+    }
+
+    #[test]
+    fn returns_message_sources() {
+        let temp = TempDir::new().unwrap();
+
+        let config_file_location = create_config_file(temp.path(), file_config());
+
+        let cli = build_cli(None, false);
+
+        let config = ServiceConfiguration::new(
+            Some("message source"),
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(Some("message source"), config.message_sources());
+    }
+
+    #[test]
+    fn returns_reprocess_run_id() {
+        let temp = TempDir::new().unwrap();
+
+        let config_file_location = create_config_file(temp.path(), file_config());
+
+        let cli = build_cli(Some(999), false);
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(Some(999), config.reprocess_run_id());
+    }
+
+    #[test]
+    fn returns_trusted_recipient() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(temp.path(), file_config());
+
+        let cli = build_cli(Some(999), false);
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(Some("google.com"), config.trusted_recipient());
+    }
+
+    #[test]
+    fn returns_rdap_bootstrap_host() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(temp.path(), file_config());
+
+        let cli = build_cli(Some(999), false);
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(Some("localhost:4646"), config.rdap_bootstrap_host());
+    }
+
+    #[test]
+    fn returns_none_if_rdap_bootstrap_host_empty_string() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config_rdap_bootstrap_empty()
+        );
+
+        let cli = build_cli(Some(999), false);
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(None, config.rdap_bootstrap_host());
+    }
+
+    #[test]
+    fn returns_none_if_no_rdap_bootstrap_host() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config_rdap_bootstrap_none()
+        );
+
+        let cli = build_cli(Some(999), false);
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(None, config.rdap_bootstrap_host());
+    }
+
+    #[test]
+    fn returns_abuse_notifications_from_address() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(temp.path(), file_config());
+
+        let cli = build_cli(Some(999), false);
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(Some("fred@flintstone.zzz"), config.abuse_notifications_from_address());
+    }
+
+    #[test]
+    fn returns_none_if_no_abuse_notifications_from_address() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config_abuse_from_address_none()
+        );
+
+        let cli = build_cli(Some(999), false);
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(None, config.abuse_notifications_from_address());
+    }
+
+    #[test]
+    fn returns_none_if_empty_string_abuse_notifications_from_address() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config_abuse_from_address_empty()
+        );
+
+        let cli = build_cli(Some(999), false);
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(None, config.abuse_notifications_from_address());
+    }
+
+    #[test]
+    fn returns_abuse_notifications_author_name() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(temp.path(), file_config());
+
+        let cli = build_cli(Some(999), false);
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(Some("Fred Flintstone"), config.abuse_notifications_author_name())
+    }
+
+    #[test]
+    fn returns_none_if_no_abuse_notifications_author_name() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config_abuse_author_name_none()
+        );
+
+        let cli = build_cli(Some(999), false);
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(None, config.abuse_notifications_author_name())
+    }
+
+    #[test]
+    fn returns_none_if_empty_string_abuse_notifications_author_name() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config_abuse_author_name_empty()
+        );
+
+        let cli = build_cli(Some(999), false);
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(None, config.abuse_notifications_author_name())
+    }
+
+    #[test]
+    fn returns_config_file_path() {
+        let config_file_location = Path::new("/tmp/phisher_eagle.conf");
+
+        let cli = build_cli(Some(99), false);
+
+        let config = ServiceConfiguration::new(
+            Some("message source"),
+            &cli,
+            config_file_location,
+        ).unwrap();
+
+        assert_eq!(config_file_location, config.config_file_location());
+    }
+
+    #[test]
+    fn returns_send_abuse_notifications() {
+        let config_file_location = Path::new("/tmp/phisher_eagle.conf");
+
+        let cli = build_cli(Some(99), true);
+        let config = ServiceConfiguration::new(
+            Some("message source"),
+            &cli,
+            config_file_location,
+        ).unwrap();
+        assert!(config.send_abuse_notifications());
+
+        let cli = build_cli(Some(99), false);
+        let config = ServiceConfiguration::new(
+            Some("message source"),
+            &cli,
+            config_file_location,
+        ).unwrap();
+        assert!(!config.send_abuse_notifications());
+    }
+
+    fn build_cli(reprocess_run: Option<i64>, send_abuse_notifications: bool) -> SingleCli {
+        SingleCli {
+            command: SingleCliCommands::Process(ProcessArgs {
+                reprocess_run,
+                send_abuse_notifications,
+            })
+        }
+    }
+}
+
+#[cfg(test)]
+mod service_configuration_configuration_trait_config_file_entries_tests {
     use assert_fs::TempDir;
     use std::path::PathBuf;
     use super::*;
@@ -1009,6 +826,7 @@ mod config_file_entries_tests {
             config_file_location,
             message_source: None,
             reprocess_run_id: None,
+            send_abuse_notifications: false,
             service_type: ServiceType::ProcessMessage,
             set_config_args: None,
         }
@@ -1016,7 +834,7 @@ mod config_file_entries_tests {
 }
 
 #[cfg(test)]
-mod store_config_tests {
+mod service_configuration_configuration_trait_store_config_tests {
     use assert_fs::TempDir;
     use crate::cli::SetConfigArgs;
     use std::fs;
@@ -1608,6 +1426,74 @@ mod configuration_file_contents_select_value_tests {
         let selected = configuration_file_contents::select_value(current, new);
 
         assert_eq!(selected, None);
+    }
+}
+
+#[cfg(test)]
+mod determine_config_service_type_tests {
+    use crate::cli::{ProcessArgs, SingleCliCommands};
+    use super::*;
+
+    #[test]
+    fn returns_process_service_type() {
+        let cli = SingleCli {
+            command: SingleCliCommands::Process(ProcessArgs {
+                reprocess_run: None,
+                send_abuse_notifications: false,
+            })
+        };
+
+        let service_type = determine_config_service_type(&cli);
+
+        assert_eq!(ServiceType::ProcessMessage, service_type);
+    }
+
+    #[test]
+    fn returns_config_location_service_type() {
+        let cli = SingleCli {
+            command: SingleCliCommands::Config(ConfigArgs {
+                command: ConfigCommands::Location,
+            })
+        };
+
+        let service_type = determine_config_service_type(&cli);
+
+        assert_eq!(ServiceType::Config(ConfigServiceCommands::Location), service_type);
+    }
+
+    #[test]
+    fn returns_config_set_service_type() {
+        let cli = SingleCli {
+            command: SingleCliCommands::Config(ConfigArgs {
+                command: ConfigCommands::Set(SetConfigArgs {
+                    abuse_notifications_author_name: None,
+                    abuse_notifications_from_address: None,
+                    db_path: None,
+                    rdap_bootstrap_host: None,
+                    smtp_host_uri: None,
+                    smtp_password: None,
+                    smtp_username: None,
+                    trusted_recipient: None,
+                }),
+            })
+        };
+
+        let service_type = determine_config_service_type(&cli);
+
+        assert_eq!(ServiceType::Config(ConfigServiceCommands::Set), service_type);
+    }
+
+    #[test]
+    fn returns_config_show_service_type() {
+        let cli = SingleCli {
+            command: SingleCliCommands::Config(ConfigArgs {
+                command: ConfigCommands::Show,
+            })
+        };
+
+        let service_type = determine_config_service_type(&cli);
+
+        assert_eq!(ServiceType::Config(ConfigServiceCommands::Show), service_type);
     }
 }
 
