@@ -24,7 +24,7 @@ mod connect_tests {
     #[test]
     fn returns_none_if_cannot_create_connection() {
         let temp = TempDir::new().unwrap();
-        let db_path = temp.path().join("/unobtainium/db.sqlite3");
+        let db_path = temp.path().join("unobtainium/db.sqlite3");
 
         assert!(connect(&db_path).is_err())
     }
@@ -43,7 +43,7 @@ mod persist_message_source_tests {
     fn creates_the_messages_sources_table() {
         let conn = connection();
 
-        persist_message_source(&conn, message_source_1());
+        persist_message_source(&conn, &message_source_1());
 
         assert!(table_exists(&conn))
     }
@@ -52,8 +52,8 @@ mod persist_message_source_tests {
     fn inserts_records_into_the_table() {
         let conn = connection();
 
-        persist_message_source(&conn, message_source_1());
-        persist_message_source(&conn, message_source_2());
+        persist_message_source(&conn, &message_source_1());
+        persist_message_source(&conn, &message_source_2());
 
         assert_eq!(
             vec![
@@ -69,7 +69,7 @@ mod persist_message_source_tests {
         let conn = connection();
         let now = Utc::now();
 
-        persist_message_source(&conn, message_source_1());
+        persist_message_source(&conn, &message_source_1());
 
         let (_, _, _, created_at_string) = table_contents(&conn).pop().unwrap();
 
@@ -88,7 +88,7 @@ mod persist_message_source_tests {
     fn returns_message_source_with_persisted_id() {
         let conn = connection();
 
-        let message_source = persist_message_source(&conn, message_source_1());
+        let message_source = persist_message_source(&conn, &message_source_1());
 
         assert_eq!(expected_message_source(), message_source);
     }
@@ -97,8 +97,8 @@ mod persist_message_source_tests {
     fn does_not_store_duplicate_messages() {
         let conn = connection();
 
-        persist_message_source(&conn, message_source_1());
-        persist_message_source(&conn, message_source_1());
+        persist_message_source(&conn, &message_source_1());
+        persist_message_source(&conn, &message_source_1());
 
         assert_eq!(
             vec![(1, message_source_data_1(), message_1_hash()),],
@@ -110,8 +110,8 @@ mod persist_message_source_tests {
     fn returns_message_source_if_record_already_exists() {
         let conn = connection();
 
-        persist_message_source(&conn, message_source_1());
-        let message_source = persist_message_source(&conn, message_source_1());
+        persist_message_source(&conn, &message_source_1());
+        let message_source = persist_message_source(&conn, &message_source_1());
 
         assert_eq!(expected_message_source(), message_source);
     }
@@ -183,7 +183,7 @@ mod persist_message_source_tests {
     }
 }
 
-pub fn persist_message_source(conn: &Connection, source: MessageSource) -> MessageSource {
+pub fn persist_message_source(conn: &Connection, source: &MessageSource) -> MessageSource {
     create_message_sources_table(conn);
 
     let hash = sha256(&source.data);
@@ -193,11 +193,12 @@ pub fn persist_message_source(conn: &Connection, source: MessageSource) -> Messa
     } else {
         create_message_source(conn, &source, &hash);
 
+        //TODO Replace this unwrap with something better?
         get_record(conn, &hash).unwrap()
     }
 }
 
-fn create_message_sources_table(conn: &Connection) {
+pub fn create_message_sources_table(conn: &Connection) {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS message_sources \
         ( \
@@ -211,7 +212,60 @@ fn create_message_sources_table(conn: &Connection) {
     .unwrap();
 }
 
-fn sha256(text: &str) -> String {
+#[cfg(test)]
+mod create_message_sources_table_tests {
+    use super::*;
+
+    #[test]
+    fn creates_the_message_sources_table() {
+        let conn = connection();
+
+        create_message_sources_table(&conn);
+
+        let expected: Vec<(String, String, u8, u8)> = vec![
+            ("id".into(), "INTEGER".into(), 0, 1),
+            ("data".into(), "TEXT".into(), 1, 0),
+            ("hash".into(), "TEXT".into(), 1, 0),
+            ("created_at".into(), "TEXT".into(), 1, 0),
+        ];
+
+        assert_eq!(expected, get_table_schema(&conn));
+    }
+
+    fn connection() -> Connection {
+        Connection::open_in_memory().unwrap()
+    }
+
+    fn get_table_schema(conn: &Connection) -> Vec<(String, String, u8, u8)> {
+        // https://sqlite.org/pragma.html#pragma_table_info
+
+        let mut stmt = conn
+            .prepare("SELECT * from pragma_table_info('message_sources')")
+            .unwrap();
+
+        let schema_iter = stmt
+            .query_map(
+                [],
+                |row| {
+                    Ok(
+                        (
+                            row.get(1).unwrap(), // name
+                            row.get(2).unwrap(), // type
+                            row.get(3).unwrap(), // not null
+                            row.get(5).unwrap() // PK
+                        )
+                    )
+                }
+            )
+            .unwrap();
+
+        schema_iter
+            .map(|row| row.unwrap())
+            .collect()
+    }
+}
+
+pub fn sha256(text: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(text);
     let sha = hasher.finalize();
@@ -220,6 +274,19 @@ fn sha256(text: &str) -> String {
         .map(|byte| format!("{byte:02x}"))
         .collect::<Vec<String>>()
         .join("")
+}
+
+#[cfg(test)]
+mod sha256_tests {
+    use super::*;
+
+    #[test]
+    fn hashes_text() {
+        assert_eq!(
+            "41bea4496bda7a9eab66ca2f5e5a094992eaa4a98a81191d198ebdb115eed5f5",
+            sha256("Message Source 1")
+        );
+    }
 }
 
 fn create_message_source(conn: &Connection, source: &MessageSource, hash: &str) {
@@ -243,8 +310,8 @@ mod get_record_tests {
     fn returns_none_if_message_cannot_be_found() {
         let conn = connection();
 
-        persist_message_source(&conn, MessageSource::new("source 1"));
-        persist_message_source(&conn, MessageSource::new("source 2"));
+        persist_message_source(&conn, &MessageSource::new("source 1"));
+        persist_message_source(&conn, &MessageSource::new("source 2"));
 
         assert!(get_record(&conn, &sha256("source 3")).is_none());
     }
@@ -253,9 +320,9 @@ mod get_record_tests {
     fn returns_message_source_if_it_can_be_found() {
         let conn = connection();
 
-        persist_message_source(&conn, MessageSource::new("source 1"));
-        persist_message_source(&conn, MessageSource::new("source 2"));
-        persist_message_source(&conn, MessageSource::new("source 3"));
+        persist_message_source(&conn, &MessageSource::new("source 1"));
+        persist_message_source(&conn, &MessageSource::new("source 2"));
+        persist_message_source(&conn, &MessageSource::new("source 3"));
 
         assert_eq!(
             MessageSource::persisted_record(2, "source 2"),
@@ -618,7 +685,7 @@ mod find_random_run_tests {
     }
 
     fn build_run(conn: &Connection, index: u8) {
-        let persisted_source = persist_message_source(conn, message_source(index));
+        let persisted_source = persist_message_source(conn, &message_source(index));
 
         let output_data = build_output_data(persisted_source);
 
@@ -716,7 +783,7 @@ mod find_run_tests {
     }
 
     fn build_run(conn: &Connection, index: u8) -> i64 {
-        let persisted_source = persist_message_source(conn, message_source(index));
+        let persisted_source = persist_message_source(conn, &message_source(index));
 
         let output_data = build_output_data(persisted_source);
 
@@ -813,11 +880,11 @@ mod find_runs_for_message_source_tests {
     }
 
     fn target_source(conn: &Connection) -> MessageSource {
-        persist_message_source(conn, message_source(1))
+        persist_message_source(conn, &message_source(1))
     }
 
     fn other_source(conn: &Connection) -> MessageSource {
-        persist_message_source(conn, message_source(2))
+        persist_message_source(conn, &message_source(2))
     }
 
     fn build_run(conn: &Connection, message_source: MessageSource) -> Run {

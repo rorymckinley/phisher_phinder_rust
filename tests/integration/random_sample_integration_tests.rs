@@ -29,7 +29,7 @@ fn create_samples(db_path: &Path, number_of_samples: u8) {
 }
 
 fn build_run(conn: &Connection, index: u8) {
-    let persisted_source = persist_message_source(conn, message_source(index));
+    let persisted_source = persist_message_source(conn, &message_source(index));
 
     let output_data = build_output_data(persisted_source);
 
