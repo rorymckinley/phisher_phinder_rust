@@ -18,10 +18,12 @@ use test_friendly_rdap_client::Client;
 use tokio::task::JoinError;
 
 mod configuration;
+mod message_source;
 
 pub async fn execute_command<T>(config: &T) -> Result<String, AppError>
 where T: service_configuration::Configuration {
     let command_config = configuration::extract_command_config(config)?;
+    let command_config_two = configuration::extract_command_config_two(config)?;
 
     let connection = setup_connection(&command_config)?;
 

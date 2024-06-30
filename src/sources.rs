@@ -1,6 +1,34 @@
 use crate::message_source::MessageSource;
 use regex::Regex;
 
+
+pub fn create_from_str(mbox_contents: &str) -> Vec<MessageSource> {
+    if mbox_contents.is_empty() {
+        return vec![];
+    }
+
+    if is_mbox_file(mbox_contents) {
+        let re = Regex::new(r"(?ms).+?(Delivered-To:.+)\z").unwrap();
+
+        mbox_contents
+            .split("\r\nFrom ")
+            .filter_map(|snippet| {
+                re.captures(snippet)
+                    .map(|caps| caps.get(1).unwrap().as_str())
+            })
+            .map(MessageSource::new)
+            .collect()
+    } else {
+        vec![MessageSource::new(mbox_contents)]
+    }
+}
+
+fn is_mbox_file(mbox_contents: &str) -> bool {
+    let re = Regex::new(r"\AFrom ").unwrap();
+
+    re.is_match(mbox_contents)
+}
+
 #[cfg(test)]
 mod mbox_create_from_str_tests {
     use super::*;
@@ -21,6 +49,11 @@ mod mbox_create_from_str_tests {
             single_source_expected(),
             create_from_str(&single_source_input())
         )
+    }
+
+    #[test]
+    fn returns_empty_collection_if_input_is_empty() {
+        assert!(create_from_str("").is_empty());
     }
 
     fn input() -> String {
@@ -116,27 +149,4 @@ Subject: Dodgy Subject 1\r
 blahblah"
             .into()
     }
-}
-
-pub fn create_from_str(mbox_contents: &str) -> Vec<MessageSource> {
-    if is_mbox_file(mbox_contents) {
-        let re = Regex::new(r"(?ms).+?(Delivered-To:.+)\z").unwrap();
-
-        mbox_contents
-            .split("\r\nFrom ")
-            .filter_map(|snippet| {
-                re.captures(snippet)
-                    .map(|caps| caps.get(1).unwrap().as_str())
-            })
-            .map(|data| MessageSource::new(data))
-            .collect()
-    } else {
-        vec![MessageSource::new(mbox_contents)]
-    }
-}
-
-fn is_mbox_file(mbox_contents: &str) -> bool {
-    let re = Regex::new(r"\AFrom ").unwrap();
-
-    re.is_match(mbox_contents)
 }
