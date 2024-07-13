@@ -1,38 +1,31 @@
 use crate::errors::AppError;
+use crate::message_source::MessageSource;
+use crate::persistence::connect;
+use crate::service::process_message::message_source::build_message_sources;
 use crate::service_configuration;
 use std::path::Path;
 
-pub fn extract_command_config<T>(config: &T) -> Result<Configuration, AppError>
+pub fn extract_command_config<T>(config: &T) -> Result<ConfigurationTwo, AppError>
 where T: service_configuration::Configuration {
-    check_for_source_data(config)?;
-
     if let Some(db_path) = config.db_path().as_ref() {
-        Ok(Configuration {
-            db_path,
-            message_source: config.message_sources(),
-            reprocess_run_id: config.reprocess_run_id(),
-            trusted_recipient: config.trusted_recipient()
-        })
-    } else {
-        Err(AppError::InvalidConfiguration("Please configure db_path.".into()))
-    }
-}
+        if let Ok(db_connection) = connect(db_path) {
+            let inputs = build_message_sources(&db_connection, config)?;
 
-fn check_for_source_data<T>(config: &T) -> Result<(), AppError>
-where T: service_configuration::Configuration {
-    if config.reprocess_run_id().is_none() {
-        match config.message_sources() {
-            None => Err(AppError::NoMessageSource),
-            Some(message_sources) => {
-                if message_sources.is_empty() {
-                    Err(AppError::NoMessageSource)
-                } else {
-                    Ok(())
-                }
-            }
+            Ok(ConfigurationTwo {
+                db_connection,
+                inputs,
+                trusted_recipient: config.trusted_recipient()
+            })
+        } else {
+            // TODO If we push the error conversion into connect, this code can be
+            // collapsed into a ? call
+            // NOTE There is a chance that this fails, due to invalid UTF-8
+            // Not sure how likely it is to happen, but it is really hard to test,
+            // so for now, allow it to panic
+            Err(AppError::DatabasePathIncorrect(db_path.to_str().unwrap().into()))
         }
     } else {
-        Ok(())
+        Err(AppError::InvalidConfiguration("Please configure db_path.".into()))
     }
 }
 
@@ -44,56 +37,45 @@ pub struct Configuration<'a> {
     pub trusted_recipient: Option<&'a str>,
 }
 
+#[derive(Debug)]
+pub struct ConfigurationTwo<'a> {
+    pub db_connection: rusqlite::Connection,
+    pub inputs: Vec<MessageSource>,
+    pub trusted_recipient: Option<&'a str>,
+}
+
 #[cfg(test)]
 mod extract_command_config_tests {
+    use assert_fs::TempDir;
     use crate::service_configuration::ServiceType;
     use std::path::{Path, PathBuf};
     use super::*;
 
     #[test]
-    fn returns_extracted_configuration_if_extract_command_config_for_run_from_stdin() {
+    fn returns_extracted_configuration() {
+        let temp = TempDir::new().unwrap();
+
         let config = merge(
-            base_config(),
+            base_config(&temp),
             OverrideConfig {
                 message_sources: Some("message source".into()),
                 reprocess_run_id: None,
                 ..OverrideConfig::default()
             }
         );
-        let extracted_config = Configuration {
-            db_path: &PathBuf::from("/does/not/matter"),
-            message_source: Some("message source"),
-            reprocess_run_id: None,
-            trusted_recipient: Some("mx.google.com"),
-        };
 
-        assert_eq!(extract_command_config(&config).unwrap(), extracted_config);
-    }
+        let extracted_config = extract_command_config(&config).unwrap();
 
-    #[test]
-    fn returns_extracted_config_if_extract_command_config_for_run_from_db() {
-        let config = merge(
-            base_config(),
-            OverrideConfig {
-                message_sources: None,
-                reprocess_run_id: Some(999),
-                ..OverrideConfig::default()
-            }
-        );
-
-        let extracted_config = Configuration {
-            db_path: &PathBuf::from("/does/not/matter"),
-            message_source: None,
-            reprocess_run_id: Some(999),
-            trusted_recipient: Some("mx.google.com"),
-        };
-
-        assert_eq!(extract_command_config(&config).unwrap(), extracted_config);
+        assert_eq!(vec![MessageSource::new("message source")], extracted_config.inputs);
+        assert_eq!(Some("mx.google.com"), extracted_config.trusted_recipient);
+        assert_eq!(temp.join("db.sqlite3").to_str(), extracted_config.db_connection.path());
     }
 
     #[test]
     fn returns_error_if_no_stdin_or_reprocess_run_id() {
-        let config = base_config();
+        let temp = TempDir::new().unwrap();
+
+        let config = base_config(&temp);
         let result = extract_command_config(&config);
 
         match result {
@@ -105,8 +87,10 @@ mod extract_command_config_tests {
 
     #[test]
     fn returns_error_if_stdin_empty_string() {
+        let temp = TempDir::new().unwrap();
+
         let config = merge(
-            base_config(),
+            base_config(&temp),
             OverrideConfig {
                 message_sources: Some("".into()),
                 reprocess_run_id: None,
@@ -124,13 +108,34 @@ mod extract_command_config_tests {
 
     #[test]
     fn returns_error_if_db_path_not_set() {
-        let config = config_sans_db_path(base_config());
+        let temp = TempDir::new().unwrap();
+
+        let config = config_sans_db_path(base_config(&temp));
 
         let result = extract_command_config(&config);
 
         match result {
             Err(AppError::InvalidConfiguration(message)) => {
                 assert_eq!(message, "Please configure db_path.");
+            },
+            Err(e) => panic!("Returned unexpected {e}"),
+            Ok(_) => panic!("Did not return error")
+        }
+    }
+
+    #[test]
+    fn returns_error_if_db_connection_cannot_be_established() {
+        let temp = TempDir::new().unwrap();
+
+        let config = config_with_unreachable_db_path(base_config(&temp), &temp);
+
+        let result = extract_command_config(&config);
+
+        match result {
+            Err(AppError::DatabasePathIncorrect(message)) => {
+                let incorrect_path = temp.path().join("un/ob/tai/nium");
+                let expected_message = incorrect_path.to_str().unwrap();
+                assert_eq!(expected_message, message);
             },
             Err(e) => panic!("Returned unexpected {e}"),
             Ok(_) => panic!("Did not return error")
@@ -162,12 +167,12 @@ mod extract_command_config_tests {
         }
     }
 
-    fn base_config() -> TestConfig {
+    fn base_config(temp: &TempDir) -> TestConfig {
         TestConfig {
             abuse_notifications_author_name: Some("Author Name".into()),
             abuse_notifications_from_address: Some("From Address".into()),
             config_file_location: PathBuf::from("/does/not/matter"),
-            db_path: Some(PathBuf::from("/does/not/matter")),
+            db_path: Some(temp.path().join("db.sqlite3")),
             message_sources: None,
             rdap_bootstrap_host: Some("http://localhost:4545".into()),
             reprocess_run_id: None,
@@ -184,6 +189,13 @@ mod extract_command_config_tests {
         }
     }
 
+    fn config_with_unreachable_db_path(base_config: TestConfig, temp: &TempDir) -> TestConfig {
+        TestConfig {
+            message_sources: Some("message source".into()),
+            db_path: Some(temp.path().join("un/ob/tai/nium")),
+            ..base_config
+        }
+    }
     #[derive(Default)]
     struct OverrideConfig {
         abuse_notifications_author_name: Option<String>,

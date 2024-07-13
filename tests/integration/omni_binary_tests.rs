@@ -115,7 +115,11 @@ fn reruns_an_existing_run() {
 #[test]
 fn fails_if_no_stdin_or_rerun_instruction() {
     let temp = TempDir::new().unwrap();
+    let config_file_path = temp.path().join(".config/phisher_eagle/default-config.toml");
+    let db_path = temp.path().join("pp.sqlite3");
     let mut cmd = command(BINARY_NAME);
+
+    build_config_file(&config_file_path, Some(&db_path));
 
     cmd
         .args(["process"])
@@ -212,7 +216,7 @@ fn lookup_run_linked_to_message(db_path: &Path, hash: &str) -> Option<Run> {
 }
 
 fn build_run(conn: &Connection, index: u8) -> Run {
-    let persisted_source = persist_message_source(conn, message_source(index));
+    let persisted_source = persist_message_source(conn, &message_source(index));
 
     let output_data = build_output_data(persisted_source);
 

@@ -1,16 +1,13 @@
-use crate::analyser::Analyser;
 use crate::data::OutputData;
 use crate::enumerator::enumerate;
 use crate::errors::AppError;
 use crate::notification::add_notifications;
-use crate::persistence::{connect, find_run, persist_message_source, persist_run};
+use crate::persistence::persist_run;
 use crate::populator::populate;
 use crate::reporter::add_reportable_entities;
 use crate::run::Run;
 use crate::run_presenter::present;
 use crate::service_configuration;
-use crate::sources::create_from_str;
-use mail_parser::*;
 use rusqlite::Connection;
 use std::future::Future;
 use std::sync::Arc;
@@ -18,14 +15,31 @@ use test_friendly_rdap_client::Client;
 use tokio::task::JoinError;
 
 mod configuration;
+mod message_source;
+mod persistence;
+mod analysis;
 
 pub async fn execute_command<T>(config: &T) -> Result<String, AppError>
 where T: service_configuration::Configuration {
-    let command_config = configuration::extract_command_config(config)?;
+    let command_config_two = configuration::extract_command_config(config)?;
 
-    let connection = setup_connection(&command_config)?;
+    let input_data: Vec<OutputData> = command_config_two
+        .inputs
+        .iter()
+        .map(|message_source| {
+            let persisted_source = persistence::persist_message_source(
+                &command_config_two.db_connection,
+                message_source
+            );
 
-    let input_data = process_message_source(&connection, &command_config)?;
+            // TODO Test error handling
+            analysis::analyse_message_source(
+                persisted_source,
+                command_config_two.trusted_recipient
+            )
+            .unwrap()
+        })
+        .collect();
 
     // From https://users.rust-lang.org/t/how-to-tokio-join-on-a-vector-of-futures/73233
     let enumeration_tasks: Vec<_> = input_data
@@ -60,11 +74,11 @@ where T: service_configuration::Configuration {
         records_with_reportable_entities
     );
 
-    let run_result = persist_runs(&connection, records_with_notifications)?;
+    let run_result = persist_runs(&command_config_two.db_connection, records_with_notifications)?;
 
     // TODO The error in the Result is a tuple of (Connection, Error)
     // Add error conversion for this
-    connection.close().unwrap();
+    command_config_two.db_connection.close().unwrap();
 
     match run_result {
         RunStorageResult::MultipleRuns(count) => Ok(format!("{count} messages processed.")),
@@ -72,54 +86,6 @@ where T: service_configuration::Configuration {
             present(*boxed_run, config)
         }
     }
-}
-
-fn process_message_source(
-    connection: &Connection,
-    config: &configuration::Configuration
-) -> Result<Vec<OutputData>, AppError> {
-    if let Some(message_sources)= config.message_source {
-        let outputs = create_from_str(message_sources)
-            .into_iter()
-            .map(|message_source| {
-                let persisted_source = persist_message_source(connection, message_source);
-
-                // TODO Better error handling
-                let parsed_mail = Message::parse(persisted_source.data.as_bytes()).unwrap();
-
-                let analyser = Analyser::new(&parsed_mail);
-
-                // TODO Better error handling
-                let parsed_mail = analyser.analyse(config.trusted_recipient).unwrap();
-
-                //TODO rework analyser.delivery_nodes to take service configuration
-                OutputData::new(parsed_mail, persisted_source)
-            })
-        .collect::<Vec<_>>();
-
-        Ok(outputs)
-    } else if let Some(run_id) = config.reprocess_run_id {
-        if let Some(run) = find_run(connection, run_id) {
-            // TODO Better error handling
-            let parsed_mail = Message::parse(run.message_source.data.as_bytes()).unwrap();
-
-            let analyser = Analyser::new(&parsed_mail);
-
-            // TODO Better error handling
-            let parsed_mail = analyser.analyse(config.trusted_recipient).unwrap();
-
-            //TODO rework analyser.delivery_nodes to take service configuration
-            let output = OutputData::new(parsed_mail, run.message_source);
-
-            Ok(vec![output])
-        } else {
-
-            Err(AppError::SpecifiedRunMissing)
-        }
-    } else {
-        Err(AppError::NothingToProcess)
-    }
-
 }
 
 fn persist_runs(connection: &Connection, output_data_records: Vec<OutputData>)
@@ -161,15 +127,6 @@ async fn generate_reportable_entities(
     }
 
     output
-}
-
-fn setup_connection(config: &configuration::Configuration) -> Result<Connection, AppError> {
-    connect(config.db_path).or(
-        // NOTE There is a chance that this fails, due to invalid UTF-8
-        // Not sure how likely it is to happen, but it is really hard to test,
-        // so for now, allow it to panic
-        Err(AppError::DatabasePathIncorrect(config.db_path.to_str().unwrap().into()))
-    )
 }
 
 fn add_notifications_for_records(records: Vec<OutputData>) -> Vec<OutputData> {
@@ -370,7 +327,12 @@ mod process_message_execute_command_rerun_tests {
     };
     use crate::message_source::MessageSource;
     use crate::mountebank::{clear_all_impostors, setup_bootstrap_server};
-    use crate::persistence::{connect, find_runs_for_message_source};
+    use crate::persistence::{
+        connect,
+        find_run,
+        find_runs_for_message_source,
+        persist_message_source
+    };
     use rusqlite::Connection;
     use support::{build_cli, build_config, build_config_file, build_config_location};
 
@@ -466,7 +428,7 @@ mod process_message_execute_command_rerun_tests {
     }
 
     fn build_run(conn: &Connection, index: u8) -> i64 {
-        let persisted_source = persist_message_source(conn, message_source(index));
+        let persisted_source = persist_message_source(conn, &message_source(index));
 
         let output_data = build_output_data(persisted_source);
 
@@ -577,7 +539,7 @@ mod process_message_execute_command_enumerate_urls_test {
     use crate::cli::SingleCli;
     use crate::data::{FulfillmentNode, Node};
     use crate::mountebank::*;
-    use crate::persistence::connect;
+    use crate::persistence::{connect, find_run};
     use crate::service_configuration::ServiceConfiguration;
     use std::path::Path;
     use support::{build_cli, build_config_file, build_config_location};
@@ -698,6 +660,7 @@ mod process_message_execute_command_populate_from_rdap_tests {
         clear_all_impostors, setup_bootstrap_server, setup_dns_server, setup_ip_v4_server,
         DnsServerConfig, IpServerConfig,
     };
+    use crate::persistence::{connect, find_run};
     use crate::service_configuration::ServiceConfiguration;
     use std::path::Path;
     use support::{build_cli, build_config_file, build_config_location};
@@ -900,7 +863,7 @@ mod process_message_execute_command_add_reportable_entities_tests {
         ReportableEntities
     };
     use crate::mountebank::*;
-    use crate::persistence::connect;
+    use crate::persistence::{connect, find_run};
     use crate::service_configuration::ServiceConfiguration;
     use std::path::Path;
     use support::{build_cli, build_config_file, build_config_location};
@@ -1027,7 +990,7 @@ mod process_message_execute_command_add_notifications_tests {
     use crate::mailer::Entity;
     use crate::mountebank::*;
     use crate::notification::Notification;
-    use crate::persistence::connect;
+    use crate::persistence::{connect, find_run};
     use crate::service_configuration::ServiceConfiguration;
     use std::path::Path;
     use support::{build_cli, build_config_file, build_config_location};
@@ -1159,7 +1122,7 @@ mod execute_command_invalid_config_tests {
         let result = tokio_test::block_on(execute_command(&config));
 
         match result {
-            Err(AppError::NoMessageSource) => (),
+            Err(AppError::InvalidConfiguration(_)) => (),
             Err(e) => panic!("Returned unexpected {e}"),
             Ok(_) => panic!("Did not return error")
         }

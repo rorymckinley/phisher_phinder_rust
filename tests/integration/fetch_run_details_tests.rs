@@ -168,7 +168,7 @@ fn returns_reportable_entities_if_no_reportable_entities_flag() {
 }
 
 fn build_run(conn: &Connection, index: u8) -> i64 {
-    let persisted_source = persist_message_source(conn, message_source(index));
+    let persisted_source = persist_message_source(conn, &message_source(index));
 
     let output_data = build_output_data(persisted_source);
 

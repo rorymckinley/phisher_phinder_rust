@@ -19,7 +19,7 @@ fn main() {
             if let Ok(connection) = connect(Path::new(db_path)) {
                 let results = message_sources
                     .into_iter()
-                    .map(|message_source| persist_message_source(&connection, message_source))
+                    .map(|message_source| persist_message_source(&connection, &message_source))
                     .collect::<Vec<MessageSource>>();
 
                 print!("{}", serde_json::to_string(&results).unwrap());
