@@ -21,21 +21,21 @@ mod analysis;
 
 pub async fn execute_command<T>(config: &T) -> Result<String, AppError>
 where T: service_configuration::Configuration {
-    let command_config_two = configuration::extract_command_config(config)?;
+    let command_config = configuration::extract_command_config(config)?;
 
-    let input_data: Vec<OutputData> = command_config_two
+    let input_data: Vec<OutputData> = command_config
         .inputs
         .iter()
         .map(|message_source| {
             let persisted_source = persistence::persist_message_source(
-                &command_config_two.db_connection,
+                &command_config.db_connection,
                 message_source
             );
 
             // TODO Test error handling
             analysis::analyse_message_source(
                 persisted_source,
-                command_config_two.trusted_recipient
+                command_config.trusted_recipient
             )
             .unwrap()
         })
@@ -74,11 +74,11 @@ where T: service_configuration::Configuration {
         records_with_reportable_entities
     );
 
-    let run_result = persist_runs(&command_config_two.db_connection, records_with_notifications)?;
+    let run_result = persist_runs(&command_config.db_connection, records_with_notifications)?;
 
     // TODO The error in the Result is a tuple of (Connection, Error)
     // Add error conversion for this
-    command_config_two.db_connection.close().unwrap();
+    command_config.db_connection.close().unwrap();
 
     match run_result {
         RunStorageResult::MultipleRuns(count) => Ok(format!("{count} messages processed.")),
@@ -142,7 +142,7 @@ enum RunStorageResult {
 }
 
 #[cfg(test)]
-mod process_message_execute_command_from_stdin_tests {
+mod process_message_execute_command_tests {
     use assert_fs::fixture::TempDir;
     use crate::message_source::MessageSource;
     use crate::mountebank::{clear_all_impostors, setup_bootstrap_server};
@@ -315,180 +315,6 @@ mod process_message_execute_command_from_stdin_tests {
 }
 
 #[cfg(test)]
-mod process_message_execute_command_rerun_tests {
-    use assert_fs::fixture::TempDir;
-    use crate::authentication_results::AuthenticationResults;
-    use crate::data::{
-        EmailAddressData,
-        EmailAddresses,
-        FulfillmentNodesContainer,
-        ParsedMail,
-        ReportableEntities
-    };
-    use crate::message_source::MessageSource;
-    use crate::mountebank::{clear_all_impostors, setup_bootstrap_server};
-    use crate::persistence::{
-        connect,
-        find_run,
-        find_runs_for_message_source,
-        persist_message_source
-    };
-    use rusqlite::Connection;
-    use support::{build_cli, build_config, build_config_file, build_config_location};
-
-    use super::*;
-
-    #[test]
-    fn reruns_an_existing_run() {
-        clear_all_impostors();
-        setup_bootstrap_server();
-
-        let temp = TempDir::new().unwrap();
-        let config_file_location = build_config_location(&temp);
-        let db_path = temp.path().join("pp.sqlite3");
-
-        let conn = connect(&db_path).unwrap();
-
-        let _run_1_id = build_run(&conn, 0);
-        let run_2_id = build_run(&conn, 1);
-        let _run_3_id = build_run(&conn, 2);
-
-        let cli = build_cli(Some(run_2_id));
-
-        build_config_file(&config_file_location, &db_path);
-
-        let config = build_config(None, &cli, &config_file_location);
-
-        let result = tokio_test::block_on(execute_command(&config));
-
-        assert!(result.is_ok());
-
-        let run_2 = find_run(&conn, run_2_id).unwrap();
-
-        assert_eq!(
-            2,
-            find_runs_for_message_source(&conn, &run_2.message_source).len()
-        );
-    }
-
-    #[test]
-    fn correctly_persists_message_source_in_new_run_data() {
-        clear_all_impostors();
-        setup_bootstrap_server();
-
-        let temp = TempDir::new().unwrap();
-        let config_file_location = build_config_location(&temp);
-        let db_path = temp.path().join("pp.sqlite3");
-
-        let conn = connect(&db_path).unwrap();
-
-        let _run_1_id = build_run(&conn, 0);
-        let run_2_id = build_run(&conn, 1);
-        let run_3_id = build_run(&conn, 2);
-
-        let cli = build_cli(Some(run_2_id));
-
-        build_config_file(&config_file_location, &db_path);
-
-        let config = build_config(None, &cli, &config_file_location);
-
-        let _ = tokio_test::block_on(execute_command(&config));
-
-        let run_2 = find_run(&conn, run_2_id).unwrap();
-
-        let run_2_rerun = find_run(&conn, run_3_id + 1).unwrap();
-
-        assert_eq!(run_2.data.message_source, run_2_rerun.data.message_source);
-    }
-
-    #[test]
-    fn raises_error_if_run_does_not_exist() {
-        clear_all_impostors();
-        setup_bootstrap_server();
-
-        let temp = TempDir::new().unwrap();
-        let config_file_location = build_config_location(&temp);
-        let db_path = temp.path().join("pp.sqlite3");
-
-        let conn = connect(&db_path).unwrap();
-
-        let run_id = build_run(&conn, 0);
-
-        let cli = build_cli(Some(run_id + 100));
-
-        build_config_file(&config_file_location, &db_path);
-
-        let config = build_config(None, &cli, &config_file_location);
-
-        match tokio_test::block_on(execute_command(&config)) {
-            Err(AppError::SpecifiedRunMissing) => (),
-            Err(e) => panic!("Returned unexpected {e}"),
-            Ok(_) => panic!("Did not return error")
-        }
-    }
-
-    fn build_run(conn: &Connection, index: u8) -> i64 {
-        let persisted_source = persist_message_source(conn, &message_source(index));
-
-        let output_data = build_output_data(persisted_source);
-
-        persist_run(conn, &output_data).unwrap().id.into()
-    }
-
-    fn message_source(index: u8) -> MessageSource {
-        MessageSource::new(&format!("src {index}"))
-    }
-
-    fn build_output_data(message_source: MessageSource) -> OutputData {
-        OutputData {
-            message_source,
-            parsed_mail: parsed_mail(),
-            notifications: vec![],
-            reportable_entities: Some(reportable_entities()),
-            run_id: None
-        }
-    }
-
-    fn parsed_mail() -> ParsedMail {
-        ParsedMail::new(
-            Some(authentication_results()),
-            vec![],
-            email_addresses("from_1@test.com"),
-            vec![],
-            None
-        )
-    }
-
-    fn reportable_entities() -> ReportableEntities {
-        ReportableEntities {
-            delivery_nodes: vec![],
-            email_addresses: email_addresses("reportable@test.com"),
-            fulfillment_nodes_container: FulfillmentNodesContainer {
-                duplicates_removed: false,
-                nodes: vec![],
-            }
-        }
-    }
-
-    fn authentication_results() -> AuthenticationResults {
-        AuthenticationResults {
-            dkim: None,
-            service_identifier: Some("mx.google.com".into()),
-            spf: None,
-        }
-    }
-
-    fn email_addresses(email_address: &str) -> EmailAddresses {
-        EmailAddresses {
-            from: vec![EmailAddressData::from_email_address(email_address)],
-            links: vec![],
-            reply_to: vec![],
-            return_path: vec![]
-        }
-    }
-}
-
-#[cfg(test)]
 mod process_message_execute_command_common_errors_tests {
     use assert_fs::fixture::TempDir;
     use crate::cli::{ProcessArgs, SingleCli, SingleCliCommands};
@@ -527,7 +353,8 @@ mod process_message_execute_command_common_errors_tests {
     fn build_cli(reprocess_run: Option<i64>) -> SingleCli {
         SingleCli {
             command: SingleCliCommands::Process(ProcessArgs{
-                reprocess_run
+                reprocess_run,
+                send_abuse_notifications: false,
             })
         }
     }
@@ -1159,6 +986,8 @@ mod support {
 
     pub fn build_config_file(config_file_location: &Path, db_path: &Path) {
         let contents = FileConfig {
+            abuse_notifications_author_name: Some("Author Name".into()),
+            abuse_notifications_from_address: Some("from@address.zzz".into()),
             db_path: Some(db_path.to_str().unwrap().into()),
             rdap_bootstrap_host: Some("http://localhost:4545".into()),
             ..FileConfig::default()
@@ -1183,6 +1012,7 @@ mod support {
         SingleCli {
             command: SingleCliCommands::Process(ProcessArgs {
                 reprocess_run,
+                send_abuse_notifications: false,
             })
         }
     }
@@ -1222,8 +1052,24 @@ mod support {
             None
         }
 
+        fn send_abuse_notifications(&self) -> bool {
+            false
+        }
+
         fn service_type(&self) -> &ServiceType {
             &ServiceType::ProcessMessage
+        }
+
+        fn smtp_host_uri(&self) -> Option<&str> {
+            None
+        }
+
+        fn smtp_password(&self) -> Option<&str> {
+            None
+        }
+
+        fn smtp_username(&self) -> Option<&str> {
+            None
         }
 
         fn store_config(&mut self) {

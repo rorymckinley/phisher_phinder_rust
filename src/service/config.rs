@@ -99,8 +99,24 @@ mod execute_command_show_config_location_tests {
             None
         }
 
+        fn send_abuse_notifications(&self) -> bool {
+            false
+        }
+
         fn service_type(&self) -> &ServiceType {
             &ServiceType::Config(ConfigServiceCommands::Location)
+        }
+
+        fn smtp_host_uri(&self) -> Option<&str> {
+            None
+        }
+
+        fn smtp_password(&self) -> Option<&str> {
+            None
+        }
+
+        fn smtp_username(&self) -> Option<&str> {
+            None
         }
 
         fn store_config(&mut self) {
@@ -187,10 +203,25 @@ mod execute_command_show_config_tests {
             None
         }
 
+        fn send_abuse_notifications(&self) -> bool {
+            false
+        }
+
         fn service_type(&self) -> &ServiceType {
             &ServiceType::Config(ConfigServiceCommands::Show)
         }
 
+        fn smtp_host_uri(&self) -> Option<&str> {
+            None
+        }
+
+        fn smtp_password(&self) -> Option<&str> {
+            None
+        }
+
+        fn smtp_username(&self) -> Option<&str> {
+            None
+        }
         fn store_config(&mut self) {
         }
 
@@ -295,8 +326,24 @@ mod execute_command_set_config_tests {
             None
         }
 
+        fn send_abuse_notifications(&self) -> bool {
+            false
+        }
+
         fn service_type(&self) -> &ServiceType {
             &ServiceType::Config(ConfigServiceCommands::Set)
+        }
+
+        fn smtp_host_uri(&self) -> Option<&str> {
+            None
+        }
+
+        fn smtp_password(&self) -> Option<&str> {
+            None
+        }
+
+        fn smtp_username(&self) -> Option<&str> {
+            None
         }
 
         fn store_config(&mut self) {
@@ -360,8 +407,24 @@ mod execute_command_unrecognised_service_type_tests {
             None
         }
 
+        fn send_abuse_notifications(&self) -> bool {
+            false
+        }
+
         fn service_type(&self) -> &ServiceType {
             &ServiceType::ProcessMessage
+        }
+
+        fn smtp_host_uri(&self) -> Option<&str> {
+            None
+        }
+
+        fn smtp_password(&self) -> Option<&str> {
+            None
+        }
+
+        fn smtp_username(&self) -> Option<&str> {
+            None
         }
 
         fn store_config(&mut self) {

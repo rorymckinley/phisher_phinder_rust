@@ -44,6 +44,8 @@ pub enum SingleCliCommands {
 pub struct ProcessArgs {
     #[arg(long, value_name = "RUN_ID")]
     pub reprocess_run: Option<i64>,
+    #[arg(long)]
+    pub send_abuse_notifications: bool,
 }
 
 #[derive(Debug, PartialEq, Args)]

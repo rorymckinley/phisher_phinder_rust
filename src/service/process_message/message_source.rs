@@ -180,8 +180,24 @@ mod build_message_sources_tests {
             self.reprocess_run_id
         }
 
+        fn send_abuse_notifications(&self) -> bool {
+            false
+        }
+
         fn service_type(&self) -> &ServiceType {
             &self.service_type
+        }
+
+        fn smtp_host_uri(&self) -> Option<&str> {
+            None
+        }
+
+        fn smtp_password(&self) -> Option<&str> {
+            None
+        }
+
+        fn smtp_username(&self) -> Option<&str> {
+            None
         }
 
         fn store_config(&mut self) {

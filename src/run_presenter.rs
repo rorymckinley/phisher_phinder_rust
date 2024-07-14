@@ -225,6 +225,7 @@ mod present_tests {
         SingleCli {
             command: SingleCliCommands::Process(ProcessArgs {
                 reprocess_run: None,
+                send_abuse_notifications: false,
             })
         }
     }

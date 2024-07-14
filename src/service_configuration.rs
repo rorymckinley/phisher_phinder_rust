@@ -32,6 +32,14 @@ pub trait Configuration {
 
     fn reprocess_run_id(&self) -> Option<i64>;
 
+    fn send_abuse_notifications(&self) -> bool;
+
+    fn smtp_host_uri(&self) -> Option<&str>;
+
+    fn smtp_password(&self) -> Option<&str>;
+
+    fn smtp_username(&self) -> Option<&str>;
+
     fn service_type(&self) -> &ServiceType;
 
     fn store_config(&mut self);
@@ -71,6 +79,7 @@ pub struct ServiceConfiguration<'a> {
     message_source: Option<&'a str>,
     reprocess_run_id: Option<i64>,
     service_type: ServiceType,
+    send_abuse_notifications: bool,
     set_config_args: Option<&'a SetConfigArgs>,
 }
 
@@ -91,6 +100,7 @@ impl<'a> ServiceConfiguration<'a> {
                             config_file_location,
                             message_source,
                             reprocess_run_id: args.reprocess_run,
+                            send_abuse_notifications: args.send_abuse_notifications,
                             service_type: ServiceType::ProcessMessage,
                         }
                     )
@@ -113,6 +123,7 @@ impl<'a> ServiceConfiguration<'a> {
                             config_file_location,
                             message_source: None,
                             reprocess_run_id: None,
+                            send_abuse_notifications: false,
                             service_type,
                         }
                     )
@@ -202,8 +213,24 @@ impl<'a> Configuration for ServiceConfiguration<'a> {
         self.reprocess_run_id
     }
 
+    fn send_abuse_notifications(&self) -> bool {
+        self.send_abuse_notifications
+    }
+
     fn service_type(&self) -> &ServiceType {
         &self.service_type
+    }
+
+    fn smtp_host_uri(&self) -> Option<&str> {
+        self.config_file.smtp_host_uri.as_deref()
+    }
+
+    fn smtp_password(&self) -> Option<&str> {
+        self.config_file.smtp_password.as_deref()
+    }
+
+    fn smtp_username(&self) -> Option<&str> {
+        self.config_file.smtp_username.as_deref()
     }
 
     // TODO Return a Result<()>
@@ -250,6 +277,7 @@ mod service_configuration_process_tests {
             message_source: Some("message source"),
             reprocess_run_id: Some(99),
             service_type: ServiceType::ProcessMessage,
+            send_abuse_notifications: false,
             set_config_args: None,
         };
 
@@ -536,10 +564,159 @@ mod service_configuration_process_tests {
         assert_eq!(config_file_location, config.config_file_location());
     }
 
+    #[test]
+    fn returns_send_abuse_notifications_setting() {
+        let config_file_location = Path::new("/tmp/phisher_eagle.conf");
+
+        let cli = build_send_abuse_notifications_cli(true);
+
+        let config = ServiceConfiguration::new(
+            Some("message source"),
+            &cli,
+            config_file_location,
+        ).unwrap();
+
+        assert!(config.send_abuse_notifications());
+
+        let cli = build_send_abuse_notifications_cli(false);
+
+        let config = ServiceConfiguration::new(
+            Some("message source"),
+            &cli,
+            config_file_location,
+        ).unwrap();
+
+        assert!(!config.send_abuse_notifications());
+    }
+
+    #[test]
+    fn returns_smtp_host_uri() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config()
+        );
+
+        let cli = build_cli(Some(999));
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(Some("smtp.unobtainium.zzz"), config.smtp_host_uri());
+    }
+
+    #[test]
+    fn returns_none_if_no_smtp_host_uri() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config_smtp_host_empty()
+        );
+
+        let cli = build_cli(Some(999));
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(None, config.smtp_host_uri());
+    }
+
+    #[test]
+    fn returns_smtp_password() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config()
+        );
+
+        let cli = build_cli(Some(999));
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(Some("smtp_pass"), config.smtp_password());
+    }
+
+    #[test]
+    fn returns_none_if_no_smtp_password() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config_smtp_password_empty()
+        );
+
+        let cli = build_cli(Some(999));
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(None, config.smtp_password());
+    }
+
+    #[test]
+    fn returns_smtp_username() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config()
+        );
+
+        let cli = build_cli(Some(999));
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(Some("smtp_user"), config.smtp_username());
+    }
+
+    #[test]
+    fn returns_none_if_no_smtp_username() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config_smtp_username_empty()
+        );
+
+        let cli = build_cli(Some(999));
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(None, config.smtp_username());
+    }
+
     fn build_cli(reprocess_run: Option<i64>) -> SingleCli {
         SingleCli {
             command: SingleCliCommands::Process(ProcessArgs {
                 reprocess_run,
+                send_abuse_notifications: false,
+            })
+        }
+    }
+
+    fn build_send_abuse_notifications_cli(send_abuse_notifications: bool) -> SingleCli {
+        SingleCli {
+            command: SingleCliCommands::Process(ProcessArgs {
+                reprocess_run: None,
+                send_abuse_notifications,
             })
         }
     }
@@ -571,6 +748,7 @@ mod service_configuration_config_location_command_tests {
             message_source: None,
             reprocess_run_id: None,
             service_type: ServiceType::Config(ConfigServiceCommands::Location),
+            send_abuse_notifications: false,
             set_config_args: None,
         };
 
@@ -1010,6 +1188,7 @@ mod config_file_entries_tests {
             message_source: None,
             reprocess_run_id: None,
             service_type: ServiceType::ProcessMessage,
+            send_abuse_notifications: false,
             set_config_args: None,
         }
     }
@@ -1714,4 +1893,44 @@ mod test_support {
             trusted_recipient: Some("google.com".into()),
         }
     }
+
+    pub fn file_config_smtp_host_empty() -> FileConfig {
+        FileConfig {
+            abuse_notifications_author_name: Some("Fred Flintstone".into()),
+            abuse_notifications_from_address: Some("fred@flintstone.zzz".into()),
+            db_path: Some("/other/path/to/db".into()),
+            rdap_bootstrap_host: Some("localhost:4646".into()),
+            smtp_host_uri: None,
+            smtp_password: Some("smtp_pass".into()),
+            smtp_username: Some("smtp_user".into()),
+            trusted_recipient: Some("google.com".into()),
+        }
+    }
+
+    pub fn file_config_smtp_password_empty() -> FileConfig {
+        FileConfig {
+            abuse_notifications_author_name: Some("Fred Flintstone".into()),
+            abuse_notifications_from_address: Some("fred@flintstone.zzz".into()),
+            db_path: Some("/other/path/to/db".into()),
+            rdap_bootstrap_host: Some("localhost:4646".into()),
+            smtp_host_uri: Some("smtp.unobtainium.zzz".into()),
+            smtp_password: None,
+            smtp_username: Some("smtp_user".into()),
+            trusted_recipient: Some("google.com".into()),
+        }
+    }
+
+    pub fn file_config_smtp_username_empty() -> FileConfig {
+        FileConfig {
+            abuse_notifications_author_name: Some("".into()),
+            abuse_notifications_from_address: Some("".into()),
+            db_path: Some("/other/path/to/db".into()),
+            rdap_bootstrap_host: Some("localhost:4646".into()),
+            smtp_host_uri: Some("smtp.unobtainium.zzz".into()),
+            smtp_password: Some("smtp_pass".into()),
+            smtp_username: None,
+            trusted_recipient: Some("google.com".into()),
+        }
+    }
+
 }
