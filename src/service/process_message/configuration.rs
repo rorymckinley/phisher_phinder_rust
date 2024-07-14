@@ -3,16 +3,44 @@ use crate::message_source::MessageSource;
 use crate::persistence::connect;
 use crate::service::process_message::message_source::build_message_sources;
 use crate::service_configuration;
-use std::path::Path;
 
-pub fn extract_command_config<T>(config: &T) -> Result<ConfigurationTwo, AppError>
+pub fn extract_command_config<T>(config: &T) -> Result<Configuration, AppError>
 where T: service_configuration::Configuration {
     if let Some(db_path) = config.db_path().as_ref() {
         if let Ok(db_connection) = connect(db_path) {
             let inputs = build_message_sources(&db_connection, config)?;
 
-            Ok(ConfigurationTwo {
+            // TODO for now we assume we will always have author name and from address
+            let abuse_notifications = AbuseNotificationConfiguration {
+                author_name: config.abuse_notifications_author_name().unwrap().into(),
+                from_address: config.abuse_notifications_from_address().unwrap().into(),
+                test_recipient: config.test_recipient().map(|s| s.into()),
+            };
+
+            let email_notifications = if config.send_abuse_notifications() {
+                match (config.smtp_host_uri(), config.smtp_password(), config.smtp_username()) {
+                    (Some(host_uri), Some(password), Some(username)) => {
+                        Some(EmailNotificationConfiguration {
+                            host_uri: host_uri.into(),
+                            password: password.into(),
+                            username: username.into()
+                        })
+                    },
+                    _ => {
+                        return Err(AppError::InvalidConfiguration(
+                            "Please configure smtp_host_uri, smtp_password and smtp_username \
+                             if you wish to send notifications".into()
+                        ));
+                    }
+                }
+            } else {
+                None
+            };
+
+            Ok(Configuration {
+                abuse_notifications: Some(abuse_notifications),
                 db_connection,
+                email_notifications,
                 inputs,
                 trusted_recipient: config.trusted_recipient()
             })
@@ -29,19 +57,27 @@ where T: service_configuration::Configuration {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct Configuration<'a> {
-    pub db_path: &'a Path,
-    pub message_source: Option<&'a str>,
-    pub reprocess_run_id: Option<i64>,
+    pub abuse_notifications: Option<AbuseNotificationConfiguration>,
+    pub db_connection: rusqlite::Connection,
+    pub email_notifications: Option<EmailNotificationConfiguration>,
+    pub inputs: Vec<MessageSource>,
     pub trusted_recipient: Option<&'a str>,
 }
 
-#[derive(Debug)]
-pub struct ConfigurationTwo<'a> {
-    pub db_connection: rusqlite::Connection,
-    pub inputs: Vec<MessageSource>,
-    pub trusted_recipient: Option<&'a str>,
+#[derive(Debug, PartialEq)]
+pub struct AbuseNotificationConfiguration {
+    pub author_name: String,
+    pub from_address: String,
+    pub test_recipient: Option<String>
+}
+
+#[derive(Debug, PartialEq)]
+pub struct EmailNotificationConfiguration {
+    pub host_uri: String,
+    pub password: String,
+    pub username: String
 }
 
 #[cfg(test)]
@@ -66,9 +102,61 @@ mod extract_command_config_tests {
 
         let extracted_config = extract_command_config(&config).unwrap();
 
+        let expected_abuse_notifications = AbuseNotificationConfiguration {
+            author_name: "Author Name".into(),
+            from_address: "From Address".into(),
+            test_recipient: None,
+        };
+
         assert_eq!(vec![MessageSource::new("message source")], extracted_config.inputs);
         assert_eq!(Some("mx.google.com"), extracted_config.trusted_recipient);
         assert_eq!(temp.join("db.sqlite3").to_str(), extracted_config.db_connection.path());
+        assert_eq!(Some(expected_abuse_notifications), extracted_config.abuse_notifications);
+        assert_eq!(None, extracted_config.email_notifications);
+    }
+
+    #[test]
+    fn sets_email_notifications_configuration_if_send_notifications_enabled() {
+        let temp = TempDir::new().unwrap();
+
+        let config = send_notifications_config(&temp);
+
+        let extracted_config = extract_command_config(&config).unwrap();
+
+        let expected_abuse_notifications = AbuseNotificationConfiguration {
+            author_name: "Author Name".into(),
+            from_address: "From Address".into(),
+            test_recipient: None,
+        };
+
+        let expected_email_notifications = EmailNotificationConfiguration {
+            host_uri: "smtp.host.zzz".into(),
+            password: "password".into(),
+            username: "username".into()
+        };
+
+        assert_eq!(vec![MessageSource::new("message source")], extracted_config.inputs);
+        assert_eq!(Some("mx.google.com"), extracted_config.trusted_recipient);
+        assert_eq!(temp.join("db.sqlite3").to_str(), extracted_config.db_connection.path());
+        assert_eq!(Some(expected_abuse_notifications), extracted_config.abuse_notifications);
+        assert_eq!(Some(expected_email_notifications), extracted_config.email_notifications);
+    }
+
+    #[test]
+    fn sets_test_recipient_if_required() {
+        let temp = TempDir::new().unwrap();
+
+        let config = test_recipient_config(&temp);
+
+        let extracted_config = extract_command_config(&config).unwrap();
+
+        let expected_abuse_notifications = AbuseNotificationConfiguration {
+            author_name: "Author Name".into(),
+            from_address: "From Address".into(),
+            test_recipient: Some("recipient@test.zzz".into()),
+        };
+
+        assert_eq!(Some(expected_abuse_notifications), extracted_config.abuse_notifications);
     }
 
     #[test]
@@ -142,6 +230,63 @@ mod extract_command_config_tests {
         }
     }
 
+    #[test]
+    fn returns_error_if_send_notifications_but_no_smtp_host_uri() {
+        let temp = TempDir::new().unwrap();
+
+        let config = send_notifications_no_smtp_host_uri_config(&temp);
+
+        let result = extract_command_config(&config);
+
+        match result {
+            Err(AppError::InvalidConfiguration(message)) => {
+                let expected = "Please configure smtp_host_uri, smtp_password and smtp_username \
+                                if you wish to send notifications";
+                assert_eq!(message, expected);
+            },
+            Err(e) => panic!("Returned unexpected {e}"),
+            Ok(_) => panic!("Did not return error")
+        }
+    }
+
+    #[test]
+    fn returns_error_if_send_notifications_but_no_smtp_password() {
+        let temp = TempDir::new().unwrap();
+
+        let config = send_notifications_no_smtp_password_config(&temp);
+
+        let result = extract_command_config(&config);
+
+        match result {
+            Err(AppError::InvalidConfiguration(message)) => {
+                let expected = "Please configure smtp_host_uri, smtp_password and smtp_username \
+                                if you wish to send notifications";
+                assert_eq!(message, expected);
+            },
+            Err(e) => panic!("Returned unexpected {e}"),
+            Ok(_) => panic!("Did not return error")
+        }
+    }
+
+    #[test]
+    fn returns_error_if_send_notifications_but_no_smtp_username() {
+        let temp = TempDir::new().unwrap();
+
+        let config = send_notifications_no_smtp_username_config(&temp);
+
+        let result = extract_command_config(&config);
+
+        match result {
+            Err(AppError::InvalidConfiguration(message)) => {
+                let expected = "Please configure smtp_host_uri, smtp_password and smtp_username \
+                                if you wish to send notifications";
+                assert_eq!(message, expected);
+            },
+            Err(e) => panic!("Returned unexpected {e}"),
+            Ok(_) => panic!("Did not return error")
+        }
+    }
+
     fn merge(base: TestConfig, mods: OverrideConfig) -> TestConfig {
         let abuse_notifications_author_name = mods.abuse_notifications_author_name.or(
             base.abuse_notifications_author_name
@@ -176,7 +321,12 @@ mod extract_command_config_tests {
             message_sources: None,
             rdap_bootstrap_host: Some("http://localhost:4545".into()),
             reprocess_run_id: None,
+            send_notifications: false,
             service_type: ServiceType::ProcessMessage,
+            smtp_host_uri: None,
+            smtp_password: None,
+            smtp_username: None,
+            test_recipient: None,
             trusted_recipient: Some("mx.google.com".into())
         }
     }
@@ -196,6 +346,58 @@ mod extract_command_config_tests {
             ..base_config
         }
     }
+
+    fn send_notifications_config(temp: &TempDir) -> TestConfig {
+        TestConfig {
+            message_sources: Some("message source".into()),
+            smtp_host_uri: Some("smtp.host.zzz".into()),
+            smtp_password: Some("password".into()),
+            smtp_username: Some("username".into()),
+            send_notifications: true,
+            ..base_config(temp)
+        }
+    }
+
+    fn send_notifications_no_smtp_host_uri_config(temp: &TempDir) -> TestConfig {
+        TestConfig {
+            message_sources: Some("message source".into()),
+            smtp_host_uri: None,
+            smtp_password: Some("password".into()),
+            smtp_username: Some("username".into()),
+            send_notifications: true,
+            ..base_config(temp)
+        }
+    }
+
+    fn send_notifications_no_smtp_password_config(temp: &TempDir) -> TestConfig {
+        TestConfig {
+            message_sources: Some("message source".into()),
+            smtp_host_uri: Some("smtp.host.zzz".into()),
+            smtp_password: None,
+            smtp_username: Some("username".into()),
+            send_notifications: true,
+            ..base_config(temp)
+        }
+    }
+    fn send_notifications_no_smtp_username_config(temp: &TempDir) -> TestConfig {
+        TestConfig {
+            message_sources: Some("message source".into()),
+            smtp_host_uri: Some("smtp.host.zzz".into()),
+            smtp_password: Some("password".into()),
+            smtp_username: None,
+            send_notifications: true,
+            ..base_config(temp)
+        }
+    }
+
+    fn test_recipient_config(temp: &TempDir) -> TestConfig {
+        TestConfig {
+            message_sources: Some("message source".into()),
+            test_recipient: Some("recipient@test.zzz".into()),
+            ..base_config(temp)
+        }
+    }
+
     #[derive(Default)]
     struct OverrideConfig {
         abuse_notifications_author_name: Option<String>,
@@ -215,7 +417,12 @@ mod extract_command_config_tests {
         message_sources: Option<String>,
         rdap_bootstrap_host: Option<String>,
         reprocess_run_id: Option<i64>,
+        send_notifications: bool,
         service_type: ServiceType,
+        smtp_host_uri: Option<String>,
+        smtp_password: Option<String>,
+        smtp_username: Option<String>,
+        test_recipient: Option<String>,
         trusted_recipient: Option<String>,
     }
 
@@ -252,11 +459,31 @@ mod extract_command_config_tests {
             self.reprocess_run_id
         }
 
+        fn send_abuse_notifications(&self) -> bool {
+            self.send_notifications
+        }
+
         fn service_type(&self) -> &ServiceType {
             &self.service_type
         }
 
+        fn smtp_host_uri(&self) -> Option<&str> {
+            self.smtp_host_uri.as_deref()
+        }
+
+        fn smtp_password(&self) -> Option<&str> {
+            self.smtp_password.as_deref()
+        }
+
+        fn smtp_username(&self) -> Option<&str> {
+            self.smtp_username.as_deref()
+        }
+
         fn store_config(&mut self) {
+        }
+
+        fn test_recipient(&self) -> Option<&str> {
+            self.test_recipient.as_deref()
         }
 
         fn trusted_recipient(&self)-> Option<&str> {

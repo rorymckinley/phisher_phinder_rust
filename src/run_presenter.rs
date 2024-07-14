@@ -1,6 +1,6 @@
 use crate::result::AppResult;
 use crate::run::Run;
-use crate::service_configuration::Configuration;
+use crate::service::process_message::configuration::Configuration;
 use crate::ui::{
     display_authentication_results,
     display_metadata,
@@ -9,8 +9,7 @@ use crate::ui::{
     display_sender_addresses_extended
 };
 
-pub fn present<T>(run: Run, config: &T) -> AppResult<String>
-where T: Configuration {
+pub fn present(run: Run, config: &Configuration) -> AppResult<String> {
     // TODO Large overlap with ui::display_run - resolve
     Ok(
         [
@@ -26,8 +25,6 @@ where T: Configuration {
 
 #[cfg(test)]
 mod present_tests {
-    use assert_fs::TempDir;
-    use crate::cli::{ProcessArgs, SingleCli, SingleCliCommands};
     use crate::data::{
         DeliveryNode,
         Domain,
@@ -42,58 +39,46 @@ mod present_tests {
         ReportableEntities,
     };
     use crate::message_source::MessageSource;
-    use crate::service_configuration::ServiceConfiguration;
-    use std::path::{Path, PathBuf};
+    use crate::service::process_message::configuration::{
+        AbuseNotificationConfiguration,
+        Configuration
+    };
+    use rusqlite::Connection;
     use super::*;
 
     use chrono::prelude::*;
 
     #[test]
     fn returns_string_including_sender_addresses() {
-        let cli = build_cli();
-        let temp = TempDir::new().unwrap();
-        let config_file_location = build_config_location(&temp);
-        let output = present(build_run(), &build_config(&cli, &config_file_location)).unwrap();
+        let output = present(build_run(), &build_config(None, None)).unwrap();
 
         assert!(output.contains("Address Source"))
     }
 
     #[test]
     fn returns_string_containing_authentication_results() {
-        let cli = build_cli();
-        let temp = TempDir::new().unwrap();
-        let config_file_location = build_config_location(&temp);
-        let output = present(build_run(), &build_config(&cli, &config_file_location)).unwrap();
+        let output = present(build_run(), &build_config(None, None)).unwrap();
 
         assert!(output.contains("DKIM"))
     }
 
     #[test]
     fn returns_string_containing_reportable_entities() {
-        let cli = build_cli();
-        let temp = TempDir::new().unwrap();
-        let config_file_location = build_config_location(&temp);
-        let output = present(build_run(), &build_config(&cli, &config_file_location)).unwrap();
+        let output = present(build_run(), &build_config(None, None)).unwrap();
 
         assert!(output.contains("Delivery Nodes"))
     }
 
     #[test]
     fn returns_string_containing_run_metadata() {
-        let cli = build_cli();
-        let temp = TempDir::new().unwrap();
-        let config_file_location = build_config_location(&temp);
-        let output = present(build_run(), &build_config(&cli, &config_file_location)).unwrap();
+        let output = present(build_run(), &build_config(None, None)).unwrap();
 
         assert!(output.contains("Run ID"))
     }
 
     #[test]
     fn returns_string_containing_notification_emails() {
-        let cli = build_cli();
-        let temp = TempDir::new().unwrap();
-        let config_file_location = build_config_location(&temp);
-        let output = present(build_run(), &build_config(&cli, &config_file_location)).unwrap();
+        let output = present(build_run(), &build_config(None, None)).unwrap();
 
         assert!(output.contains("Abuse Notifications"))
     }
@@ -206,26 +191,17 @@ mod present_tests {
         }
     }
 
-    fn build_config_location(temp: &TempDir) -> PathBuf {
-        temp.path().join("phisher_eagle.conf")
-    }
+    fn build_config(
+        abuse_notifications: Option<AbuseNotificationConfiguration>,
+        trusted_recipient: Option<&str>
+    ) -> Configuration {
 
-    fn build_config<'a>(
-        cli: &'a SingleCli,
-        config_file_location: &'a Path
-    ) -> ServiceConfiguration<'a> {
-        ServiceConfiguration::new(
-            Some(""),
-            cli,
-            config_file_location,
-        ).unwrap()
-    }
-
-    pub fn build_cli() -> SingleCli {
-        SingleCli {
-            command: SingleCliCommands::Process(ProcessArgs {
-                reprocess_run: None,
-            })
+        Configuration {
+            abuse_notifications,
+            db_connection: Connection::open_in_memory().unwrap(),
+            email_notifications: None,
+            inputs: vec![],
+            trusted_recipient,
         }
     }
 }

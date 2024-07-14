@@ -2,7 +2,7 @@ use crate::errors::AppError;
 use crate::service_configuration::{Configuration, ServiceType};
 
 mod config;
-mod process_message;
+pub mod process_message;
 
 pub async fn execute_command<T>(config: &mut T) -> Result<String, AppError>
     where T: Configuration {
@@ -95,6 +95,8 @@ mod service_execute_command_process_message_tests {
 
     pub fn build_config_file(config_file_location: &Path, db_path: &Path) {
         let contents = FileConfig {
+            abuse_notifications_author_name: Some("Author Name".into()),
+            abuse_notifications_from_address: Some("from@address.zzz".into()),
             db_path: Some(db_path.to_str().unwrap().into()),
             rdap_bootstrap_host: Some("http://localhost:4545".into()),
             ..FileConfig::default()
@@ -118,7 +120,9 @@ mod service_execute_command_process_message_tests {
     fn build_cli(reprocess_run: Option<i64>) -> SingleCli {
         SingleCli {
             command: SingleCliCommands::Process(ProcessArgs{
-                reprocess_run
+                reprocess_run,
+                send_abuse_notifications: false,
+                test_recipient: None,
             })
         }
     }

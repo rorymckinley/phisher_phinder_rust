@@ -16,7 +16,7 @@ use crate::data::{
 use crate::outgoing_email::build_abuse_notifications;
 use crate::result::AppResult;
 use crate::run::Run;
-use crate::service_configuration::Configuration;
+use crate::service::process_message::configuration::Configuration;
 
 use mail_parser::{Addr, HeaderValue, Message};
 use prettytable::{Cell, Row, Table};
@@ -1189,7 +1189,7 @@ mod display_authentication_results_tests {
             spf: Some(Spf {
                 ip_address: Some("10.10.10.10".into()),
                 result: Some(SpfResult::SoftFail),
-                smtp_helo: Some("helo".into()).into(),
+                smtp_helo: Some("helo".into()),
                 smtp_mailfrom: Some("mailfrom".into()),
             }),
         })
@@ -3210,15 +3210,14 @@ mod display_metadata_tests {
     }
 }
 
-pub fn display_abuse_notifications<T>(run: &Run, config: &T) -> AppResult<String>
-where T: Configuration {
+pub fn display_abuse_notifications(run: &Run, config: &Configuration) -> AppResult<String> {
     let mut table = Table::new();
 
     table.add_row(Row::new(vec![
         Cell::new("Abuse Notifications").with_hspan(2)
     ]));
 
-    if let Ok(notifications) = build_abuse_notifications(run, config) {
+    if let Ok(notifications) = build_abuse_notifications(&run.data, config) {
         for notification in notifications.iter() {
             let email_as_text = notification.formatted();
 
@@ -3264,24 +3263,25 @@ where T: Configuration {
 
 #[cfg(test)]
 mod display_abuse_notifications_tests {
-    use assert_fs::TempDir;
-    use crate::cli::{ProcessArgs, SingleCli, SingleCliCommands};
     use crate::data::{EmailAddresses, OutputData, ParsedMail};
     use crate::mailer::Entity;
     use crate::message_source::MessageSource;
     use crate::notification::Notification;
-    use crate::service_configuration::{FileConfig, ServiceConfiguration};
-    use std::path::{Path, PathBuf};
+    use crate::service::process_message::configuration::{
+        AbuseNotificationConfiguration, Configuration
+    };
+    use rusqlite::Connection;
     use super::*;
 
     #[test]
     fn displays_email_details_for_each_notification() {
-        let temp = TempDir::new().unwrap();
-        let config_file_location = temp.path().join("phisher_eagle.conf");
-        let cli = build_cli();
+        let notification_config = AbuseNotificationConfiguration {
+            author_name: "Jo Bloggs".into(),
+            from_address: "sender@phishereagle.com".into(),
+            test_recipient: None,
+        };
         let run = build_run();
-        build_config_file(&config_file_location);
-        let config = build_config(&cli, &config_file_location);
+        let config = build_config(Some(notification_config), None);
 
         assert_eq!(
             String::from("\
@@ -3329,11 +3329,8 @@ mod display_abuse_notifications_tests {
 
     #[test]
     fn displays_an_error_message_if_notifications_cannot_be_generated() {
-        let temp = TempDir::new().unwrap();
-        let config_file_location = build_config_location(&temp);
-        let cli = build_cli();
         let run = build_run();
-        let config = build_config_without_from_address(&cli, &config_file_location);
+        let config = build_config(None, None);
 
         assert_eq!(
             String::from("\
@@ -3385,49 +3382,17 @@ mod display_abuse_notifications_tests {
         }
     }
 
-    fn build_config_file(config_file_location: &Path) {
-        let contents = FileConfig {
-            abuse_notifications_author_name: Some("Jo Bloggs".into()),
-            abuse_notifications_from_address: Some("sender@phishereagle.com".into()),
-            db_path: Some("/does/not/matter.sqlite".into()),
-            rdap_bootstrap_host: Some("http://localhost:4545".into()),
-            ..FileConfig::default()
-        };
+    fn build_config(
+        abuse_notifications: Option<AbuseNotificationConfiguration>,
+        trusted_recipient: Option<&str>
+    ) -> Configuration {
 
-        confy::store_path(config_file_location, contents).unwrap();
-    }
-
-    fn build_config<'a>(
-        cli: &'a SingleCli,
-        config_file_location: &'a Path
-    ) -> ServiceConfiguration<'a> {
-        ServiceConfiguration::new(
-            Some(""),
-            cli,
-            config_file_location,
-        ).unwrap()
-    }
-
-    pub fn build_config_location(temp: &TempDir) -> PathBuf {
-        temp.path().join("phisher_eagle.conf")
-    }
-
-    fn build_config_without_from_address<'a>(
-        cli: &'a SingleCli,
-        config_file_location: &'a Path
-    ) -> ServiceConfiguration<'a> {
-        ServiceConfiguration::new(
-            Some(""),
-            cli,
-            config_file_location,
-        ).unwrap()
-    }
-
-    fn build_cli() -> SingleCli {
-        SingleCli {
-            command: SingleCliCommands::Process(ProcessArgs {
-                reprocess_run: None,
-            })
+        Configuration {
+            abuse_notifications,
+            db_connection: Connection::open_in_memory().unwrap(),
+            email_notifications: None,
+            inputs: vec![],
+            trusted_recipient,
         }
     }
 }
