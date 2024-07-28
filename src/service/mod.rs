@@ -122,6 +122,7 @@ mod service_execute_command_process_message_tests {
             command: SingleCliCommands::Process(ProcessArgs{
                 reprocess_run,
                 send_abuse_notifications: false,
+                test_recipient: None,
             })
         }
     }

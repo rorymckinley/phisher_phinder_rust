@@ -46,6 +46,8 @@ pub struct ProcessArgs {
     pub reprocess_run: Option<i64>,
     #[arg(long)]
     pub send_abuse_notifications: bool,
+    #[arg(long)]
+    pub test_recipient: Option<String>
 }
 
 #[derive(Debug, PartialEq, Args)]

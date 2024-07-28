@@ -451,6 +451,10 @@ mod extract_command_config_tests {
         fn store_config(&mut self) {
         }
 
+        fn test_recipient(&self) -> Option<&str> {
+            None
+        }
+
         fn trusted_recipient(&self)-> Option<&str> {
             self.trusted_recipient.as_deref()
         }

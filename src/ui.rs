@@ -3427,7 +3427,8 @@ mod display_abuse_notifications_tests {
         SingleCli {
             command: SingleCliCommands::Process(ProcessArgs {
                 reprocess_run: None,
-                send_abuse_notifications: false
+                send_abuse_notifications: false,
+                test_recipient: None,
             })
         }
     }

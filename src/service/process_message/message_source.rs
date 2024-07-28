@@ -203,6 +203,10 @@ mod build_message_sources_tests {
         fn store_config(&mut self) {
         }
 
+        fn test_recipient(&self)-> Option<&str> {
+            None
+        }
+
         fn trusted_recipient(&self)-> Option<&str> {
             None
         }

@@ -373,6 +373,7 @@ mod process_message_execute_command_common_errors_tests {
             command: SingleCliCommands::Process(ProcessArgs{
                 reprocess_run,
                 send_abuse_notifications: false,
+                test_recipient: None,
             })
         }
     }
@@ -1222,6 +1223,7 @@ mod support {
             command: SingleCliCommands::Process(ProcessArgs {
                 reprocess_run: None,
                 send_abuse_notifications,
+                test_recipient: None,
             })
         }
     }
@@ -1282,6 +1284,10 @@ mod support {
         }
 
         fn store_config(&mut self) {
+        }
+
+        fn test_recipient(&self) -> Option<&str> {
+            None
         }
 
         fn trusted_recipient(&self) -> Option<&str> {

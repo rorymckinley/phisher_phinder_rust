@@ -204,6 +204,40 @@ fn sends_mail_for_any_reportable_entities() {
     assert_eq!(mail_trap_recipients(&mail_trap), expected_recipients);
 }
 
+#[test]
+#[ignore]
+fn sends_mail_to_specified_test_recipient() {
+    setup_mountebank();
+    initialise_mail_trap();
+
+    let expected_recipients: Vec<String> = vec![
+        String::from("recipient@phishereagle.com"),
+        String::from("recipient@phishereagle.com"),
+    ];
+
+    let temp = TempDir::new().unwrap();
+    let db_path = temp.path().join("pp.sqlite3");
+    let config_file_path = temp.path().join(".config/phisher_eagle/default-config.toml");
+    let mail_trap = initialise_mail_trap();
+
+    build_config_file(&config_file_path, Some(&db_path));
+
+    let mut cmd = command(BINARY_NAME);
+
+    cmd
+        .env("HOME", temp.path().to_str().unwrap())
+        .args([
+            "process",
+            "--send-abuse-notifications",
+            "--test-recipient", "recipient@phishereagle.com"
+        ])
+        .write_stdin(multiple_source_input())
+        .assert()
+        .success();
+
+    assert_eq!(mail_trap_recipients(&mail_trap), expected_recipients);
+}
+
 fn multiple_source_input() -> String {
     format!("{}\r\n{}", entry_1(), entry_2())
 }

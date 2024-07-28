@@ -122,6 +122,10 @@ mod execute_command_show_config_location_tests {
         fn store_config(&mut self) {
         }
 
+        fn test_recipient(&self) -> Option<&str> {
+            None
+        }
+
         fn trusted_recipient(&self)-> Option<&str> {
             None
         }
@@ -223,6 +227,10 @@ mod execute_command_show_config_tests {
             None
         }
         fn store_config(&mut self) {
+        }
+
+        fn test_recipient(&self) -> Option<&str> {
+            None
         }
 
         fn trusted_recipient(&self)-> Option<&str> {
@@ -350,6 +358,10 @@ mod execute_command_set_config_tests {
             fs::write(&self.dummy_config_path, "my_config_value").unwrap();
         }
 
+        fn test_recipient(&self) -> Option<&str> {
+            None
+        }
+
         fn trusted_recipient(&self)-> Option<&str> {
             None
         }
@@ -428,6 +440,10 @@ mod execute_command_unrecognised_service_type_tests {
         }
 
         fn store_config(&mut self) {
+        }
+
+        fn test_recipient(&self) -> Option<&str> {
+            None
         }
 
         fn trusted_recipient(&self)-> Option<&str> {

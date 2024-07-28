@@ -44,6 +44,8 @@ pub trait Configuration {
 
     fn store_config(&mut self);
 
+    fn test_recipient(&self) -> Option<&str>;
+
     fn trusted_recipient(&self)-> Option<&str>;
 }
 
@@ -81,6 +83,7 @@ pub struct ServiceConfiguration<'a> {
     service_type: ServiceType,
     send_abuse_notifications: bool,
     set_config_args: Option<&'a SetConfigArgs>,
+    test_recipient: Option<String>,
 }
 
 impl<'a> ServiceConfiguration<'a> {
@@ -102,6 +105,7 @@ impl<'a> ServiceConfiguration<'a> {
                             reprocess_run_id: args.reprocess_run,
                             send_abuse_notifications: args.send_abuse_notifications,
                             service_type: ServiceType::ProcessMessage,
+                            test_recipient: args.test_recipient.clone(),
                         }
                     )
                 },
@@ -125,6 +129,7 @@ impl<'a> ServiceConfiguration<'a> {
                             reprocess_run_id: None,
                             send_abuse_notifications: false,
                             service_type,
+                            test_recipient: None
                         }
                     )
                 }
@@ -245,6 +250,10 @@ impl<'a> Configuration for ServiceConfiguration<'a> {
         }
     }
 
+    fn test_recipient(&self) -> Option<&str> {
+       self.test_recipient.as_deref()
+    }
+
     fn trusted_recipient(&self) -> Option<&str> {
         self.config_file.trusted_recipient.as_deref()
     }
@@ -279,6 +288,7 @@ mod service_configuration_process_tests {
             service_type: ServiceType::ProcessMessage,
             send_abuse_notifications: false,
             set_config_args: None,
+            test_recipient: None,
         };
 
         assert_eq!(expected, config);
@@ -703,11 +713,50 @@ mod service_configuration_process_tests {
         assert_eq!(None, config.smtp_username());
     }
 
+    #[test]
+    fn returns_none_if_no_test_recipient() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config_smtp_username_empty()
+        );
+
+        let cli = build_test_recipient_cli(None);
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(None, config.test_recipient());
+    }
+
+    #[test]
+    fn returns_test_recipient_if_set() {
+        let temp = TempDir::new().unwrap();
+        let config_file_location = create_config_file(
+            temp.path(),
+            file_config_smtp_username_empty()
+        );
+
+        let cli = build_test_recipient_cli(Some("recipient@phishereagle.com".into()));
+
+        let config = ServiceConfiguration::new(
+            None,
+            &cli,
+            &config_file_location,
+        ).unwrap();
+
+        assert_eq!(Some("recipient@phishereagle.com"), config.test_recipient());
+    }
+
     fn build_cli(reprocess_run: Option<i64>) -> SingleCli {
         SingleCli {
             command: SingleCliCommands::Process(ProcessArgs {
                 reprocess_run,
                 send_abuse_notifications: false,
+                test_recipient: None,
             })
         }
     }
@@ -717,6 +766,17 @@ mod service_configuration_process_tests {
             command: SingleCliCommands::Process(ProcessArgs {
                 reprocess_run: None,
                 send_abuse_notifications,
+                test_recipient: None,
+            })
+        }
+    }
+
+    fn build_test_recipient_cli(test_recipient: Option<String>) -> SingleCli {
+        SingleCli {
+            command: SingleCliCommands::Process(ProcessArgs {
+                reprocess_run: None,
+                send_abuse_notifications: true,
+                test_recipient,
             })
         }
     }
@@ -750,6 +810,7 @@ mod service_configuration_config_location_command_tests {
             service_type: ServiceType::Config(ConfigServiceCommands::Location),
             send_abuse_notifications: false,
             set_config_args: None,
+            test_recipient: None
         };
 
         assert_eq!(expected, config);
@@ -1190,6 +1251,7 @@ mod config_file_entries_tests {
             service_type: ServiceType::ProcessMessage,
             send_abuse_notifications: false,
             set_config_args: None,
+            test_recipient: None,
         }
     }
 }
