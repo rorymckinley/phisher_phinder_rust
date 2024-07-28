@@ -179,16 +179,12 @@ fn sends_mail_for_any_reportable_entities() {
     setup_mountebank();
     initialise_mail_trap();
 
-    setup_dns_server(vec![
-        DnsServerConfig {
-            domain_name: "fake.net",
-            handle: None,
-            registrar: Some("Reg One"),
-            abuse_email: Some("abuse@regone.zzz"),
-            registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
-            response_code: 200,
-        },
-    ]);
+    let mut expected_recipients: Vec<String> = vec![
+        String::from("abuse@regone.zzz"),
+        String::from("abuse@regtwo.zzz"),
+    ];
+    expected_recipients.sort();
+
     let temp = TempDir::new().unwrap();
     let db_path = temp.path().join("pp.sqlite3");
     let config_file_path = temp.path().join(".config/phisher_eagle/default-config.toml");
@@ -205,9 +201,7 @@ fn sends_mail_for_any_reportable_entities() {
         .assert()
         .success();
 
-    let email = mail_trap.get_last_email();
-
-    assert_eq!(email.to, Some("abuse@regone.zzz".into()));
+    assert_eq!(mail_trap_recipients(&mail_trap), expected_recipients);
 }
 
 fn multiple_source_input() -> String {
@@ -256,8 +250,6 @@ fn setup_mountebank() {
 
     setup_head_impostor(4560, true, Some("http://re.directone.net"));
     setup_head_impostor(4561, true, Some("http://re.directtwo.net"));
-    setup_head_impostor(4562, true, Some("http://re.directthree.net"));
-    setup_head_impostor(4563, true, Some("http://re.directfour.net"));
 
     setup_dns_server(vec![
         DnsServerConfig {
@@ -276,23 +268,7 @@ fn setup_mountebank() {
             registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap()),
             response_code: 200,
         },
-        DnsServerConfig {
-            domain_name: "re.directthree.net",
-            handle: None,
-            registrar: Some("Reg Six"),
-            abuse_email: Some("abuse@regthree.zzz"),
-            registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 18).unwrap()),
-            response_code: 200,
-        },
-        DnsServerConfig {
-            domain_name: "re.directfour.net",
-            handle: None,
-            registrar: Some("Reg Six"),
-            abuse_email: Some("abuse@regfour.zzz"),
-            registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 19).unwrap()),
-            response_code: 200,
-        },
-        ]);
+    ]);
 }
 
 // TODO copy-paste - move this to a utils module?
@@ -400,6 +376,18 @@ fn initialise_mail_trap() -> MailTrap {
 
 fn mail_trap_api_token() -> String {
     std::env::var("MAILTRAP_API_TOKEN").unwrap()
+}
+
+fn mail_trap_recipients(mail_trap: &MailTrap) -> Vec<String> {
+    let mut mail_recipients: Vec<String> = mail_trap
+        .get_all_emails()
+        .into_iter()
+        .map(|email| email.to.unwrap())
+        .collect();
+
+    mail_recipients.sort();
+
+    mail_recipients
 }
 
 fn command(binary_name: &str) -> Command {

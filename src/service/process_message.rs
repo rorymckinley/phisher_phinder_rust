@@ -1044,7 +1044,7 @@ mod execute_command_send_notifications_tests {
 
         mail_recipients
     }
-    
+
     fn build_config<'a>(
         message: &'a str,
         cli: &'a SingleCli,
