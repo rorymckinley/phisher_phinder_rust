@@ -2,22 +2,25 @@ use crate::data::OutputData;
 use crate::enumerator::enumerate;
 use crate::errors::AppError;
 use crate::notification::add_notifications;
+use crate::outgoing_email::build_abuse_notifications;
 use crate::persistence::persist_run;
 use crate::populator::populate;
 use crate::reporter::add_reportable_entities;
 use crate::run::Run;
 use crate::run_presenter::present;
 use crate::service_configuration;
+use lettre::Message;
 use rusqlite::Connection;
 use std::future::Future;
 use std::sync::Arc;
 use test_friendly_rdap_client::Client;
 use tokio::task::JoinError;
 
+mod analysis;
 mod configuration;
+mod mail;
 mod message_source;
 mod persistence;
-mod analysis;
 
 pub async fn execute_command<T>(config: &T) -> Result<String, AppError>
 where T: service_configuration::Configuration {
@@ -74,8 +77,45 @@ where T: service_configuration::Configuration {
         records_with_reportable_entities
     );
 
-    let run_result = persist_runs(&command_config.db_connection, records_with_notifications)?;
+    let mut emails: Vec<Message> = vec![];
 
+    for record in &records_with_notifications {
+        for email in build_abuse_notifications(record, config)? {
+            emails.push(email);
+        }
+    }
+
+    // let emails: Vec<Message> = records_with_notifications
+    //     .iter()
+    //     .map(|record| build_abuse_notifications(record, config)?)
+    //     .flatten()
+    //     .collect();
+
+
+    // TODO Track which emails get delivered? Is it worth doing?
+    if let Some(email_config) = command_config.email_notifications {
+        println!("{:?}", emails);
+        for email in emails {
+            mail::send_mail(email, &email_config).await;
+        }
+    }
+    // match command_config.email_notifications {
+    //     Some(email_config) =>{
+    //         for email in emails {
+    //             mail::send_mail(email, &email_config).await;
+    //         }
+    //     },
+    //     _ => ()
+    // }
+    // TODO Add check to see if we must send notifications - add a test for this
+    // TODO Change this to update the OutputData to indicate that the email has been sent and then
+    // persist that?
+    // for record in &records_with_notifications {
+    //     let mails = mailer::build_mails(record);
+    //     mailer::send_mails(mails, &record.message_source).await;
+    // }
+
+    let run_result = persist_runs(&command_config.db_connection, records_with_notifications)?;
     // TODO The error in the Result is a tuple of (Connection, Error)
     // Add error conversion for this
     command_config.db_connection.close().unwrap();
@@ -158,7 +198,7 @@ mod process_message_execute_command_tests {
         clear_all_impostors();
         setup_bootstrap_server();
 
-        let cli = build_cli(None);
+        let cli = build_cli(false);
 
         let temp = TempDir::new().unwrap();
         let config_file_location = build_config_location(&temp);
@@ -184,7 +224,7 @@ mod process_message_execute_command_tests {
         clear_all_impostors();
         setup_bootstrap_server();
 
-        let cli = build_cli(None);
+        let cli = build_cli(false);
 
         let temp = TempDir::new().unwrap();
         let config_file_location = build_config_location(&temp);
@@ -213,7 +253,7 @@ mod process_message_execute_command_tests {
         clear_all_impostors();
         setup_bootstrap_server();
 
-        let cli = build_cli(None);
+        let cli = build_cli(false);
 
         let temp = TempDir::new().unwrap();
         let config_file_location = build_config_location(&temp);
@@ -234,7 +274,7 @@ mod process_message_execute_command_tests {
         clear_all_impostors();
         setup_bootstrap_server();
 
-        let cli = build_cli(None);
+        let cli = build_cli(false);
 
         let temp = TempDir::new().unwrap();
         let config_file_location = build_config_location(&temp);
@@ -377,7 +417,7 @@ mod process_message_execute_command_enumerate_urls_test {
         clear_all_impostors();
         setup_bootstrap_server();
 
-        let cli = build_cli(None);
+        let cli = build_cli(false);
 
         let temp = TempDir::new().unwrap();
         let config_file_location = build_config_location(&temp);
@@ -497,7 +537,7 @@ mod process_message_execute_command_populate_from_rdap_tests {
     fn populates_rdap_data() {
         setup_mountebank();
 
-        let cli = build_cli(None);
+        let cli = build_cli(false);
 
         let temp = TempDir::new().unwrap();
         let config_file_location = build_config_location(&temp);
@@ -701,7 +741,7 @@ mod process_message_execute_command_add_reportable_entities_tests {
         clear_all_impostors();
         setup_bootstrap_server();
 
-        let cli = build_cli(None);
+        let cli = build_cli(false);
 
         let temp = TempDir::new().unwrap();
         let config_file_location = build_config_location(&temp);
@@ -830,7 +870,7 @@ mod process_message_execute_command_add_notifications_tests {
         let config_file_location = build_config_location(&temp);
         let db_path = temp.path().join("pp.sqlite3");
 
-        let cli = build_cli(None);
+        let cli = build_cli(false);
 
         let input = multiple_source_input();
 
@@ -938,6 +978,194 @@ mod process_message_execute_command_add_notifications_tests {
 }
 
 #[cfg(test)]
+mod execute_command_send_notifications_tests {
+    use assert_fs::fixture::TempDir;
+    use chrono::*;
+    use crate::cli::SingleCli;
+    use crate::mail_trap::MailTrap;
+    use crate::mountebank::*;
+    use crate::service_configuration::ServiceConfiguration;
+    use std::path::Path;
+    use support::{build_cli, build_config_file, build_config_location};
+    use super::*;
+
+    #[test]
+    #[ignore]
+    fn sends_notifications_if_requested() {
+        setup_mountebank();
+
+        let temp = TempDir::new().unwrap();
+        let config_file_location = build_config_location(&temp);
+        let db_path = temp.path().join("pp.sqlite3");
+        let mail_trap = initialise_mail_trap();
+
+        let cli = build_cli(true);
+
+        let input = multiple_source_input();
+
+        build_config_file(&config_file_location, &db_path);
+
+        let config = build_config(&input, &cli, &config_file_location);
+
+        let mut expected_recipients = vec![
+            String::from("abuse@regone.zzz"),
+            String::from("abuse@regthree.zzz"),
+            String::from("abuse@regtwo.zzz"),
+            String::from("abuse@regfour.zzz"),
+        ];
+        expected_recipients.sort();
+
+        tokio_test::block_on(execute_command(&config)).unwrap();
+
+        assert_eq!(mail_trap_recipients(&mail_trap), expected_recipients);
+    }
+
+    #[test]
+    #[ignore]
+    fn does_not_send_notifications_if_not_requested() {
+        setup_mountebank();
+
+        let temp = TempDir::new().unwrap();
+        let config_file_location = build_config_location(&temp);
+        let db_path = temp.path().join("pp.sqlite3");
+        let mail_trap = initialise_mail_trap();
+
+        let cli = build_cli(false);
+
+        let input = multiple_source_input();
+
+        build_config_file(&config_file_location, &db_path);
+
+        let config = build_config(&input, &cli, &config_file_location);
+
+        tokio_test::block_on(execute_command(&config)).unwrap();
+
+        assert!(mail_trap_recipients(&mail_trap).is_empty());
+    }
+
+    fn initialise_mail_trap() -> MailTrap {
+        let mail_trap = MailTrap::new(mail_trap_api_token());
+
+        mail_trap.clear_mails();
+
+        mail_trap
+    }
+
+    fn mail_trap_api_token() -> String {
+        std::env::var("MAILTRAP_API_TOKEN").unwrap()
+    }
+
+    fn mail_trap_recipients(mail_trap: &MailTrap) -> Vec<String> {
+        let mut mail_recipients: Vec<String> = mail_trap
+            .get_all_emails()
+            .into_iter()
+            .map(|email| email.to.unwrap())
+            .collect();
+
+        mail_recipients.sort();
+
+        mail_recipients
+    }
+    
+    fn build_config<'a>(
+        message: &'a str,
+        cli: &'a SingleCli,
+        config_file_location: &'a Path
+    ) -> ServiceConfiguration<'a> {
+        ServiceConfiguration::new(
+            Some(message),
+            cli,
+            config_file_location,
+        ).unwrap()
+    }
+
+    fn setup_mountebank() {
+        clear_all_impostors();
+        setup_bootstrap_server();
+
+        setup_head_impostor(4560, true, Some("http://re.directone.net"));
+        setup_head_impostor(4561, true, Some("http://re.directtwo.net"));
+        setup_head_impostor(4562, true, Some("http://re.directthree.net"));
+        setup_head_impostor(4563, true, Some("http://re.directfour.net"));
+
+        setup_dns_server(vec![
+            DnsServerConfig {
+                domain_name: "re.directone.net",
+                handle: None,
+                registrar: Some("Reg One"),
+                abuse_email: Some("abuse@regone.zzz"),
+                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
+                response_code: 200,
+            },
+            DnsServerConfig {
+                domain_name: "re.directtwo.net",
+                handle: None,
+                registrar: Some("Reg Six"),
+                abuse_email: Some("abuse@regtwo.zzz"),
+                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap()),
+                response_code: 200,
+            },
+            DnsServerConfig {
+                domain_name: "re.directthree.net",
+                handle: None,
+                registrar: Some("Reg Six"),
+                abuse_email: Some("abuse@regthree.zzz"),
+                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 18).unwrap()),
+                response_code: 200,
+            },
+            DnsServerConfig {
+                domain_name: "re.directfour.net",
+                handle: None,
+                registrar: Some("Reg Six"),
+                abuse_email: Some("abuse@regfour.zzz"),
+                registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 19).unwrap()),
+                response_code: 200,
+            },
+        ]);
+    }
+
+    fn multiple_source_input() -> String {
+        format!("{}\r\n{}", entry_1(), entry_2())
+    }
+
+    fn entry_1() -> String {
+        format!(
+            "From 123@xxx Sun Jun 11 20:53:34 +0000 2023\r\n{}",
+            mail_body_1()
+        )
+    }
+
+    fn entry_2() -> String {
+        format!(
+            "From 456@xxx Sun Jun 11 20:53:35 +0000 2023\r\n{}",
+            mail_body_2()
+        )
+    }
+
+    fn mail_body_1() -> String {
+        format!(
+            "{}\r\n{}\r\n{}\r\n\r\n{}\r\n{}",
+            "Delivered-To: victim1@test.zzz",
+            "Subject: Dodgy Subject 1",
+            "Content-Type: text/html",
+            "<a href=\"http://localhost:4560\">Click Me</a>",
+            "<a href=\"http://localhost:4562\">Click Me</a>",
+        )
+    }
+
+    fn mail_body_2() -> String {
+        format!(
+            "{}\r\n{}\r\n{}\r\n\r\n{}\r\n{}",
+            "Delivered-To: victim1@test.zzz",
+            "Subject: Dodgy Subject 2",
+            "Content-Type: text/html",
+            "<a href=\"http://localhost:4561\">Click Me</a>",
+            "<a href=\"http://localhost:4563\">Click Me</a>",
+        )
+    }
+}
+
+#[cfg(test)]
 mod execute_command_invalid_config_tests {
     use support::build_broken_config;
     use super::*;
@@ -990,6 +1218,9 @@ mod support {
             abuse_notifications_from_address: Some("from@address.zzz".into()),
             db_path: Some(db_path.to_str().unwrap().into()),
             rdap_bootstrap_host: Some("http://localhost:4545".into()),
+            smtp_host_uri: std::env::var("TEST_SMTP_URI").ok(),
+            smtp_password: std::env::var("TEST_SMTP_PASSWORD").ok(),
+            smtp_username: std::env::var("TEST_SMTP_USERNAME").ok(),
             ..FileConfig::default()
         };
 
@@ -1008,11 +1239,11 @@ mod support {
         ).unwrap()
     }
 
-    pub fn build_cli(reprocess_run: Option<i64>) -> SingleCli {
+    pub fn build_cli(send_abuse_notifications: bool) -> SingleCli {
         SingleCli {
             command: SingleCliCommands::Process(ProcessArgs {
-                reprocess_run,
-                send_abuse_notifications: false,
+                reprocess_run: None,
+                send_abuse_notifications,
             })
         }
     }

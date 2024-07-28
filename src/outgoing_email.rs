@@ -2,7 +2,7 @@ use crate::errors::AppError;
 use crate::mailer::Entity;
 use crate::notification::Notification;
 use crate::result::AppResult;
-use crate::run::Run;
+use crate::data::OutputData;
 use crate::service_configuration::Configuration;
 use lettre::Message;
 use lettre::message::header::ContentType;
@@ -16,7 +16,10 @@ struct EmailConfiguration<'a> {
     pub sender_address: &'a str,
 }
 
-pub fn build_abuse_notifications<T>(run: &Run, application_config: &T) -> AppResult<Vec<Message>>
+pub fn build_abuse_notifications<T>(
+    data: &OutputData,
+    application_config: &T
+) -> AppResult<Vec<Message>>
 where T: Configuration {
 
     let author_name_option = application_config.abuse_notifications_author_name();
@@ -24,7 +27,7 @@ where T: Configuration {
 
     match (author_name_option, sender_name_option) {
         (Some(author_name), Some(sender_address)) => {
-            let notifications = run.data.notifications
+            let notifications = data.notifications
                 .iter()
                 .map(|notification| {
                     let Notification::Email(entity, recipient_address) = notification;
@@ -32,7 +35,7 @@ where T: Configuration {
                     let email_config = EmailConfiguration {
                         author_name,
                         entity,
-                        message_source: &run.message_source.data,
+                        message_source: &data.message_source.data,
                         recipient_address,
                         sender_address
                     };
@@ -98,6 +101,7 @@ mod build_abuse_notifications_tests {
     use crate::cli::SingleCli;
     use crate::errors::AppError;
     use crate::data::{EmailAddresses, OutputData, ParsedMail};
+    use crate::run::Run;
     use crate::service_configuration::{FileConfig, ServiceConfiguration};
     use std::path::{Path, PathBuf};
     use test_support::*;
@@ -117,7 +121,7 @@ mod build_abuse_notifications_tests {
         );
         let config = build_config(&cli, &config_file_location);
 
-        let notifications = build_abuse_notifications(&run, &config).unwrap();
+        let notifications = build_abuse_notifications(&run.data, &config).unwrap();
 
         let mut notifications_as_text: Vec<Box<Vec<u8>>> = notifications
             .iter()
@@ -161,7 +165,7 @@ mod build_abuse_notifications_tests {
         );
         let config = build_config(&cli, &config_file_location);
 
-        match build_abuse_notifications(&run, &config) {
+        match build_abuse_notifications(&run.data, &config) {
             Ok(_) => panic!("Did not return an error"),
             Err(e) => {
                 match e {
@@ -185,7 +189,7 @@ mod build_abuse_notifications_tests {
         );
         let config = build_config(&cli, &config_file_location);
 
-        match build_abuse_notifications(&run, &config) {
+        match build_abuse_notifications(&run.data, &config) {
             Ok(_) => panic!("Did not return an error"),
             Err(e) => {
                 match e {

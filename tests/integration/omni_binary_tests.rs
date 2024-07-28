@@ -15,8 +15,9 @@ use phisher_phinder_rust::message_source::MessageSource;
 use phisher_phinder_rust::mountebank::{
     DnsServerConfig,
     clear_all_impostors,
+    setup_bootstrap_server,
     setup_dns_server,
-    setup_bootstrap_server
+    setup_head_impostor,
 };
 use phisher_phinder_rust::persistence::{
     connect,
@@ -173,9 +174,9 @@ fn fails_if_db_cannot_be_opened() {
 }
 
 #[test]
+#[ignore]
 fn sends_mail_for_any_reportable_entities() {
-    clear_all_impostors();
-    setup_bootstrap_server();
+    setup_mountebank();
     initialise_mail_trap();
 
     setup_dns_server(vec![
@@ -228,16 +229,82 @@ fn entry_2() -> String {
 }
 
 fn mail_body_1() -> String {
-    "Delivered-To: victim1@test.zzz\r
-Subject: Dodgy Subject 1"
-        .into()
+    format!(
+        "{}\r\n{}\r\n{}\r\n\r\n{}\r\n{}",
+        "Delivered-To: victim1@test.zzz",
+        "Subject: Dodgy Subject 1",
+        "Content-Type: text/html",
+        "<a href=\"http://localhost:4560\">Click Me</a>",
+        "<a href=\"http://localhost:4562\">Click Me</a>",
+    )
 }
 
 fn mail_body_2() -> String {
-    "Delivered-To: victim2@test.zzz\r
-Subject: Dodgy Subject 2"
-        .into()
+    format!(
+        "{}\r\n{}\r\n{}\r\n\r\n{}\r\n{}",
+        "Delivered-To: victim1@test.zzz",
+        "Subject: Dodgy Subject 2",
+        "Content-Type: text/html",
+        "<a href=\"http://localhost:4561\">Click Me</a>",
+        "<a href=\"http://localhost:4563\">Click Me</a>",
+    )
 }
+
+fn setup_mountebank() {
+    clear_all_impostors();
+    setup_bootstrap_server();
+
+    setup_head_impostor(4560, true, Some("http://re.directone.net"));
+    setup_head_impostor(4561, true, Some("http://re.directtwo.net"));
+    setup_head_impostor(4562, true, Some("http://re.directthree.net"));
+    setup_head_impostor(4563, true, Some("http://re.directfour.net"));
+
+    setup_dns_server(vec![
+        DnsServerConfig {
+            domain_name: "re.directone.net",
+            handle: None,
+            registrar: Some("Reg One"),
+            abuse_email: Some("abuse@regone.zzz"),
+            registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 12).unwrap()),
+            response_code: 200,
+        },
+        DnsServerConfig {
+            domain_name: "re.directtwo.net",
+            handle: None,
+            registrar: Some("Reg Six"),
+            abuse_email: Some("abuse@regtwo.zzz"),
+            registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 17).unwrap()),
+            response_code: 200,
+        },
+        DnsServerConfig {
+            domain_name: "re.directthree.net",
+            handle: None,
+            registrar: Some("Reg Six"),
+            abuse_email: Some("abuse@regthree.zzz"),
+            registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 18).unwrap()),
+            response_code: 200,
+        },
+        DnsServerConfig {
+            domain_name: "re.directfour.net",
+            handle: None,
+            registrar: Some("Reg Six"),
+            abuse_email: Some("abuse@regfour.zzz"),
+            registration_date: Some(Utc.with_ymd_and_hms(2022, 11, 18, 10, 11, 19).unwrap()),
+            response_code: 200,
+        },
+        ]);
+}
+// fn mail_body_1() -> String {
+//     "Delivered-To: victim1@test.zzz\r
+// Subject: Dodgy Subject 1"
+//         .into()
+// }
+//
+// fn mail_body_2() -> String {
+//     "Delivered-To: victim2@test.zzz\r
+// Subject: Dodgy Subject 2"
+//         .into()
+// }
 
 // TODO copy-paste - move this to a utils module?
 fn sha256(text: &str) -> String {

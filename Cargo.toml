@@ -11,7 +11,7 @@ edition = "2021"
 [dependencies]
 chrono = "0.4.23"
 clap = { version = "4.0.32", features = ["derive"] }
-lettre = { version = "0.11.3", features = ["tokio1", "tokio1-native-tls"] }
+lettre = { version = "0.11.3", features = ["builder", "tokio1", "tokio1-native-tls"] }
 mail-builder = "0.2.4"
 mail-parser = "0.8.1"
 mail-send = "0.3.3"

@@ -3218,7 +3218,7 @@ where T: Configuration {
         Cell::new("Abuse Notifications").with_hspan(2)
     ]));
 
-    if let Ok(notifications) = build_abuse_notifications(run, config) {
+    if let Ok(notifications) = build_abuse_notifications(&run.data, config) {
         for notification in notifications.iter() {
             let email_as_text = notification.formatted();
 

@@ -193,11 +193,11 @@ impl Email {
     }
 
     fn from_parsed_email(parsed_mail: mail_parser::Message) -> Self {
-        let attachment_contents = parsed_mail
-            .attachment(0)
-            .unwrap()
-            .text_contents()
-            .map(String::from);
+        let attachment_contents = if let Some(attachment) = parsed_mail.attachment(0) {
+            attachment.text_contents().map(String::from)
+        } else {
+            None
+        };
 
         Self {
             from: Self::extract_address(parsed_mail.from()),
