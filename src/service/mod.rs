@@ -2,7 +2,7 @@ use crate::errors::AppError;
 use crate::service_configuration::{Configuration, ServiceType};
 
 mod config;
-mod process_message;
+pub mod process_message;
 
 pub async fn execute_command<T>(config: &mut T) -> Result<String, AppError>
     where T: Configuration {

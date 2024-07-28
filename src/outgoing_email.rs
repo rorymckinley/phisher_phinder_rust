@@ -3,7 +3,7 @@ use crate::mailer::Entity;
 use crate::notification::Notification;
 use crate::result::AppResult;
 use crate::data::OutputData;
-use crate::service_configuration::Configuration;
+use crate::service::process_message::configuration::{AbuseNotificationConfiguration, Configuration};
 use lettre::Message;
 use lettre::message::header::ContentType;
 use lettre::message::{Attachment, MultiPart, SinglePart};
@@ -16,39 +16,81 @@ struct EmailConfiguration<'a> {
     pub sender_address: &'a str,
 }
 
-pub fn build_abuse_notifications<T>(
+pub fn build_abuse_notifications(
     data: &OutputData,
-    application_config: &T
-) -> AppResult<Vec<Message>>
-where T: Configuration {
+    config: &Configuration
+) -> AppResult<Vec<Message>> {
+    if let Some(notification_config) = &config.abuse_notifications {
+        let AbuseNotificationConfiguration {author_name, from_address} = notification_config;
 
-    let author_name_option = application_config.abuse_notifications_author_name();
-    let sender_name_option = application_config.abuse_notifications_from_address();
+        let notifications = data.notifications
+            .iter()
+            .map(|notification| {
+                let Notification::Email(entity, recipient_address) = notification;
 
-    match (author_name_option, sender_name_option) {
-        (Some(author_name), Some(sender_address)) => {
-            let notifications = data.notifications
-                .iter()
-                .map(|notification| {
-                    let Notification::Email(entity, recipient_address) = notification;
+                let email_config = EmailConfiguration {
+                    author_name,
+                    entity,
+                    message_source: &data.message_source.data,
+                    recipient_address,
+                    sender_address: from_address
+                };
 
-                    let email_config = EmailConfiguration {
-                        author_name,
-                        entity,
-                        message_source: &data.message_source.data,
-                        recipient_address,
-                        sender_address
-                    };
+                build_email_to_provider(email_config)
+            })
+        .collect();
 
-                    build_email_to_provider(email_config)
-                })
-            .collect();
-
-            Ok(notifications)
-        },
-        (None, _) => Err(AppError::NoAuthorNameForNotifications),
-        (_, None) => Err(AppError::NoFromAddressForNotifications)
+        Ok(notifications)
+    } else {
+        Err(AppError::NotificationConfigurationAbsent)
     }
+
+    // match config.abuse_notifications() {
+    //     AbuseNotificationConfiguration {
+    //         author_name: Some(author_name),
+    //         from_address: Some(from_address)
+    //     } => {
+    //     },
+    //     AbuseNotificationConfiguration {
+    //         author_name: None,
+    //         from_address: Some(_)
+    //     } => {
+    //         Err(AppError::NoAuthorNameForNotifications)
+    //     },
+    //     AbuseNotificationConfiguration {
+    //         author_name: Some(_),
+    //         from_address: None
+    //     } => {
+    //         Err(AppError::NoFromAddressForNotifications)
+    //     },
+    // }
+    // // let author_name_option = application_config.abuse_notifications_author_name();
+    // // let sender_name_option = application_config.abuse_notifications_from_address();
+    //
+    // match (author_name_option, sender_name_option) {
+    //     (Some(author_name), Some(sender_address)) => {
+    //         let notifications = data.notifications
+    //             .iter()
+    //             .map(|notification| {
+    //                 let Notification::Email(entity, recipient_address) = notification;
+    //
+    //                 let email_config = EmailConfiguration {
+    //                     author_name,
+    //                     entity,
+    //                     message_source: &data.message_source.data,
+    //                     recipient_address,
+    //                     sender_address
+    //                 };
+    //
+    //                 build_email_to_provider(email_config)
+    //             })
+    //         .collect();
+    //
+    //         Ok(notifications)
+    //     },
+    //     (None, _) => Err(AppError::NoAuthorNameForNotifications),
+    //     (_, None) => Err(AppError::NoFromAddressForNotifications)
+    // }
 }
 
 fn build_email_to_provider(config: EmailConfiguration) -> Message {
@@ -96,30 +138,23 @@ fn build_attachment(raw_email: &str) -> SinglePart {
 
 #[cfg(test)]
 mod build_abuse_notifications_tests {
-    use assert_fs::TempDir;
     use chrono::*;
-    use crate::cli::SingleCli;
     use crate::errors::AppError;
     use crate::data::{EmailAddresses, OutputData, ParsedMail};
     use crate::run::Run;
-    use crate::service_configuration::{FileConfig, ServiceConfiguration};
-    use std::path::{Path, PathBuf};
+    use rusqlite::Connection;
     use test_support::*;
 
     use super::*;
 
     #[test]
     fn builds_email_messages_for_each_notification() {
-        let temp = TempDir::new().unwrap();
+        let notification_config = AbuseNotificationConfiguration {
+            author_name: "Fred Flintstone".into(),
+            from_address: "notifications@phishereagle.com".into()
+        };
         let run = build_run();
-        let cli = build_cli();
-        let config_file_location = build_config_location(&temp);
-        build_config_file(
-            &config_file_location,
-            Some(&author_name()),
-            Some("sender@phishereagle.com")
-        );
-        let config = build_config(&cli, &config_file_location);
+        let config = build_config(Some(notification_config), None);
 
         let notifications = build_abuse_notifications(&run.data, &config).unwrap();
 
@@ -146,54 +181,22 @@ mod build_abuse_notifications_tests {
             "Please investigate: https://scam.zzz potentially involved in fraud"
         );
         assert_eq!(extract_attachment_body(&email_1), message_source_contents("\r\n"));
-        assert_eq!(get_address(email_1.from()), "sender@phishereagle.com");
+        assert_eq!(get_address(email_1.from()), "notifications@phishereagle.com");
 
         let email_1_body = extract_body_from(email_1);
-        assert!(email_1_body.contains(&author_name()));
+        assert!(email_1_body.contains("Fred Flintstone"));
     }
 
     #[test]
-    fn returns_an_error_if_no_author_name_set() {
-        let temp = TempDir::new().unwrap();
+    fn returns_an_error_if_no_abuse_notification_configuration() {
         let run = build_run();
-        let cli = build_cli(); 
-        let config_file_location = build_config_location(&temp);
-        build_config_file(
-            &config_file_location,
-            None,
-            Some("sender@phishereagle.com")
-        );
-        let config = build_config(&cli, &config_file_location);
+        let config = build_config(None, None);
 
         match build_abuse_notifications(&run.data, &config) {
             Ok(_) => panic!("Did not return an error"),
             Err(e) => {
                 match e {
-                    AppError::NoAuthorNameForNotifications => (),
-                    _ => panic!("Unexpected error: {e}")
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn returns_an_error_if_no_from_address_set() {
-        let temp = TempDir::new().unwrap();
-        let run = build_run();
-        let cli = build_cli();
-        let config_file_location = build_config_location(&temp);
-        build_config_file(
-            &config_file_location,
-            Some(&author_name()),
-            None
-        );
-        let config = build_config(&cli, &config_file_location);
-
-        match build_abuse_notifications(&run.data, &config) {
-            Ok(_) => panic!("Did not return an error"),
-            Err(e) => {
-                match e {
-                    AppError::NoFromAddressForNotifications => (),
+                    AppError::NotificationConfigurationAbsent => (),
                     _ => panic!("Unexpected error: {e}")
                 }
             }
@@ -235,39 +238,18 @@ mod build_abuse_notifications_tests {
         }
     }
 
-    fn author_name() -> String {
-        "Jo Bloggs".into()
-    }
+    fn build_config(
+        abuse_notifications: Option<AbuseNotificationConfiguration>,
+        trusted_recipient: Option<&str>
+    ) -> Configuration {
 
-    pub fn build_config_location(temp: &TempDir) -> PathBuf {
-        temp.path().join("phisher_eagle.conf")
-    }
-    
-    pub fn build_config_file(
-        config_file_location: &Path,
-        author_name: Option<&str>,
-        from_address: Option<&str>
-    ) {
-        let contents = FileConfig {
-            abuse_notifications_author_name: author_name.map(|s| s.into()),
-            abuse_notifications_from_address: from_address.map(|s| s.into()),
-            db_path: Some("/does/not/matter.sqlite".into()),
-            rdap_bootstrap_host: Some("http://localhost:4545".into()),
-            ..FileConfig::default()
-        };
-
-        confy::store_path(config_file_location, contents).unwrap();
-    }
-
-    fn build_config<'a>(
-        cli: &'a SingleCli,
-        config_file_location: &'a Path
-    ) -> ServiceConfiguration<'a> {
-        ServiceConfiguration::new(
-            Some(""),
-            cli,
-            config_file_location
-        ).unwrap()
+        Configuration {
+            abuse_notifications,
+            db_connection: Connection::open_in_memory().unwrap(),
+            email_notifications: None,
+            inputs: vec![],
+            trusted_recipient,
+        }
     }
 }
 
@@ -460,7 +442,6 @@ mod build_email_to_provider_tests {
 
 #[cfg(test)]
 mod test_support {
-    use crate::cli::{ProcessArgs, SingleCli, SingleCliCommands};
     use crate::message_source::MessageSource;
     use mail_parser::{Addr, HeaderValue, Message, MessagePart, PartType};
     use std::borrow::Borrow;
@@ -495,15 +476,5 @@ mod test_support {
 
     pub fn message_source() -> MessageSource {
         MessageSource::new(&message_source_contents("\n"))
-    }
-
-    pub fn build_cli() -> SingleCli {
-        SingleCli {
-            command: SingleCliCommands::Process(ProcessArgs {
-                reprocess_run: None,
-                send_abuse_notifications: false,
-                test_recipient: None
-            })
-        }
     }
 }

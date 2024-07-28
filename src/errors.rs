@@ -16,6 +16,8 @@ pub enum AppError {
     NoMessageSource,
     #[error("Service has nothing to process")]
     NothingToProcess,
+    #[error("Notification configuration is not set")]
+    NotificationConfigurationAbsent,
     #[error("Can not find a run with the given ID")]
     SpecifiedRunMissing,
     #[error(transparent)]

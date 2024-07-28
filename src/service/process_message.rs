@@ -17,7 +17,7 @@ use test_friendly_rdap_client::Client;
 use tokio::task::JoinError;
 
 mod analysis;
-mod configuration;
+pub mod configuration;
 mod mail;
 mod message_source;
 mod persistence;
@@ -80,30 +80,32 @@ where T: service_configuration::Configuration {
     let mut emails: Vec<Message> = vec![];
 
     for record in &records_with_notifications {
-        for email in build_abuse_notifications(record, config)? {
+        for email in build_abuse_notifications(record, &command_config)? {
             emails.push(email);
         }
     }
 
     // TODO Track which emails get delivered? Is it worth doing?
-    if let Some(email_config) = command_config.email_notifications {
-        println!("{:?}", emails);
+    if let Some(email_config) = &command_config.email_notifications {
         for email in emails {
-            mail::send_mail(email, &email_config).await;
+            mail::send_mail(email, email_config).await;
         }
     }
 
     let run_result = persist_runs(&command_config.db_connection, records_with_notifications)?;
+
+    let output = match run_result {
+        RunStorageResult::MultipleRuns(count) => Ok(format!("{count} messages processed.")),
+        RunStorageResult::SingleRun(boxed_run) => {
+            present(*boxed_run, &command_config)
+        }
+    };
+
     // TODO The error in the Result is a tuple of (Connection, Error)
     // Add error conversion for this
     command_config.db_connection.close().unwrap();
 
-    match run_result {
-        RunStorageResult::MultipleRuns(count) => Ok(format!("{count} messages processed.")),
-        RunStorageResult::SingleRun(boxed_run) => {
-            present(*boxed_run, config)
-        }
-    }
+    output
 }
 
 fn persist_runs(connection: &Connection, output_data_records: Vec<OutputData>)
