@@ -294,17 +294,6 @@ fn setup_mountebank() {
         },
         ]);
 }
-// fn mail_body_1() -> String {
-//     "Delivered-To: victim1@test.zzz\r
-// Subject: Dodgy Subject 1"
-//         .into()
-// }
-//
-// fn mail_body_2() -> String {
-//     "Delivered-To: victim2@test.zzz\r
-// Subject: Dodgy Subject 2"
-//         .into()
-// }
 
 // TODO copy-paste - move this to a utils module?
 fn sha256(text: &str) -> String {

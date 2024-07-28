@@ -6,10 +6,6 @@ pub async fn send_mail(mail: Message, config: &EmailNotificationConfiguration) {
     let mailer = build_mailer(config);
     
     mailer.send(mail).await.unwrap();
-    // let mailer = Mailer::new(&message_source);
-    // for mail in mails {
-    //     mailer.send(mail).await;
-    // }
 }
 
 fn build_credentials(config: &EmailNotificationConfiguration) -> Credentials {
@@ -76,69 +72,4 @@ mod send_mail_tests {
             username: std::env::var("TEST_SMTP_USERNAME").unwrap(),
         }
     }
-    
 }
-// #[cfg(test)]
-// mod test_build_mails {
-//     use crate::data::{EmailAddresses, ParsedMail};
-//     use lettre::Address;
-//     use crate::mailer::Entity;
-//     use crate::notification::Notification;
-//     use super::*;
-//
-//     #[test]
-//     fn generates_message_for_each_notification() {
-//         let record = output_data();
-//
-//         let mails = build_mails(&record);
-//
-//         assert_eq!(2, mails.len());
-//         assert_mail(&mails[0], "scanner@domainone.zzz", "abuse@regone.zzz");
-//         assert_mail(&mails[1], "scanner@domaintwo.zzz", "abuse@regtwo.zzz");
-//     }
-//
-//     fn assert_mail(mail: &Message, entity: &str, recipient: &str) {
-//         let envelope = mail.envelope();
-//         let expected_recipient = recipient.parse::<Address>().unwrap();
-//     }
-//
-//     fn output_data() -> OutputData {
-//         OutputData {
-//             parsed_mail: parsed_mail(),
-//             message_source: message_source(),
-//             notifications: vec![
-//                 notification("scammer@domainone.zzz", "abuse@regone.zzz"),
-//                 notification("scammer@domaintwo.zzz", "abuse@regtwo.zzz"),
-//             ],
-//             reportable_entities: None,
-//             run_id: None,
-//         }
-//     }
-//
-//     fn parsed_mail() -> ParsedMail { 
-//         ParsedMail {
-//             authentication_results: None,
-//             delivery_nodes: vec![],
-//             email_addresses: email_addresses(),
-//             fulfillment_nodes: vec![],
-//             subject: None,
-//         }
-//     }
-//
-//     fn message_source() -> MessageSource {
-//         MessageSource::new("Delivered-To: blah")
-//     }
-//
-//     fn notification(email_address: &str, recipient: &str) -> Notification {
-//         Notification::via_email(Entity::EmailAddress(email_address.into()), recipient.into())
-//     }
-//
-//     fn email_addresses() -> EmailAddresses {
-//         EmailAddresses {
-//             from: vec![],
-//             links: vec![],
-//             reply_to: vec![],
-//             return_path: vec![],
-//         }
-//     }
-// }

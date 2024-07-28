@@ -85,13 +85,6 @@ where T: service_configuration::Configuration {
         }
     }
 
-    // let emails: Vec<Message> = records_with_notifications
-    //     .iter()
-    //     .map(|record| build_abuse_notifications(record, config)?)
-    //     .flatten()
-    //     .collect();
-
-
     // TODO Track which emails get delivered? Is it worth doing?
     if let Some(email_config) = command_config.email_notifications {
         println!("{:?}", emails);
@@ -99,21 +92,6 @@ where T: service_configuration::Configuration {
             mail::send_mail(email, &email_config).await;
         }
     }
-    // match command_config.email_notifications {
-    //     Some(email_config) =>{
-    //         for email in emails {
-    //             mail::send_mail(email, &email_config).await;
-    //         }
-    //     },
-    //     _ => ()
-    // }
-    // TODO Add check to see if we must send notifications - add a test for this
-    // TODO Change this to update the OutputData to indicate that the email has been sent and then
-    // persist that?
-    // for record in &records_with_notifications {
-    //     let mails = mailer::build_mails(record);
-    //     mailer::send_mails(mails, &record.message_source).await;
-    // }
 
     let run_result = persist_runs(&command_config.db_connection, records_with_notifications)?;
     // TODO The error in the Result is a tuple of (Connection, Error)
