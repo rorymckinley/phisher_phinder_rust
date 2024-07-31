@@ -1,7 +1,6 @@
 use crate::result::AppResult;
 use crate::run::Run;
 use crate::service::process_message::configuration::Configuration;
-// use crate::service_configuration::Configuration;
 use crate::ui::{
     display_authentication_results,
     display_metadata,
@@ -51,9 +50,6 @@ mod present_tests {
 
     #[test]
     fn returns_string_including_sender_addresses() {
-        // let cli = build_cli();
-        // let temp = TempDir::new().unwrap();
-        // let config_file_location = build_config_location(&temp);
         let output = present(build_run(), &build_config(None, None)).unwrap();
 
         assert!(output.contains("Address Source"))
@@ -61,10 +57,6 @@ mod present_tests {
 
     #[test]
     fn returns_string_containing_authentication_results() {
-        // let cli = build_cli();
-        // let temp = TempDir::new().unwrap();
-        // let config_file_location = build_config_location(&temp);
-        // let output = present(build_run(), &build_config(&cli, &config_file_location)).unwrap();
         let output = present(build_run(), &build_config(None, None)).unwrap();
 
         assert!(output.contains("DKIM"))
@@ -72,10 +64,6 @@ mod present_tests {
 
     #[test]
     fn returns_string_containing_reportable_entities() {
-        // let cli = build_cli();
-        // let temp = TempDir::new().unwrap();
-        // let config_file_location = build_config_location(&temp);
-        // let output = present(build_run(), &build_config(&cli, &config_file_location)).unwrap();
         let output = present(build_run(), &build_config(None, None)).unwrap();
 
         assert!(output.contains("Delivery Nodes"))
@@ -83,10 +71,6 @@ mod present_tests {
 
     #[test]
     fn returns_string_containing_run_metadata() {
-        // let cli = build_cli();
-        // let temp = TempDir::new().unwrap();
-        // let config_file_location = build_config_location(&temp);
-        // let output = present(build_run(), &build_config(&cli, &config_file_location)).unwrap();
         let output = present(build_run(), &build_config(None, None)).unwrap();
 
         assert!(output.contains("Run ID"))
@@ -94,10 +78,6 @@ mod present_tests {
 
     #[test]
     fn returns_string_containing_notification_emails() {
-        // let cli = build_cli();
-        // let temp = TempDir::new().unwrap();
-        // let config_file_location = build_config_location(&temp);
-        // let output = present(build_run(), &build_config(&cli, &config_file_location)).unwrap();
         let output = present(build_run(), &build_config(None, None)).unwrap();
 
         assert!(output.contains("Abuse Notifications"))

@@ -44,53 +44,6 @@ pub fn build_abuse_notifications(
     } else {
         Err(AppError::NotificationConfigurationAbsent)
     }
-
-    // match config.abuse_notifications() {
-    //     AbuseNotificationConfiguration {
-    //         author_name: Some(author_name),
-    //         from_address: Some(from_address)
-    //     } => {
-    //     },
-    //     AbuseNotificationConfiguration {
-    //         author_name: None,
-    //         from_address: Some(_)
-    //     } => {
-    //         Err(AppError::NoAuthorNameForNotifications)
-    //     },
-    //     AbuseNotificationConfiguration {
-    //         author_name: Some(_),
-    //         from_address: None
-    //     } => {
-    //         Err(AppError::NoFromAddressForNotifications)
-    //     },
-    // }
-    // // let author_name_option = application_config.abuse_notifications_author_name();
-    // // let sender_name_option = application_config.abuse_notifications_from_address();
-    //
-    // match (author_name_option, sender_name_option) {
-    //     (Some(author_name), Some(sender_address)) => {
-    //         let notifications = data.notifications
-    //             .iter()
-    //             .map(|notification| {
-    //                 let Notification::Email(entity, recipient_address) = notification;
-    //
-    //                 let email_config = EmailConfiguration {
-    //                     author_name,
-    //                     entity,
-    //                     message_source: &data.message_source.data,
-    //                     recipient_address,
-    //                     sender_address
-    //                 };
-    //
-    //                 build_email_to_provider(email_config)
-    //             })
-    //         .collect();
-    //
-    //         Ok(notifications)
-    //     },
-    //     (None, _) => Err(AppError::NoAuthorNameForNotifications),
-    //     (_, None) => Err(AppError::NoFromAddressForNotifications)
-    // }
 }
 
 fn build_email_to_provider(config: EmailConfiguration) -> Message {
