@@ -3278,6 +3278,7 @@ mod display_abuse_notifications_tests {
         let notification_config = AbuseNotificationConfiguration {
             author_name: "Jo Bloggs".into(),
             from_address: "sender@phishereagle.com".into(),
+            test_recipient: None,
         };
         let run = build_run();
         let config = build_config(Some(notification_config), None);

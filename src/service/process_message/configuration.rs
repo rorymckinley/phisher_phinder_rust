@@ -13,7 +13,8 @@ where T: service_configuration::Configuration {
             // TODO for now we assume we will always have author name and from address
             let abuse_notifications = AbuseNotificationConfiguration {
                 author_name: config.abuse_notifications_author_name().unwrap().into(),
-                from_address: config.abuse_notifications_from_address().unwrap().into()
+                from_address: config.abuse_notifications_from_address().unwrap().into(),
+                test_recipient: config.test_recipient().map(|s| s.into()),
             };
 
             let email_notifications = if config.send_abuse_notifications() {
@@ -69,6 +70,7 @@ pub struct Configuration<'a> {
 pub struct AbuseNotificationConfiguration {
     pub author_name: String,
     pub from_address: String,
+    pub test_recipient: Option<String>
 }
 
 #[derive(Debug, PartialEq)]
@@ -102,7 +104,8 @@ mod extract_command_config_tests {
 
         let expected_abuse_notifications = AbuseNotificationConfiguration {
             author_name: "Author Name".into(),
-            from_address: "From Address".into()
+            from_address: "From Address".into(),
+            test_recipient: None,
         };
 
         assert_eq!(vec![MessageSource::new("message source")], extracted_config.inputs);
@@ -122,7 +125,8 @@ mod extract_command_config_tests {
 
         let expected_abuse_notifications = AbuseNotificationConfiguration {
             author_name: "Author Name".into(),
-            from_address: "From Address".into()
+            from_address: "From Address".into(),
+            test_recipient: None,
         };
 
         let expected_email_notifications = EmailNotificationConfiguration {
@@ -136,6 +140,23 @@ mod extract_command_config_tests {
         assert_eq!(temp.join("db.sqlite3").to_str(), extracted_config.db_connection.path());
         assert_eq!(Some(expected_abuse_notifications), extracted_config.abuse_notifications);
         assert_eq!(Some(expected_email_notifications), extracted_config.email_notifications);
+    }
+
+    #[test]
+    fn sets_test_recipient_if_required() {
+        let temp = TempDir::new().unwrap();
+
+        let config = test_recipient_config(&temp);
+
+        let extracted_config = extract_command_config(&config).unwrap();
+
+        let expected_abuse_notifications = AbuseNotificationConfiguration {
+            author_name: "Author Name".into(),
+            from_address: "From Address".into(),
+            test_recipient: Some("recipient@test.zzz".into()),
+        };
+
+        assert_eq!(Some(expected_abuse_notifications), extracted_config.abuse_notifications);
     }
 
     #[test]
@@ -305,6 +326,7 @@ mod extract_command_config_tests {
             smtp_host_uri: None,
             smtp_password: None,
             smtp_username: None,
+            test_recipient: None,
             trusted_recipient: Some("mx.google.com".into())
         }
     }
@@ -368,6 +390,14 @@ mod extract_command_config_tests {
         }
     }
 
+    fn test_recipient_config(temp: &TempDir) -> TestConfig {
+        TestConfig {
+            message_sources: Some("message source".into()),
+            test_recipient: Some("recipient@test.zzz".into()),
+            ..base_config(temp)
+        }
+    }
+
     #[derive(Default)]
     struct OverrideConfig {
         abuse_notifications_author_name: Option<String>,
@@ -392,6 +422,7 @@ mod extract_command_config_tests {
         smtp_host_uri: Option<String>,
         smtp_password: Option<String>,
         smtp_username: Option<String>,
+        test_recipient: Option<String>,
         trusted_recipient: Option<String>,
     }
 
@@ -452,7 +483,7 @@ mod extract_command_config_tests {
         }
 
         fn test_recipient(&self) -> Option<&str> {
-            None
+            self.test_recipient.as_deref()
         }
 
         fn trusted_recipient(&self)-> Option<&str> {
